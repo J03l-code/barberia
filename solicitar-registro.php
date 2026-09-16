@@ -86,7 +86,7 @@ if (empty($sucursales)) {
         }
 
         .solicitud-logo span {
-            color: var(--color-gold, #C0A062);
+            color: #FFFFFF;
         }
 
         .solicitud-title {
@@ -329,14 +329,6 @@ if (empty($sucursales)) {
                 }).catch(() => {});
             } catch(err) {}
 
-            // Configurar pantalla de éxito y enlace
-            document.getElementById('btnAbrirWA').href = waUrl;
-            document.getElementById('formContainer').style.display = 'none';
-            document.getElementById('successContainer').style.display = 'block';
-
-            // Abrir WhatsApp en nueva pestaña
-            window.open(waUrl, '_blank');
-        }
             // Configurar pantalla de éxito y enlace
             document.getElementById('btnAbrirWA').href = waUrl;
             document.getElementById('formContainer').style.display = 'none';

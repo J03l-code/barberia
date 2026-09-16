@@ -209,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .login-logo span {
-            color: var(--color-gold, #C0A062);
+            color: #FFFFFF;
         }
 
         .login-subtitle {
