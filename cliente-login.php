@@ -459,10 +459,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </a>
             </div>
 
-            <div style="margin-top: 15px; margin-bottom: 5px;">
-                <a href="login.php" style="color: #6B7280; font-size: 0.82rem; text-decoration: none; display: inline-block; transition: color 0.2s;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#6B7280'">Acceso Barberos y Administradores →</a>
-            </div>
-
             <a href="/" style="display: block; margin-top: 1.25rem; color: #6B7280; font-size: 0.85rem; text-decoration: none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#6B7280'">← Volver al inicio</a>
         <?php endif; ?>
     </div>
