@@ -68,6 +68,13 @@ try {
                 throw new Exception('Todos los campos son obligatorios.');
             }
 
+            // Validar si el servicio es exclusivo de un barbero
+            $sData = $pdo->query("SELECT nombre, barbero_id FROM servicios WHERE id = $servicio_id")->fetch(PDO::FETCH_ASSOC);
+            if ($sData && !empty($sData['barbero_id']) && intval($sData['barbero_id']) !== $barbero_id) {
+                $bName = $pdo->query("SELECT nombre FROM usuarios WHERE id = " . intval($sData['barbero_id']))->fetchColumn();
+                throw new Exception("El servicio '{$sData['nombre']}' es exclusivo de " . ($bName ?: 'otro barbero') . ".");
+            }
+
             $fecha_hora = $fecha . ' ' . $hora . ':00';
 
             $sql = "INSERT INTO citas (cliente_id, servicio_id, barbero_id, sucursal_id, fecha_hora, estado, notas) 

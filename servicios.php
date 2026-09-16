@@ -13,9 +13,10 @@ try {
     asegurarTablaCategorias($pdo);
     $categoriasList = getCategoriasServicios($pdo, false);
 
-    $sql = "SELECT s.*, cs.orden as cat_orden 
+    $sql = "SELECT s.*, cs.orden as cat_orden, u.nombre as barbero_asignado_nombre 
             FROM servicios s 
             LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre 
+            LEFT JOIN usuarios u ON s.barbero_id = u.id 
             ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.activo DESC, s.nombre ASC";
     $servicios = query($sql);
 } catch (PDOException $e) {
@@ -210,6 +211,14 @@ include 'includes/header.php';
                                 <strong>
                                     <?php echo htmlspecialchars($servicio['nombre']); ?>
                                 </strong>
+                                <?php 
+                                $bNom = !empty($servicio['barbero_asignado_nombre']) ? $servicio['barbero_asignado_nombre'] : (stripos($servicio['nombre'], 'mateo') !== false ? 'Mateo Álvaro' : null);
+                                if ($bNom): 
+                                ?>
+                                    <span style="display: inline-block; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 6px;">
+                                        ⭐ Solo <?php echo htmlspecialchars($bNom); ?>
+                                    </span>
+                                <?php endif; ?>
                                 <?php if ($servicio['descripcion']): ?>
                                     <div class="service-description">
                                         <?php echo htmlspecialchars($servicio['descripcion']); ?>

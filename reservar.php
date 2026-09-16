@@ -663,17 +663,30 @@ $pageTitle = 'Reservar Cita';
 
         let currentStep = 1;
         let hasExistingPhone = false; // Track if client already has phone
+        let allServicesList = [];
+        let allBarbersList = [];
 
         // Load Data
         document.addEventListener('DOMContentLoaded', async () => {
             // Get selected branch from localStorage
             const branchId = localStorage.getItem('kortzen_selected_branch') || 1;
 
-            await loadServices(branchId);
             await loadBarbers(branchId);
+            await loadServices(branchId);
             await loadClientProfile();
             initDatePicker();
             updateNavButtons();
+
+            // Auto-seleccionar servicio si viene en URL (?servicio_id=X)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlServicioId = urlParams.get('servicio_id');
+            if (urlServicioId && allServicesList.length > 0) {
+                const sObj = allServicesList.find(s => s.id == urlServicioId);
+                if (sObj) {
+                    const cardEl = document.querySelector(`#servicesGrid .option-card[data-service-id="${sObj.id}"]`);
+                    selectService(sObj.id, sObj.nombre, sObj.precio, cardEl, sObj.barbero_id, sObj.barbero_nombre);
+                }
+            }
         });
 
         // Escuchar cambios de sucursal en tiempo real
@@ -682,8 +695,8 @@ $pageTitle = 'Reservar Cita';
             if (newBranch && newBranch.id) {
                 bookingData.serviceId = null;
                 bookingData.barberId = null;
-                await loadServices(newBranch.id);
                 await loadBarbers(newBranch.id);
+                await loadServices(newBranch.id);
                 updateNavButtons();
             }
         });
@@ -712,6 +725,8 @@ $pageTitle = 'Reservar Cita';
                     return;
                 }
 
+                allServicesList = data.servicios;
+
                 // Group by category
                 const servicesByCategory = {};
                 data.servicios.forEach(s => {
@@ -736,32 +751,39 @@ $pageTitle = 'Reservar Cita';
                     services.forEach(s => {
                         const el = document.createElement('div');
                         el.className = 'option-card';
-                        el.onclick = () => selectService(s.id, s.nombre, s.precio, el);
+                        el.setAttribute('data-service-id', s.id);
+                        if (bookingData.serviceId && bookingData.serviceId == s.id) {
+                            el.classList.add('selected');
+                        }
+                        el.onclick = () => selectService(s.id, s.nombre, s.precio, el, s.barbero_id, s.barbero_nombre);
 
                         let imageHtml = '';
                         if (s.foto_url && s.foto_url.trim() !== '') {
-                            // Ensure path is correct. If it starts with 'upload/', prepend nothing? Or assume relative?
-                            // Let's assume the user puts a valid URL or path.
                             imageHtml = `<div class="service-image" style="width:100%; height:140px; background-image:url('${s.foto_url}'); background-size:cover; background-position:center; border-radius:8px 8px 0 0; margin-bottom:10px;"></div>`;
                         } else {
-                            // Placeholder if no image? Or just no image area?
-                            // User wants images. If missing, maybe a subtle gradient placeholder?
                             imageHtml = `<div class="service-image" style="width:100%; height:140px; background: linear-gradient(to bottom right, #333, #555); display:flex; align-items:center; justify-content:center; border-radius:8px 8px 0 0; margin-bottom:10px;"><span style="color:rgba(255,255,255,0.2); font-size:2rem;">✂️</span></div>`;
                         }
 
+                        let exclusiveBadgeHtml = '';
+                        const isMateo = s.nombre.toLowerCase().includes('mateo');
+                        if (s.barbero_nombre || isMateo) {
+                            const bName = s.barbero_nombre || 'Mateo Álvaro';
+                            exclusiveBadgeHtml = `<div style="font-size:0.75rem; color:var(--color-gold, #C0A062); font-weight:800; margin-top:2px;">⭐ Solo con ${bName}</div>`;
+                        }
+
                         el.innerHTML = `
-                        ${imageHtml}
-                        <h3 style="margin:5px 0;">${s.nombre}</h3>
-                        <p style="font-size:0.9rem; color:#666; margin-bottom:5px;">${s.duracion_minutos} min</p>
-                        <span class="price" style="font-size:1.1rem;">$${s.precio}</span>
-                    `;
+                            ${imageHtml}
+                            <h3 style="margin:5px 0;">${s.nombre}</h3>
+                            <p style="font-size:0.9rem; color:#666; margin-bottom:2px;">${s.duracion_minutos} min</p>
+                            ${exclusiveBadgeHtml}
+                            <span class="price" style="font-size:1.1rem; margin-top:4px; display:block;">$${s.precio}</span>
+                        `;
                         grid.appendChild(el);
                     });
                 }
             } catch (e) {
                 console.error('Error cargando servicios:', e);
                 grid.innerHTML = `<p style="color:#cc0000; grid-column:1/-1;">Error al cargar servicios. Revisa la consola (F12).</p>`;
-                console.error(e);
             }
         }
 
@@ -770,44 +792,78 @@ $pageTitle = 'Reservar Cita';
                 const response = await fetch(`api/get_catalog.php?type=barbers&sucursal_id=${branchId}`);
                 const data = await response.json();
 
-                const grid = document.getElementById('barbersGrid');
-                grid.innerHTML = '';
-
-                if (data && data.barberos && data.barberos.length > 0) {
-                    data.barberos.forEach(b => {
-                        const el = document.createElement('div');
-                        el.className = 'option-card';
-                        el.onclick = () => selectBarber(b.id, b.nombre, el);
-                        let avatarHtml = '';
-                        if (b.foto_perfil && b.foto_perfil.length > 5) {
-                            avatarHtml = `
-                            <div class="barber-avatar" style="width:60px; height:60px; border-radius:50%; background-image:url('${b.foto_perfil}'); background-size:cover; background-position:center; margin-bottom:10px; border:2px solid var(--color-gold);"></div>`;
-                        } else {
-                            avatarHtml = `
-                            <div class="barber-avatar" style="width:60px; height:60px; border-radius:50%; background:#333; color:white; display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:10px; border:2px solid var(--color-gold);">
-                                ${b.nombre.charAt(0)}
-                            </div>`;
-                        }
-
-                        el.innerHTML = `
-                        <div style="display:flex; flex-direction:column; align-items:center;">
-                            ${avatarHtml}
-                            <h3>${b.nombre}</h3>
-                            <p style="font-size:0.9rem; color:#666;">${b.sucursal_nombre || 'Kortzen'}</p>
-                        </div>
-                    `;
-                        grid.appendChild(el);
-                    });
-                } else {
-                    grid.innerHTML = `
-                        <div style="grid-column: 1/-1; text-align: center; color: #111111; padding: 2.5rem 1rem; background: #F9F9F9; border: 1px dashed #CCCCCC; border-radius: 12px; box-sizing: border-box;">
-                            <p style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.3rem;">No hay barberos disponibles en esta sucursal</p>
-                            <p style="font-size: 0.82rem; color: #666666; margin: 0;">Selecciona otra sucursal en el menú superior para agendar con barberos disponibles.</p>
-                        </div>
-                    `;
-                }
+                allBarbersList = (data && data.barberos) ? data.barberos : [];
+                renderBarbersList(allBarbersList, false);
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        function renderBarbersList(barbersToRender, isExclusive = false, exclusiveBarberName = '') {
+            const grid = document.getElementById('barbersGrid');
+            grid.innerHTML = '';
+
+            let noticeEl = document.getElementById('exclusiveBarberNotice');
+            if (!noticeEl) {
+                noticeEl = document.createElement('div');
+                noticeEl.id = 'exclusiveBarberNotice';
+                grid.parentNode.insertBefore(noticeEl, grid);
+            }
+
+            if (isExclusive) {
+                noticeEl.innerHTML = `
+                    <div style="background: rgba(192, 160, 98, 0.12); border: 1.5px solid var(--color-gold, #C0A062); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; color: #FFFFFF; font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.3rem;">⭐</span>
+                        <div>
+                            <span style="color: var(--color-gold, #C0A062); font-weight: 900; text-transform: uppercase;">Servicio Exclusivo</span>: Este corte está asignado únicamente a <strong>${exclusiveBarberName || 'Mateo Álvaro'}</strong>.
+                        </div>
+                    </div>
+                `;
+                noticeEl.style.display = 'block';
+            } else {
+                noticeEl.innerHTML = '';
+                noticeEl.style.display = 'none';
+            }
+
+            if (barbersToRender && barbersToRender.length > 0) {
+                barbersToRender.forEach(b => {
+                    const el = document.createElement('div');
+                    el.className = 'option-card';
+                    el.setAttribute('data-barber-id', b.id);
+                    if (bookingData.barberId && bookingData.barberId == b.id) {
+                        el.classList.add('selected');
+                    }
+                    el.onclick = () => selectBarber(b.id, b.nombre, el);
+                    let avatarHtml = '';
+                    if (b.foto_perfil && b.foto_perfil.length > 5) {
+                        avatarHtml = `
+                        <div class="barber-avatar" style="width:60px; height:60px; border-radius:50%; background-image:url('${b.foto_perfil}'); background-size:cover; background-position:center; margin-bottom:10px; border:2px solid var(--color-gold);"></div>`;
+                    } else {
+                        avatarHtml = `
+                        <div class="barber-avatar" style="width:60px; height:60px; border-radius:50%; background:#333; color:white; display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:10px; border:2px solid var(--color-gold);">
+                            ${b.nombre.charAt(0)}
+                        </div>`;
+                    }
+
+                    el.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center;">
+                            ${avatarHtml}
+                            <h3 style="display:flex; align-items:center; gap:6px;">
+                                ${b.nombre} ${isExclusive ? '<span style="color:var(--color-gold, #C0A062); font-size:0.8rem;">★</span>' : ''}
+                            </h3>
+                            <p style="font-size:0.9rem; color:#888; margin-bottom:0;">${b.sucursal_nombre || 'Kortzen'}</p>
+                            ${isExclusive ? '<span style="display:inline-block; margin-top:6px; font-size:0.75rem; background:var(--color-gold, #C0A062); color:#000; font-weight:800; padding:2px 8px; border-radius:10px;">EXCLUSIVO</span>' : ''}
+                        </div>
+                    `;
+                    grid.appendChild(el);
+                });
+            } else {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; color: #111111; padding: 2.5rem 1rem; background: #F9F9F9; border: 1px dashed #CCCCCC; border-radius: 12px; box-sizing: border-box;">
+                        <p style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.3rem;">No hay barberos disponibles en esta sucursal</p>
+                        <p style="font-size: 0.82rem; color: #666666; margin: 0;">Selecciona otra sucursal en el menú superior para agendar con barberos disponibles.</p>
+                    </div>
+                `;
             }
         }
 
@@ -928,52 +984,64 @@ $pageTitle = 'Reservar Cita';
 
         // --- Actions ---
 
-        function selectService(id, name, price, el) {
+        function selectService(id, name, price, el, barberoId = null, barberoNombre = null) {
             bookingData.serviceId = id;
             bookingData.serviceName = name;
             bookingData.servicePrice = price;
-            bookingData.barberId = null; // Reset barber when service changes
-            bookingData.barberName = null;
+            bookingData.serviceBarberId = barberoId;
+            bookingData.serviceBarberNombre = barberoNombre;
 
             document.querySelectorAll('#servicesGrid .option-card').forEach(c => c.classList.remove('selected'));
-            el.classList.add('selected');
+            if (el) el.classList.add('selected');
 
-            // Auto-select "Barbería con Mateo" logic
-            // Assuming the service name contains "Mateo"
-            if (name.toLowerCase().includes('mateo')) {
-                // Find Mateo in the loaded barbers
-                // We need to access the loaded barbers list. 
-                // A better way is to find the barber card with "Mateo" in the text
-                const barbersGrid = document.getElementById('barbersGrid');
-                const mateoCard = Array.from(barbersGrid.children).find(card =>
-                    card.querySelector('h3').textContent.toLowerCase().includes('mateo')
+            // Determinar si el corte es exclusivo de un barbero (ej: Mateo Álvaro)
+            const isMateoService = name.toLowerCase().includes('mateo');
+            let targetBarber = null;
+
+            if (barberoId) {
+                targetBarber = allBarbersList.find(b => b.id == barberoId);
+            }
+            if (!targetBarber && isMateoService) {
+                targetBarber = allBarbersList.find(b => 
+                    b.nombre.toLowerCase().includes('mateo') || 
+                    b.nombre.toLowerCase().includes('alvaro') ||
+                    (b.email && b.email.toLowerCase().includes('mateo'))
                 );
-
-                if (mateoCard) {
-                    // Trigger click on Mateo's card to select him
-                    mateoCard.click();
-                    // Auto-advance is handled in button click, but we want to skip step 2
-                    // We can set a flag or just force next step
-                    setTimeout(() => {
-                        // Skip step 2 (Barbers) and go to Step 3 (Date)
-                        currentStep = 3;
-                        showStep(currentStep);
-                    }, 500);
-                }
             }
 
-            updateNavButtons();
+            if (targetBarber) {
+                // Servicio Exclusivo: Filtrar la lista de barberos para mostrar ÚNICAMENTE a ese barbero
+                renderBarbersList([targetBarber], true, targetBarber.nombre);
+                
+                // Preseleccionar al barbero automáticamente
+                bookingData.barberId = targetBarber.id;
+                bookingData.barberName = targetBarber.nombre;
 
-            // Auto-advance to next step (Step 2: Barbers)
-            // Wait a small delay for visual feedback
-            setTimeout(() => {
-                const serviceName = name.toLowerCase();
-                if (!serviceName.includes('mateo')) {
-                    // Only auto-advance if NOT Mateo (Mateo logic handles its own skip)
+                // Marcar tarjeta seleccionada si está en DOM
+                const bCard = document.querySelector(`#barbersGrid .option-card[data-barber-id="${targetBarber.id}"]`);
+                if (bCard) bCard.classList.add('selected');
+
+                updateNavButtons();
+
+                // Auto-avanzar directamente al Paso 3 (Fecha y Hora)
+                setTimeout(() => {
+                    currentStep = 3;
+                    showStep(currentStep);
+                }, 350);
+            } else {
+                // Servicio General: Mostrar todos los barberos del local
+                bookingData.barberId = null;
+                bookingData.barberName = null;
+                renderBarbersList(allBarbersList, false);
+
+                updateNavButtons();
+
+                // Auto-avanzar al Paso 2 (Elegir Barbero)
+                setTimeout(() => {
                     currentStep = 2;
                     showStep(currentStep);
-                }
-            }, 300);
+                }, 300);
+            }
         }
 
         function selectBarber(id, name, el) {
@@ -981,7 +1049,7 @@ $pageTitle = 'Reservar Cita';
             bookingData.barberName = name;
 
             document.querySelectorAll('#barbersGrid .option-card').forEach(c => c.classList.remove('selected'));
-            el.classList.add('selected');
+            if (el) el.classList.add('selected');
             updateNavButtons();
 
             // Auto-advance to Step 3 (Date)

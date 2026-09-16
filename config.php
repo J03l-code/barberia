@@ -198,6 +198,10 @@ function getConnection()
                 } catch (Throwable $e_asist) {}
 
                 try {
+                    $pdo->exec("ALTER TABLE servicios ADD COLUMN barbero_id INT UNSIGNED NULL DEFAULT NULL");
+                } catch (Throwable $e_sbarb) {}
+
+                try {
                     $pdo->exec("
                         CREATE TABLE IF NOT EXISTS push_subscriptions (
                             id INT AUTO_INCREMENT PRIMARY KEY,

@@ -222,6 +222,24 @@ include 'includes/header.php';
         </div>
 
         <div class="form-group">
+            <label class="form-label">Barbero Asignado / Exclusivo (Opcional)</label>
+            <select name="barbero_id" class="form-select">
+                <option value="">-- Disponible para Todos los Barberos --</option>
+                <?php
+                $barberosList = query("SELECT id, nombre, rol FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local' OR rol = 'admin') ORDER BY nombre ASC");
+                foreach ($barberosList as $b):
+                ?>
+                    <option value="<?php echo $b['id']; ?>">
+                        ⭐ Solo <?php echo htmlspecialchars($b['nombre']); ?> (<?php echo ucfirst($b['rol']); ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <small style="color: var(--text-muted); font-size: 0.8em; margin-top: 5px; display: block;">
+                Si seleccionas un barbero (ej: Mateo Álvaro), los clientes solo podrán reservar este servicio con él.
+            </small>
+        </div>
+
+        <div class="form-group">
             <label class="form-label">Sucursales Disponibles</label>
             <div
                 style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px;">

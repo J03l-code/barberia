@@ -85,11 +85,25 @@ try {
     }
 
     // 3. Obtener precio y nombre servicio
-    $stmtServicio = $pdo->prepare("SELECT nombre, precio FROM servicios WHERE id = ?");
+    $stmtServicio = $pdo->prepare("SELECT * FROM servicios WHERE id = ?");
     $stmtServicio->execute([$servicioId]);
     $servicioData = $stmtServicio->fetch();
+    if (!$servicioData) {
+        throw new Exception('El servicio seleccionado no existe.');
+    }
     $nombreServicio = $servicioData['nombre'];
     $precio = $servicioData['precio'];
+    $assignedBarberId = !empty($servicioData['barbero_id']) ? intval($servicioData['barbero_id']) : null;
+
+    // Validar exclusividad de barbero (Ej: Corte Con Mateo)
+    if ($assignedBarberId && $assignedBarberId !== $barberoId) {
+        $assignedBarberName = $pdo->query("SELECT nombre FROM usuarios WHERE id = $assignedBarberId")->fetchColumn();
+        throw new Exception("El servicio '$nombreServicio' es exclusivo de " . ($assignedBarberName ?: 'su barbero titular') . ". Por favor selecciona al barbero correcto.");
+    } elseif (!$assignedBarberId && stripos($nombreServicio, 'mateo') !== false) {
+        if (stripos($nombreBarbero, 'mateo') === false && stripos($nombreBarbero, 'alvaro') === false) {
+            throw new Exception("El servicio '$nombreServicio' es exclusivo de Mateo Álvaro. Por favor agenda tu cita con él.");
+        }
+    }
 
     // 3.5. Procesar Código de Referido y Descuentos
     $codigoReferido = strtoupper(trim($_POST['codigo_referido'] ?? ''));

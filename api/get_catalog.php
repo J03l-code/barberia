@@ -60,12 +60,35 @@ try {
         $sql .= " ORDER BY s.id ASC";
 
         $raw_data = query($sql);
+
+        // Pre-fetch all active barbers for fast lookup
+        $allBarbersMap = [];
+        $mateoBarber = null;
+        try {
+            $bList = $pdo->query("SELECT id, nombre FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local' OR rol = 'admin')")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($bList as $ub) {
+                $allBarbersMap[$ub['id']] = $ub['nombre'];
+                if (!$mateoBarber && (stripos($ub['nombre'], 'mateo') !== false || stripos($ub['nombre'], 'alvaro') !== false)) {
+                    $mateoBarber = $ub;
+                }
+            }
+        } catch (Throwable $eb) {}
+
         $data = [];
         foreach ($raw_data as $s) {
             $foto = !empty($s['foto_url']) ? $s['foto_url'] : (!empty($s['imagen_url']) ? $s['imagen_url'] : (!empty($s['foto']) ? $s['foto'] : ''));
             $s['foto_url'] = $foto;
             $s['imagen_url'] = $foto;
             $s['categoria'] = !empty($s['categoria']) ? $s['categoria'] : 'General';
+            
+            $bId = !empty($s['barbero_id']) ? intval($s['barbero_id']) : null;
+            // Smart auto-detection for Mateo services if barbero_id not explicitly set
+            if (!$bId && stripos($s['nombre'], 'mateo') !== false && $mateoBarber) {
+                $bId = intval($mateoBarber['id']);
+            }
+            
+            $s['barbero_id'] = $bId;
+            $s['barbero_nombre'] = ($bId && isset($allBarbersMap[$bId])) ? $allBarbersMap[$bId] : ($bId && $mateoBarber && $bId == $mateoBarber['id'] ? $mateoBarber['nombre'] : null);
             $data[] = $s;
         }
         echo json_encode(['servicios' => $data]);

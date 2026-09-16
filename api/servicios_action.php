@@ -40,6 +40,7 @@ try {
             'foto_url' => "VARCHAR(500) DEFAULT NULL",
             'imagen_url' => "VARCHAR(500) DEFAULT NULL",
             'destacado' => "TINYINT(1) DEFAULT 0",
+            'barbero_id' => "INT UNSIGNED NULL DEFAULT NULL",
             'sucursal_id' => "INT UNSIGNED DEFAULT 1",
             'activo' => "TINYINT(1) NOT NULL DEFAULT 1"
         ];
@@ -102,7 +103,17 @@ try {
             $categoria = trim($_POST['categoria'] ?? 'General');
             $activo = intval($_POST['activo'] ?? 1);
             $destacado = isset($_POST['destacado']) ? 1 : 0;
+            $barbero_id = !empty($_POST['barbero_id']) ? intval($_POST['barbero_id']) : null;
             $sucursales = $_POST['sucursales'] ?? [];
+
+            // Auto-asociar con Mateo si el nombre del corte lo especifica y no se eligió otro barbero
+            if (!$barbero_id && stripos($nombre, 'mateo') !== false) {
+                try {
+                    $mStmt = $pdo->query("SELECT id FROM usuarios WHERE (nombre LIKE '%mateo%' OR email LIKE '%mateo%') AND activo = 1 LIMIT 1");
+                    $mId = $mStmt ? $mStmt->fetchColumn() : null;
+                    if ($mId) $barbero_id = intval($mId);
+                } catch (Exception $eMateo) {}
+            }
 
             if (empty($nombre)) {
                 throw new Exception('El nombre del servicio es obligatorio.');
@@ -129,6 +140,7 @@ try {
 
             if (in_array('categoria', $columns)) $dataToInsert['categoria'] = $categoria;
             if (in_array('destacado', $columns)) $dataToInsert['destacado'] = $destacado;
+            if (in_array('barbero_id', $columns)) $dataToInsert['barbero_id'] = $barbero_id;
             if (in_array('sucursal_id', $columns)) $dataToInsert['sucursal_id'] = $sucursal_id_default;
 
             if (in_array('foto_url', $columns) && !empty($uploaded_foto_url)) {
@@ -172,6 +184,7 @@ try {
             $categoria = trim($_POST['categoria'] ?? 'General');
             $activo = intval($_POST['activo'] ?? 1);
             $destacado = isset($_POST['destacado']) ? 1 : 0;
+            $barbero_id = (isset($_POST['barbero_id']) && $_POST['barbero_id'] !== '') ? intval($_POST['barbero_id']) : null;
             $sucursales = $_POST['sucursales'] ?? [];
 
             if ($id <= 0) {
@@ -203,6 +216,7 @@ try {
 
             if (in_array('categoria', $columns)) $dataToUpdate['categoria'] = $categoria;
             if (in_array('destacado', $columns)) $dataToUpdate['destacado'] = $destacado;
+            if (in_array('barbero_id', $columns)) $dataToUpdate['barbero_id'] = $barbero_id;
             if (in_array('sucursal_id', $columns)) $dataToUpdate['sucursal_id'] = $sucursal_id_default;
 
             if (!empty($uploaded_foto_url)) {
