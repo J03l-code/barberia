@@ -66,7 +66,7 @@ try {
     $stmtBarbero = $pdo->prepare("SELECT sucursal_id, nombre FROM usuarios WHERE id = ?");
     $stmtBarbero->execute([$barberoId]);
     $barberoData = $stmtBarbero->fetch();
-    $sucursalId = $barberoData['sucursal_id'] ?? 1;
+    $sucursalId = !empty($_POST['sucursal_id']) ? intval($_POST['sucursal_id']) : ($barberoData['sucursal_id'] ?? 1);
     $nombreBarbero = $barberoData['nombre'];
 
     // Validar si el horario solicitado colisiona con el Horario de Almuerzo Fijo del Barbero

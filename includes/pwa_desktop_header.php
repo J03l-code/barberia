@@ -153,7 +153,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <!-- Desktop Web Navigation Header -->
 <header class="pwa-desktop-navbar">
-    <a href="cliente-dashboard.php" class="pwa-desktop-logo">KORTZEN</a>
+    <div style="display: flex; align-items: center; gap: 14px;">
+        <a href="cliente-dashboard.php" class="pwa-desktop-logo" style="margin: 0; display: inline-flex; align-items: center;">KORTZEN</a>
+        <div class="pwa-desktop-branch-selector" onclick="window.createBranchSelectorModal ? window.createBranchSelectorModal() : (window.KortzenBranches && window.KortzenBranches.showSelector())" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: #F4F4F5; border: 1px solid #E4E4E7; padding: 4px 10px; border-radius: 20px; font-size: 0.76rem; font-weight: 700; color: #18181B; transition: all 0.2s ease;" onmouseover="this.style.background='#18181B'; this.style.color='#FFFFFF'; this.style.borderColor='#18181B';" onmouseout="this.style.background='#F4F4F5'; this.style.color='#18181B'; this.style.borderColor='#E4E4E7';" title="Cambiar Sucursal">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; display: inline-block;"></span>
+            <span data-branch-dynamic="name" class="pwa-branch-name">KORTZEN Llano Chico</span>
+            <span style="background: rgba(0,0,0,0.08); font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; text-transform: uppercase;">Cambiar</span>
+        </div>
+    </div>
 
     <div class="pwa-desktop-menu-links">
         <a href="cliente-dashboard.php" class="pwa-desktop-nav-link <?php echo ($currentPage === 'cliente-dashboard.php') ? 'pwa-desktop-nav-link--active' : ''; ?>">Inicio</a>
@@ -215,6 +222,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </div>
 </div>
 
+<script src="/js/branch-selector.js?v=26000"></script>
 <script>
     function toggleDesktopMenu() {
         const menu = document.getElementById('pwaCollapsibleMenu');

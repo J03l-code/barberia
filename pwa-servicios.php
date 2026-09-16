@@ -60,6 +60,7 @@ if (empty($servicios_por_cat)) {
     <meta name="apple-mobile-web-app-title" content="KORTZEN">
     <link rel="apple-touch-icon" href="/assets/icons/favicon.png">
     <script src="/js/pwa.js" defer></script>
+    <script src="/js/branch-selector.js?v=26000"></script>
 </head>
 
 <body class="pwa-app-mode">

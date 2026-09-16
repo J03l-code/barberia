@@ -65,13 +65,63 @@ body.pwa-app-mode {
     background: rgba(0, 0, 0, 0.05);
 }
 
+.pwa-header__center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+}
+
 .pwa-header__logo {
     font-family: 'Playfair Display', serif;
-    font-size: 1.4rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     color: var(--pwa-text-main);
     text-transform: uppercase;
+    line-height: 1.1;
+}
+
+.pwa-header__branch-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-top: 3px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--pwa-text-main);
+    transition: all 0.2s ease;
+    max-width: 170px;
+    white-space: nowrap;
+}
+
+.pwa-header__branch-pill:hover,
+.pwa-header__branch-pill:active {
+    background: #111111;
+    color: #FFFFFF;
+    border-color: #111111;
+}
+
+.pwa-header__branch-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10B981;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.pwa-header__branch-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .pwa-header__title {

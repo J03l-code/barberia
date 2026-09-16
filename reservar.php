@@ -38,6 +38,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
     <link rel="shortcut icon" href="/assets/icons/favicon.png?v=10">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/favicon.png?v=10">
     <script src="/js/pwa.js" defer></script>
+    <script src="/js/branch-selector.js?v=26000"></script>
     <style>
         /* ANTI-ZOOM MOBILE RULE */
         input, select, textarea, .flatpickr-input {
@@ -467,6 +468,20 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             </p>
         </div>
 
+        <!-- Selector de Sucursal Activa -->
+        <div onclick="window.createBranchSelectorModal ? window.createBranchSelectorModal() : (window.KortzenBranches && window.KortzenBranches.showSelector())" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 10px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.1rem;">📍</span>
+                <div>
+                    <div style="font-size: 0.68rem; font-weight: 800; color: var(--color-gold, #C0A062); text-transform: uppercase; letter-spacing: 0.5px;">SUCURSAL SELECCIONADA</div>
+                    <div style="font-size: 0.92rem; font-weight: 800; color: #FFFFFF;" data-branch-dynamic="name">KORTZEN Llano Chico</div>
+                </div>
+            </div>
+            <span style="background: #FFFFFF; color: #111111; font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
+                Cambiar
+            </span>
+        </div>
+
         <!-- Progress -->
         <div class="steps-progress">
             <div class="step-dot active" data-step="1">1</div>
@@ -586,6 +601,10 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             <div style="max-width: 375px; width: calc(100% - 20px); margin: 0 auto; background:#FFFFFF; color:#111111; padding:18px 16px; border-radius:18px; border:1px solid #EAEAEA; box-shadow: 0 10px 30px rgba(0,0,0,0.25); box-sizing: border-box;">
                 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px; background: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 12px; padding: 12px 14px;">
+                    <div style="grid-column: 1 / -1; border-bottom: 1px dashed #E0E0E0; padding-bottom: 8px; margin-bottom: 2px;">
+                        <span style="color:#777777; font-size:0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">SUCURSAL</span>
+                        <div id="confirmBranch" style="font-size:0.95rem; font-weight: 900; color: #111111; margin-top:2px;" data-branch-dynamic="name">KORTZEN Llano Chico</div>
+                    </div>
                     <div>
                         <span style="color:#777777; font-size:0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">SERVICIO</span>
                         <div id="confirmService" style="font-size:0.92rem; font-weight: 800; color: #111111; margin-top:2px;">-</div>
@@ -1177,6 +1196,8 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
             try {
                 const formData = new FormData();
+                const selectedBranchId = (window.KortzenBranches && window.KortzenBranches.getSelectedBranchId) ? window.KortzenBranches.getSelectedBranchId() : (localStorage.getItem('kortzen_selected_branch') || 1);
+                formData.append('sucursal_id', selectedBranchId);
                 formData.append('servicio_id', bookingData.serviceId);
                 formData.append('barbero_id', bookingData.barberId);
                 formData.append('fecha', bookingData.date);
@@ -1220,8 +1241,10 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
                 if (res.success) {
                     // Success UI
-                    const gCalTitle = encodeURIComponent(`Cita en KORTZEN - ${bookingData.serviceName}`);
-                    const gCalLoc = encodeURIComponent(`KORTZEN Barbería, Quito`);
+                    const branch = (window.KortzenBranches && window.KortzenBranches.getSelectedBranch) ? window.KortzenBranches.getSelectedBranch() : null;
+                    const branchName = branch ? branch.name : (localStorage.getItem('kortzen_selected_branch_name') || 'KORTZEN Llano Chico');
+                    const gCalTitle = encodeURIComponent(`Cita en ${branchName} - ${bookingData.serviceName}`);
+                    const gCalLoc = encodeURIComponent(`${branchName}, Quito`);
                     const gCalDetails = encodeURIComponent(`Cita con ${bookingData.barberName} el ${bookingData.date} a las ${bookingData.time}`);
                     const dateClean = bookingData.date.replace(/-/g, '');
                     const timeClean = bookingData.time.replace(':', '');
@@ -1234,6 +1257,10 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         <p style="color:#AAAAAA; font-size:0.95rem; margin-bottom:25px;">Tu cita ha sido ${reagendarId ? 'reagendada' : 'agendada'} correctamente.</p>
                         
                         <div style="max-width:380px; margin:0 auto 25px auto; background:#FFFFFF; color:#111111; padding:20px; border-radius:16px; border:1px solid #EAEAEA; text-align:left;">
+                            <div style="margin-bottom:12px;">
+                                <span style="font-size:0.72rem; color:#777; font-weight:800; text-transform:uppercase;">SUCURSAL</span>
+                                <div style="font-size:1.05rem; font-weight:800; color:#111111;">${branchName}</div>
+                            </div>
                             <div style="margin-bottom:12px;">
                                 <span style="font-size:0.72rem; color:#777; font-weight:800; text-transform:uppercase;">SERVICIO</span>
                                 <div style="font-size:1.05rem; font-weight:800;">${bookingData.serviceName}</div>
@@ -1382,6 +1409,11 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         }
 
         function updateSummary() {
+            const branch = (window.KortzenBranches && window.KortzenBranches.getSelectedBranch) ? window.KortzenBranches.getSelectedBranch() : null;
+            const branchName = branch ? branch.name : (localStorage.getItem('kortzen_selected_branch_name') || 'KORTZEN Llano Chico');
+            const confBranchEl = document.getElementById('confirmBranch');
+            if (confBranchEl) confBranchEl.textContent = branchName;
+
             document.getElementById('confirmService').textContent = bookingData.serviceName;
             document.getElementById('confirmBarber').textContent = bookingData.barberName;
             document.getElementById('confirmDateTime').textContent = `${bookingData.date} a las ${bookingData.time}`;
