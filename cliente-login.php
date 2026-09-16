@@ -280,6 +280,20 @@ if (file_exists($googleConfigPath)) {
             Al ingresar, aceptas nuestros <a href="/terminos-de-uso.html" target="_blank" style="color: #D4AF37; text-decoration: underline;">Términos de Uso</a> y nuestra <a href="/politica-de-privacidad.html" target="_blank" style="color: #D4AF37; text-decoration: underline;">Política de Privacidad</a>.
         </p>
 
+        <!-- Opción para clientes sin cuenta de Google -->
+        <div style="margin: 1.5rem 0 1rem 0; padding: 1.25rem 1rem; background: rgba(37, 211, 102, 0.08); border: 1.5px solid rgba(37, 211, 102, 0.35); border-radius: 12px; text-align: center;">
+            <div style="font-size: 0.92rem; font-weight: 800; color: #FFFFFF; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>💬</span> ¿No tienes cuenta de Google?
+            </div>
+            <p style="font-size: 0.82rem; color: #BBBBBB; margin-bottom: 12px; line-height: 1.4;">
+                Llena un formulario rápido y envíalo a nuestro WhatsApp con 1 clic para que creemos tu perfil al instante.
+            </p>
+            <a href="solicitar-registro.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 16px; background: #25D366; color: #FFFFFF; font-weight: 800; font-size: 0.9rem; border-radius: 8px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3); transition: all 0.2s ease;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.634.075-1.847-.426-1.547-.64-2.527-2.222-2.604-2.325-.077-.103-.623-.829-.623-1.581 0-.752.393-1.122.533-1.272.14-.15.305-.188.407-.188.102 0 .204.002.294.006.096.004.225-.036.35.267.13.313.442 1.079.48 1.157.039.078.065.17.013.273-.051.103-.077.167-.154.256-.077.09-.161.2-.23.269-.077.077-.157.161-.067.316.09.154.401.662.861 1.072.593.528 1.093.692 1.248.769.155.077.246.064.337-.039.091-.103.391-.455.495-.61.104-.155.207-.129.349-.077.142.052.898.423 1.053.5.155.078.258.117.297.181.039.065.039.378-.105.783z"/></svg>
+                Solicitar Perfil por WhatsApp
+            </a>
+        </div>
+
         <div class="divider"><span>o</span></div>
 
         <a href="/contacto.html" class="btn-guest">Continuar sin cuenta →</a>
