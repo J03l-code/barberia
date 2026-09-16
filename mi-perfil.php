@@ -99,6 +99,29 @@ if ($puntos_actuales >= $puntos_nivel_vip) {
 }
 
 $porcentaje_progreso = min(100, round(($puntos_actuales / max(1, $siguiente_nivel)) * 100));
+
+// Procesar cambio de contraseña
+$pass_msg_success = '';
+$pass_msg_error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cambiar_pass') {
+    $new_pass = $_POST['new_pass'] ?? '';
+    $conf_pass = $_POST['conf_pass'] ?? '';
+    if (empty($new_pass) || strlen($new_pass) < 4) {
+        $pass_msg_error = 'La contraseña debe tener al menos 4 caracteres.';
+    } elseif ($new_pass !== $conf_pass) {
+        $pass_msg_error = 'Las contraseñas no coinciden.';
+    } else {
+        try {
+            $pdo = getConnection();
+            $hash = password_hash($new_pass, PASSWORD_BCRYPT);
+            $stmtUpdP = $pdo->prepare("UPDATE clientes SET password = ? WHERE id = ?");
+            $stmtUpdP->execute([$hash, $cliente_id]);
+            $pass_msg_success = 'Contraseña actualizada correctamente.';
+        } catch (Exception $e) {
+            $pass_msg_error = 'Error al actualizar la contraseña.';
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -334,12 +357,75 @@ $porcentaje_progreso = min(100, round(($puntos_actuales / max(1, $siguiente_nive
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </a>
+
+            <!-- Opción de Cambiar Contraseña -->
+            <a href="javascript:void(0)" onclick="openPassModal()" class="pwa-benefit-item">
+                <div class="pwa-benefit-item__left">
+                    <div class="pwa-benefit-item__icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="pwa-benefit-item__title">Seguridad & Contraseña</div>
+                        <div class="pwa-benefit-item__desc">Cambiar mi contraseña de acceso</div>
+                    </div>
+                </div>
+                <svg class="pwa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </a>
         </div>
+
+        <?php if ($pass_msg_success): ?>
+            <div style="margin-top: 1rem; padding: 12px; background: #e6f4ea; color: #137333; border: 1px solid #ceead6; border-radius: 12px; font-size: 0.85rem; font-weight: 700; text-align: center;">
+                ✓ <?php echo htmlspecialchars($pass_msg_success); ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($pass_msg_error): ?>
+            <div style="margin-top: 1rem; padding: 12px; background: #fce8e6; color: #c5221f; border: 1px solid #fad2cf; border-radius: 12px; font-size: 0.85rem; font-weight: 700; text-align: center;">
+                ⚠️ <?php echo htmlspecialchars($pass_msg_error); ?>
+            </div>
+        <?php endif; ?>
 
         <div style="margin-top: 2rem; text-align: center;">
             <a href="logout.php" style="color: #dc3545; font-size: 0.85rem; text-decoration: none; font-weight: 600;">Cerrar sesión</a>
         </div>
     </div>
+
+    <!-- Modal para cambiar contraseña -->
+    <div id="passModal" style="display: none; position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1rem;" onclick="if(event.target === this) closePassModal();">
+        <div style="background: #FFFFFF; color: #111111; border-radius: 18px; max-width: 400px; width: 100%; padding: 1.75rem 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; box-sizing: border-box;">
+            <button onclick="closePassModal()" style="position: absolute; top: 14px; right: 14px; background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: #888;">✕</button>
+            <div style="font-size: 1.15rem; font-weight: 900; margin-bottom: 0.3rem;">Cambiar Contraseña</div>
+            <p style="font-size: 0.82rem; color: #666666; margin-bottom: 1.25rem;">Define tu nueva contraseña para ingresar a KORTZEN.</p>
+            
+            <form method="POST" action="mi-perfil.php">
+                <input type="hidden" name="action" value="cambiar_pass">
+                <div style="margin-bottom: 1rem; text-align: left;">
+                    <label style="display: block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #555; margin-bottom: 4px;">Nueva Contraseña</label>
+                    <input type="password" name="new_pass" required minlength="4" placeholder="Mínimo 4 caracteres" style="width: 100%; padding: 12px; border: 1px solid #DDD; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 1.25rem; text-align: left;">
+                    <label style="display: block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #555; margin-bottom: 4px;">Confirmar Contraseña</label>
+                    <input type="password" name="conf_pass" required minlength="4" placeholder="Repite la contraseña" style="width: 100%; padding: 12px; border: 1px solid #DDD; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box;">
+                </div>
+                <button type="submit" style="width: 100%; padding: 13px; background: #111111; color: #FFFFFF; font-weight: 800; font-size: 0.88rem; border: none; border-radius: 8px; cursor: pointer; text-transform: uppercase;">
+                    Guardar Contraseña
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openPassModal() {
+            document.getElementById('passModal').style.display = 'flex';
+        }
+        function closePassModal() {
+            document.getElementById('passModal').style.display = 'none';
+        }
+    </script>
 
     <!-- Native Bottom Navigation Bar -->
     <nav class="pwa-bottom-nav-bar">

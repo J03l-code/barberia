@@ -153,6 +153,14 @@ function getConnection()
                 }
             } catch (Throwable $e_u_cols) {}
 
+            // Auto-migración para clientes (columna password para clientes sin Google)
+            try {
+                $colsCStmt = $pdo->query("SHOW COLUMNS FROM clientes");
+                $colsC = $colsCStmt ? $colsCStmt->fetchAll(PDO::FETCH_COLUMN) : [];
+                if (!empty($colsC) && !in_array('password', $colsC)) {
+                    try { $pdo->exec("ALTER TABLE clientes ADD COLUMN password VARCHAR(255) NULL AFTER email"); } catch (Throwable $e) {}
+                }
+            } catch (Throwable $e_c_cols) {}
 
             if (empty($_SESSION['kortzen_schema_migrated'])) {
                 $_SESSION['kortzen_schema_migrated'] = true;
