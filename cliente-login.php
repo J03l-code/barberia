@@ -179,41 +179,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         body {
             font-family: var(--font-body, 'Outfit', sans-serif);
-            background-color: var(--color-black-matte, #0a0a0a);
+            background-color: var(--color-charcoal, #F7F7F7);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 1.5rem 1rem;
-            color: #FFFFFF;
+            color: #111111;
         }
 
         .login-container {
-            background-color: var(--color-charcoal, #141416);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
             border-radius: 18px;
             padding: 2.25rem 1.75rem;
             max-width: 440px;
             width: 100%;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
             box-sizing: border-box;
         }
 
         .login-logo {
             font-size: 1.85rem;
             font-weight: 800;
-            color: var(--color-white-pure, #FFFFFF);
+            color: #000000;
             letter-spacing: 0.15em;
             margin-bottom: 0.4rem;
         }
 
         .login-logo span {
-            color: #FFFFFF;
+            color: #000000;
         }
 
         .login-subtitle {
-            color: #AAAAAA;
+            color: #555555;
             font-size: 0.88rem;
             margin-bottom: 1.5rem;
             line-height: 1.45;
@@ -230,17 +230,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #CCCCCC;
+            color: #222222;
             margin-bottom: 0.35rem;
         }
 
         .form-control {
             width: 100%;
             padding: 13px 14px;
-            background: #1E1E22;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #F9FAFB;
+            border: 1.5px solid #D1D5DB;
             border-radius: 10px;
-            color: #FFFFFF;
+            color: #111111;
             font-size: 0.95rem;
             font-family: inherit;
             outline: none;
@@ -249,9 +249,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .form-control:focus {
-            border-color: var(--color-gold, #C0A062);
-            box-shadow: 0 0 10px rgba(192, 160, 98, 0.25);
-            background: #242428;
+            border-color: #000000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+            background: #FFFFFF;
         }
 
         .btn-submit {
@@ -261,8 +261,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 8px;
             width: 100%;
             padding: 14px 20px;
-            background: #FFFFFF;
-            color: #111111;
+            background: #000000;
+            color: #FFFFFF;
             border: none;
             border-radius: 10px;
             font-size: 0.92rem;
@@ -275,8 +275,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .btn-submit:hover, .btn-submit:active {
-            background: var(--color-gold, #C0A062);
-            color: #000000;
+            background: #222222;
+            color: #FFFFFF;
             transform: translateY(-2px);
         }
 
@@ -287,28 +287,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 12px;
             width: 100%;
             padding: 13px 20px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #FFFFFF;
+            border: 1.5px solid #D1D5DB;
             border-radius: 10px;
-            font-size: 0.9rem;
+            font-size: 0.92rem;
             font-weight: 700;
-            color: #FFFFFF;
+            color: #111111;
             cursor: pointer;
             transition: all 0.2s ease;
             text-decoration: none;
             box-sizing: border-box;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
         }
 
         .btn-google:hover {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(255, 255, 255, 0.3);
+            background: #F3F4F6;
+            border-color: #9CA3AF;
+            color: #000000;
         }
 
         .divider {
             display: flex;
             align-items: center;
             margin: 1.25rem 0;
-            color: #777777;
+            color: #888888;
             font-size: 0.8rem;
         }
 
@@ -317,7 +319,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             content: '';
             flex: 1;
             height: 1px;
-            background: rgba(255, 255, 255, 0.1);
+            background: #E5E7EB;
         }
 
         .divider span {
@@ -337,20 +339,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .alert-danger {
-            background: rgba(220, 53, 69, 0.15);
-            border: 1px solid rgba(220, 53, 69, 0.4);
-            color: #FFA8A8;
+            background: #FEE2E2;
+            border: 1px solid #FCA5A5;
+            color: #991B1B;
         }
 
         .alert-success {
-            background: rgba(40, 167, 69, 0.15);
-            border: 1px solid rgba(40, 167, 69, 0.4);
-            color: #A3E635;
+            background: #DCFCE7;
+            border: 1px solid #86EFAC;
+            color: #166534;
         }
 
         .first-time-box {
-            background: rgba(192, 160, 98, 0.1);
-            border: 1.5px solid var(--color-gold, #C0A062);
+            background: #FFFBEB;
+            border: 1.5px solid #F59E0B;
             border-radius: 14px;
             padding: 16px;
             margin-bottom: 1.25rem;
@@ -366,10 +368,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($setupCliente): ?>
             <!-- VISTA DE PRIMER INGRESO: ESTABLECER CONTRASEÑA -->
             <div class="first-time-box">
-                <div style="font-size: 1.05rem; font-weight: 900; color: var(--color-gold, #C0A062); margin-bottom: 4px;">
+                <div style="font-size: 1.05rem; font-weight: 900; color: #92400E; margin-bottom: 4px;">
                     👋 ¡Hola, <?php echo htmlspecialchars(explode(' ', trim($setupCliente['nombre']))[0]); ?>!
                 </div>
-                <div style="font-size: 0.85rem; color: #DDDDDD; line-height: 1.4;">
+                <div style="font-size: 0.85rem; color: #1F2937; line-height: 1.4;">
                     Es tu primer ingreso a la plataforma. Por favor crea tu <strong>contraseña personal</strong> para acceder a tu cuenta y agendar tus próximas citas.
                 </div>
             </div>
@@ -392,13 +394,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Repite tu contraseña" required minlength="4">
                 </div>
 
-                <button type="submit" class="btn-submit" style="background: var(--color-gold, #C0A062); color: #000000;">
+                <button type="submit" class="btn-submit">
                     ✓ Guardar Contraseña y Entrar
                 </button>
             </form>
 
             <div style="margin-top: 1.25rem;">
-                <a href="cliente-login.php?cancel_setup=1" style="color: #888888; font-size: 0.82rem; text-decoration: none;">← Cancelar y volver</a>
+                <a href="cliente-login.php?cancel_setup=1" style="color: #6B7280; font-size: 0.82rem; text-decoration: none;">← Cancelar y volver</a>
             </div>
 
         <?php else: ?>
@@ -420,7 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                         <label class="form-label" for="password" style="margin: 0;">Contraseña</label>
-                        <span style="font-size: 0.72rem; color: #888888;">(Si es 1ra vez, déjalo vacío)</span>
+                        <span style="font-size: 0.72rem; color: #6B7280;">(Si es 1ra vez, déjalo vacío)</span>
                     </div>
                     <input type="password" id="password" name="password" class="form-control" placeholder="Tu contraseña" autocomplete="current-password">
                 </div>
@@ -444,24 +446,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </a>
 
             <!-- Opción para clientes sin cuenta creada aún -->
-            <div style="margin: 1.5rem 0 1rem 0; padding: 1.1rem 1rem; background: rgba(37, 211, 102, 0.08); border: 1.5px solid rgba(37, 211, 102, 0.35); border-radius: 12px; text-align: center;">
-                <div style="font-size: 0.88rem; font-weight: 800; color: #FFFFFF; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <div style="margin: 1.5rem 0 1rem 0; padding: 1.15rem 1.1rem; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 12px; text-align: center;">
+                <div style="font-size: 0.92rem; font-weight: 800; color: #111827; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                     <span>💬</span> ¿No tienes perfil creado aún?
                 </div>
-                <p style="font-size: 0.8rem; color: #BBBBBB; margin-bottom: 10px; line-height: 1.35;">
+                <p style="font-size: 0.83rem; color: #374151; margin-bottom: 12px; line-height: 1.4;">
                     Solicita tu registro por WhatsApp para que el administrador cree tu cuenta.
                 </p>
-                <a href="solicitar-registro.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px 14px; background: #25D366; color: #FFFFFF; font-weight: 800; font-size: 0.85rem; border-radius: 8px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3); transition: all 0.2s ease;">
+                <a href="solicitar-registro.php" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 14px; background: #16A34A; color: #FFFFFF; font-weight: 800; font-size: 0.85rem; border-radius: 8px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25); transition: all 0.2s ease;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.634.075-1.847-.426-1.547-.64-2.527-2.222-2.604-2.325-.077-.103-.623-.829-.623-1.581 0-.752.393-1.122.533-1.272.14-.15.305-.188.407-.188.102 0 .204.002.294.006.096.004.225-.036.35.267.13.313.442 1.079.48 1.157.039.078.065.17.013.273-.051.103-.077.167-.154.256-.077.09-.161.2-.23.269-.077.077-.157.161-.067.316.09.154.401.662.861 1.072.593.528 1.093.692 1.248.769.155.077.246.064.337-.039.091-.103.391-.455.495-.61.104-.155.207-.129.349-.077.142.052.898.423 1.053.5.155.078.258.117.297.181.039.065.039.378-.105.783z"/></svg>
                     Solicitar Perfil por WhatsApp
                 </a>
             </div>
 
             <div style="margin-top: 15px; margin-bottom: 5px;">
-                <a href="login.php" style="color: #888888; font-size: 0.82rem; text-decoration: none; display: inline-block; transition: color 0.2s;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#888888'">Acceso Barberos y Administradores →</a>
+                <a href="login.php" style="color: #6B7280; font-size: 0.82rem; text-decoration: none; display: inline-block; transition: color 0.2s;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#6B7280'">Acceso Barberos y Administradores →</a>
             </div>
 
-            <a href="/" style="display: block; margin-top: 1.25rem; color: #666666; font-size: 0.85rem; text-decoration: none;" onmouseover="this.style.color='#C0A062'" onmouseout="this.style.color='#666666'">← Volver al inicio</a>
+            <a href="/" style="display: block; margin-top: 1.25rem; color: #6B7280; font-size: 0.85rem; text-decoration: none;" onmouseover="this.style.color='#111111'" onmouseout="this.style.color='#6B7280'">← Volver al inicio</a>
         <?php endif; ?>
     </div>
 </body>

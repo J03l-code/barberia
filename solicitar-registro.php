@@ -52,8 +52,8 @@ if (empty($sucursales)) {
 
         body {
             font-family: var(--font-body, 'Outfit', sans-serif);
-            background-color: var(--color-black-matte, #0a0a0a);
-            color: #FFFFFF;
+            background-color: var(--color-charcoal, #F7F7F7);
+            color: #111111;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -62,13 +62,13 @@ if (empty($sucursales)) {
         }
 
         .solicitud-card {
-            background: #141416;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
             border-radius: 18px;
             padding: 2.25rem 1.75rem;
             max-width: 480px;
             width: 100%;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
             box-sizing: border-box;
         }
 
@@ -81,24 +81,24 @@ if (empty($sucursales)) {
             font-size: 1.8rem;
             font-weight: 800;
             letter-spacing: 0.15em;
-            color: #FFFFFF;
+            color: #000000;
             margin-bottom: 0.4rem;
         }
 
         .solicitud-logo span {
-            color: #FFFFFF;
+            color: #000000;
         }
 
         .solicitud-title {
             font-size: 1.15rem;
             font-weight: 800;
-            color: #FFFFFF;
+            color: #111111;
             margin-bottom: 0.35rem;
         }
 
         .solicitud-desc {
             font-size: 0.85rem;
-            color: #AAAAAA;
+            color: #555555;
             line-height: 1.45;
         }
 
@@ -113,21 +113,21 @@ if (empty($sucursales)) {
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #CCCCCC;
+            color: #222222;
             margin-bottom: 0.35rem;
         }
 
         .form-label span.req {
-            color: #ff6b6b;
+            color: #EF4444;
         }
 
         .form-control {
             width: 100%;
             padding: 12px 14px;
-            background: #1E1E22;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #F9FAFB;
+            border: 1.5px solid #D1D5DB;
             border-radius: 10px;
-            color: #FFFFFF;
+            color: #111111;
             font-size: 0.95rem;
             font-family: inherit;
             outline: none;
@@ -136,9 +136,9 @@ if (empty($sucursales)) {
         }
 
         .form-control:focus {
-            border-color: #25D366;
-            box-shadow: 0 0 10px rgba(37, 211, 102, 0.25);
-            background: #242428;
+            border-color: #16A34A;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+            background: #FFFFFF;
         }
 
         select.form-control {
@@ -146,8 +146,8 @@ if (empty($sucursales)) {
         }
 
         select.form-control option {
-            background: #1E1E22;
-            color: #FFFFFF;
+            background: #FFFFFF;
+            color: #111111;
         }
 
         .btn-whatsapp-submit {
@@ -157,7 +157,7 @@ if (empty($sucursales)) {
             gap: 10px;
             width: 100%;
             padding: 15px 20px;
-            background: #25D366;
+            background: #16A34A;
             color: #FFFFFF;
             border: none;
             border-radius: 12px;
@@ -166,7 +166,7 @@ if (empty($sucursales)) {
             text-transform: uppercase;
             letter-spacing: 0.5px;
             cursor: pointer;
-            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.35);
+            box-shadow: 0 4px 15px rgba(22, 163, 74, 0.3);
             transition: all 0.25s ease;
             margin-top: 1.5rem;
             text-decoration: none;
@@ -174,9 +174,9 @@ if (empty($sucursales)) {
         }
 
         .btn-whatsapp-submit:hover, .btn-whatsapp-submit:active {
-            background: #20BA5A;
+            background: #15803D;
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(37, 211, 102, 0.45);
+            box-shadow: 0 6px 20px rgba(22, 163, 74, 0.4);
         }
 
         .back-links {
@@ -185,28 +185,28 @@ if (empty($sucursales)) {
             justify-content: space-between;
             margin-top: 1.5rem;
             padding-top: 1.25rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid #E5E7EB;
             font-size: 0.85rem;
         }
 
         .back-links a {
-            color: #AAAAAA;
+            color: #6B7280;
             text-decoration: none;
             font-weight: 600;
             transition: color 0.2s;
         }
 
         .back-links a:hover {
-            color: var(--color-gold, #C0A062);
+            color: #111111;
         }
 
         .badge-step {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(37, 211, 102, 0.12);
-            color: #25D366;
-            border: 1px solid rgba(37, 211, 102, 0.3);
+            background: #F0FDF4;
+            color: #16A34A;
+            border: 1px solid #86EFAC;
             border-radius: 20px;
             padding: 4px 12px;
             font-size: 0.75rem;
@@ -277,15 +277,15 @@ if (empty($sucursales)) {
         <div style="width: 65px; height: 65px; border-radius: 50%; background: #25D366; color: #FFFFFF; font-size: 2.2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; font-weight: 900;">
             ✓
         </div>
-        <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 0.5rem;">¡Solicitud Lista!</h2>
-        <p style="color: #CCCCCC; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 0.5rem; color: #111111;">¡Solicitud Lista!</h2>
+        <p style="color: #374151; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem;">
             Se ha abierto WhatsApp para enviar tus datos al administrador de KORTZEN. Si no se abrió automáticamente, pulsa el botón a continuación:
         </p>
         <a id="btnAbrirWA" href="#" target="_blank" class="btn-whatsapp-submit" style="margin-top: 0;">
             Abrir WhatsApp de KORTZEN
         </a>
         <div style="margin-top: 1.5rem;">
-            <a href="/" style="color: var(--color-gold, #C0A062); font-weight: 700; text-decoration: none; font-size: 0.9rem;">← Volver a la página principal</a>
+            <a href="/" style="color: #111111; font-weight: 700; text-decoration: none; font-size: 0.9rem;">← Volver a la página principal</a>
         </div>
     </div>
 

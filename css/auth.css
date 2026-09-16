@@ -41,21 +41,21 @@
     font-family: var(--font-heading);
     font-size: 2rem;
     margin-bottom: 0.5rem;
-    color: var(--color-white);
+    color: #000000;
 }
 
 .auth-logo span {
-    color: var(--color-gold);
+    color: #000000;
 }
 
 .auth-title {
-    color: var(--color-white);
+    color: #111111;
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
 }
 
 .auth-subtitle {
-    color: var(--color-gray);
+    color: #555555;
     margin-bottom: 2rem;
     font-size: 0.9rem;
 }
