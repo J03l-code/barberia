@@ -42,11 +42,9 @@
         const { isLoggedIn, user } = authState;
 
         if (isLoggedIn && user) {
-            // Usuario logueado - mostrar avatar en la barra de sucursal
-            addUserIndicator(user);
-
-            // Agregar link a "Mi Cuenta" en el footer si no existe
+            // Usuario logueado - actualizar enlaces en navegación y footer
             addAccountLinkToFooter();
+            updateNavigationAuth(user);
         }
 
         // Disparar evento personalizado
@@ -54,11 +52,47 @@
     }
 
     /**
-     * Agrega indicador de usuario en la barra de sucursal
+     * Agrega enlaces de Mi Cuenta y Cerrar Sesión en menús de navegación
      */
-    function addUserIndicator(user) {
-        // Manejado de forma unificada en branch-selector.js updateBranchInfoBar
-        return;
+    function updateNavigationAuth(user) {
+        // Actualizar CTA principal
+        document.querySelectorAll('.header__cta, .mobile-nav__cta').forEach(btn => {
+            btn.href = '/reservar.php';
+        });
+
+        // Actualizar nav de escritorio si no existe
+        const nav = document.querySelector('.nav');
+        if (nav && !nav.querySelector('.nav__link--account')) {
+            const accLink = document.createElement('a');
+            accLink.href = '/cliente-dashboard.php';
+            accLink.className = 'nav__link nav__link--account';
+            accLink.textContent = 'Mi Cuenta';
+            nav.appendChild(accLink);
+
+            const logoutLink = document.createElement('a');
+            logoutLink.href = '/logout.php';
+            logoutLink.className = 'nav__link nav__link--logout';
+            logoutLink.style.color = '#ff6b6b';
+            logoutLink.textContent = 'Cerrar Sesión';
+            nav.appendChild(logoutLink);
+        }
+
+        // Actualizar nav móvil si no existe
+        const mobileNavLinks = document.querySelector('.mobile-nav__links');
+        if (mobileNavLinks && !mobileNavLinks.querySelector('.mobile-nav__link--logout')) {
+            const accLink = document.createElement('a');
+            accLink.href = '/cliente-dashboard.php';
+            accLink.className = 'mobile-nav__link mobile-nav__link--account';
+            accLink.textContent = 'Mi Cuenta';
+            mobileNavLinks.appendChild(accLink);
+
+            const logoutLink = document.createElement('a');
+            logoutLink.href = '/logout.php';
+            logoutLink.className = 'mobile-nav__link mobile-nav__link--logout';
+            logoutLink.style.color = '#ff6b6b';
+            logoutLink.textContent = 'Cerrar Sesión';
+            mobileNavLinks.appendChild(logoutLink);
+        }
     }
 
     /**
@@ -86,10 +120,18 @@
         window.location.href = CLIENT_LOGIN_URL;
     }
 
+    /**
+     * Cerrar sesión directamente
+     */
+    function logoutClient() {
+        window.location.href = '/logout.php';
+    }
+
     // Exponer globalmente
     window.KortzenAuth = {
         checkState: checkAuthState,
         requireLogin: requireLoginForBooking,
+        logout: logoutClient,
         loginUrl: CLIENT_LOGIN_URL,
         isLoggedIn: () => {
             return fetch(AUTH_CHECK_ENDPOINT, { credentials: 'same-origin' })

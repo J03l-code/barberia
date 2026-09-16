@@ -333,17 +333,47 @@ function updateBranchInfoBar() {
                 const initial = firstName.charAt(0).toUpperCase();
                 const fotoUrl = res.cliente.foto || res.cliente.foto_perfil;
                 const fotoHtml = fotoUrl ? 
-                    `<img src="${fotoUrl}" referrerpolicy="no-referrer" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border: 1px solid #111; flex-shrink: 0;" alt="Avatar">` :
-                    `<div style="width:24px; height:24px; border-radius:50%; background:#111111; color:#FFFFFF; font-size:0.68rem; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">${initial}</div>`;
+                    `<img src="${fotoUrl}" referrerpolicy="no-referrer" style="width:22px; height:22px; border-radius:50%; object-fit:cover; border: 1px solid #111; flex-shrink: 0;" alt="Avatar">` :
+                    `<div style="width:22px; height:22px; border-radius:50%; background:#111111; color:#FFFFFF; font-size:0.65rem; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">${initial}</div>`;
 
                 badge.innerHTML = `
                     <span style="border-left: 1px solid rgba(0,0,0,0.12); height: 16px; margin: 0 2px; flex-shrink: 0;"></span>
                     <a href="cliente-dashboard.php" class="single-user-profile-link" onclick="event.preventDefault(); window.location.href='cliente-dashboard.php';" 
-                       style="display:inline-flex; align-items:center; gap:6px; color:#111111 !important; text-decoration:none; font-weight:800; font-size:0.8rem; white-space:nowrap; cursor:pointer !important; z-index:100002; pointer-events:auto !important; position:relative;">
+                       style="display:inline-flex; align-items:center; gap:5px; color:#111111 !important; text-decoration:none; font-weight:800; font-size:0.78rem; white-space:nowrap; cursor:pointer !important; z-index:100002; pointer-events:auto !important; position:relative;"
+                       title="Ver mi cuenta">
                         ${fotoHtml}
                         <span style="color:#111111 !important; font-weight:800 !important;">${firstName}</span>
                     </a>
+                    <a href="logout.php" class="single-user-logout-link" title="Cerrar sesión" 
+                       style="display:inline-flex; align-items:center; gap:3px; color:#dc3545 !important; background:rgba(220,53,69,0.08); padding:2px 7px; border-radius:4px; font-size:0.68rem; font-weight:800; text-decoration:none; margin-left:4px; border:1px solid rgba(220,53,69,0.25); transition:all 0.2s; white-space:nowrap; cursor:pointer !important; z-index:100002; pointer-events:auto !important;"
+                       onmouseover="this.style.background='#dc3545'; this.style.color='#FFFFFF';"
+                       onmouseout="this.style.background='rgba(220,53,69,0.08)'; this.style.color='#dc3545';">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span>Salir</span>
+                    </a>
                 `;
+
+                // Actualizar CTA en la cabecera principal y móvil si existen
+                document.querySelectorAll('.header__cta, .mobile-nav__cta').forEach(btn => {
+                    btn.href = '/reservar.php';
+                });
+
+                // Agregar enlace en navegación móvil si no existe
+                const mobileNavLinks = document.querySelector('.mobile-nav__links');
+                if (mobileNavLinks && !mobileNavLinks.querySelector('.mobile-nav__link--logout')) {
+                    const accLink = document.createElement('a');
+                    accLink.href = '/cliente-dashboard.php';
+                    accLink.className = 'mobile-nav__link mobile-nav__link--account';
+                    accLink.textContent = 'Mi Cuenta';
+                    mobileNavLinks.appendChild(accLink);
+
+                    const logoutLink = document.createElement('a');
+                    logoutLink.href = '/logout.php';
+                    logoutLink.className = 'mobile-nav__link mobile-nav__link--logout';
+                    logoutLink.style.color = '#dc3545';
+                    logoutLink.textContent = 'Cerrar Sesión';
+                    mobileNavLinks.appendChild(logoutLink);
+                }
             } else {
                 // NO LOGUEADO: Mostrar botón "Mi Perfil" redirigiendo a cliente-login.php
                 badge.innerHTML = `
