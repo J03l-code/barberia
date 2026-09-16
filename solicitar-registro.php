@@ -8,8 +8,6 @@
 require_once 'config.php';
 
 $sucursales = [];
-$barberos = [];
-$servicios = [];
 
 try {
     $pdo = getConnection();
@@ -17,14 +15,6 @@ try {
     // Sucursales activas
     $stmtS = $pdo->query("SELECT id, nombre, direccion FROM sucursales WHERE estado = 'activo' ORDER BY id ASC");
     $sucursales = $stmtS->fetchAll(PDO::FETCH_ASSOC);
-
-    // Barberos activos
-    $stmtB = $pdo->query("SELECT id, nombre FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local') ORDER BY nombre ASC");
-    $barberos = $stmtB->fetchAll(PDO::FETCH_ASSOC);
-
-    // Servicios activos
-    $stmtServ = $pdo->query("SELECT id, nombre, precio FROM servicios WHERE activo = 1 ORDER BY categoria ASC, nombre ASC");
-    $servicios = $stmtServ->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
 
 // Fallback sucursales si vacío
@@ -267,35 +257,6 @@ if (empty($sucursales)) {
                 </select>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="selBarbero">Barbero de Preferencia (Opcional)</label>
-                <select id="selBarbero" class="form-control">
-                    <option value="Cualquier barbero disponible">✂️ Cualquier barbero disponible</option>
-                    <?php foreach ($barberos as $b): ?>
-                        <option value="<?php echo htmlspecialchars($b['nombre']); ?>">
-                            💈 <?php echo htmlspecialchars($b['nombre']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="selServicio">Servicio que deseas agendar (Opcional)</label>
-                <select id="selServicio" class="form-control">
-                    <option value="Corte o asesoría personalizada">✂️ Corte de Autor / Asesoría personalizada</option>
-                    <?php foreach ($servicios as $serv): ?>
-                        <option value="<?php echo htmlspecialchars($serv['nombre']); ?> ($<?php echo number_format($serv['precio'], 2); ?>)">
-                            <?php echo htmlspecialchars($serv['nombre']); ?> - $<?php echo number_format($serv['precio'], 2); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="txtNotas">Horario deseado o Comentario (Opcional)</label>
-                <textarea id="txtNotas" class="form-control" rows="2" placeholder="Ej: Disponible mañana en la tarde"></textarea>
-            </div>
-
             <button type="submit" id="btnEnviarWA" class="btn-whatsapp-submit">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.634.075-1.847-.426-1.547-.64-2.527-2.222-2.604-2.325-.077-.103-.623-.829-.623-1.581 0-.752.393-1.122.533-1.272.14-.15.305-.188.407-.188.102 0 .204.002.294.006.096.004.225-.036.35.267.13.313.442 1.079.48 1.157.039.078.065.17.013.273-.051.103-.077.167-.154.256-.077.09-.161.2-.23.269-.077.077-.157.161-.067.316.09.154.401.662.861 1.072.593.528 1.093.692 1.248.769.155.077.246.064.337-.039.091-.103.391-.455.495-.61.104-.155.207-.129.349-.077.142.052.898.423 1.053.5.155.078.258.117.297.181.039.065.039.378-.105.783z"/>
@@ -338,9 +299,6 @@ if (empty($sucursales)) {
             const telefono = document.getElementById('txtTelefono').value.trim();
             const email = document.getElementById('txtEmail').value.trim();
             const sucursal = document.getElementById('selSucursal').value;
-            const barbero = document.getElementById('selBarbero').value;
-            const servicio = document.getElementById('selServicio').value;
-            const notas = document.getElementById('txtNotas').value.trim();
 
             if (!nombre || !telefono) {
                 alert('Por favor completa tu nombre y número de teléfono.');
@@ -352,11 +310,8 @@ if (empty($sucursales)) {
             mensaje += `👤 *Cliente:* ${nombre}\n`;
             mensaje += `📱 *WhatsApp:* ${telefono}\n`;
             if (email) mensaje += `📧 *Email:* ${email}\n`;
-            mensaje += `📍 *Sucursal:* ${sucursal}\n`;
-            mensaje += `✂️ *Barbero:* ${barbero}\n`;
-            mensaje += `💈 *Servicio de Interés:* ${servicio}\n`;
-            if (notas) mensaje += `📝 *Horario / Nota:* ${notas}\n`;
-            mensaje += `\n_Hola KORTZEN, no dispongo de cuenta Google. Por favor creen mi perfil de cliente para poder agendar mis citas. ¡Muchas gracias!_`;
+            mensaje += `📍 *Sucursal:* ${sucursal}\n\n`;
+            mensaje += `_Hola KORTZEN, no dispongo de cuenta Google. Por favor creen mi perfil de cliente con estos datos para poder ingresar y agendar mis citas. ¡Muchas gracias!_`;
 
             const waUrl = `https://wa.me/${WA_ADMIN_NUMBER}?text=${encodeURIComponent(mensaje)}`;
 
@@ -367,9 +322,6 @@ if (empty($sucursales)) {
                 fd.append('telefono', telefono);
                 fd.append('email', email);
                 fd.append('sucursal', sucursal);
-                fd.append('barbero', barbero);
-                fd.append('servicio', servicio);
-                fd.append('notas', notas);
 
                 fetch('/api/registrar_solicitud_cliente.php', {
                     method: 'POST',
@@ -377,6 +329,14 @@ if (empty($sucursales)) {
                 }).catch(() => {});
             } catch(err) {}
 
+            // Configurar pantalla de éxito y enlace
+            document.getElementById('btnAbrirWA').href = waUrl;
+            document.getElementById('formContainer').style.display = 'none';
+            document.getElementById('successContainer').style.display = 'block';
+
+            // Abrir WhatsApp en nueva pestaña
+            window.open(waUrl, '_blank');
+        }
             // Configurar pantalla de éxito y enlace
             document.getElementById('btnAbrirWA').href = waUrl;
             document.getElementById('formContainer').style.display = 'none';
