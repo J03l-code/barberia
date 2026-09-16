@@ -341,6 +341,17 @@ function asegurarTablaCategorias($pdo = null)
             if (!in_array('categoria', $colsServicios)) {
                 $pdo->exec("ALTER TABLE servicios ADD COLUMN categoria VARCHAR(50) NOT NULL DEFAULT 'General'");
             }
+            if (!in_array('que_incluye', $colsServicios)) {
+                $pdo->exec("ALTER TABLE servicios ADD COLUMN que_incluye TEXT DEFAULT NULL AFTER descripcion");
+            }
+
+            // Rellenar valores sugeridos para que_incluye en servicios existentes que no lo tengan
+            try {
+                $pdo->exec("UPDATE servicios SET que_incluye = '• Lavado capilar con shampoo premium\n• Asesoría de visagismo\n• Corte de precisión a máquina y tijera\n• Perfilado de contornos a navaja\n• Peinado final con producto de fijación mate' WHERE (que_incluye IS NULL OR TRIM(que_incluye) = '') AND (LOWER(nombre) LIKE '%corte%' OR LOWER(categoria) LIKE '%corte%')");
+                $pdo->exec("UPDATE servicios SET que_incluye = '• Ritual con toalla caliente aromatizada\n• Aceites esenciales pre-afeitado\n• Afeitado a navaja libre tradicional\n• Toalla fría para cerrar poros\n• Loción aftershave hidratante y refrescante' WHERE (que_incluye IS NULL OR TRIM(que_incluye) = '') AND (LOWER(nombre) LIKE '%afeita%' OR LOWER(categoria) LIKE '%afeita%')");
+                $pdo->exec("UPDATE servicios SET que_incluye = '• Lavado y exfoliación de barba\n• Recorte y diseño según morfología\n• Perfilado de líneas a navaja\n• Toalla caliente relajante\n• Aceite nutritivo y bálsamo con aroma premium' WHERE (que_incluye IS NULL OR TRIM(que_incluye) = '') AND (LOWER(nombre) LIKE '%barba%' OR LOWER(categoria) LIKE '%barba%')");
+                $pdo->exec("UPDATE servicios SET que_incluye = '• Limpieza facial profunda\n• Exfoliación de impurezas y células muertas\n• Vapor ozono para apertura de poros\n• Mascarilla negra o nutritiva\n• Toalla fría y masaje facial revitalizante' WHERE (que_incluye IS NULL OR TRIM(que_incluye) = '') AND (LOWER(nombre) LIKE '%facial%' OR LOWER(nombre) LIKE '%spa%' OR LOWER(categoria) LIKE '%spa%')");
+            } catch (Throwable $e_seed) {}
         } catch (Throwable $e) {}
     } catch (Throwable $e) {
         error_log("Error in asegurarTablaCategorias: " . $e->getMessage());

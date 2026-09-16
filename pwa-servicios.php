@@ -114,6 +114,15 @@ if (empty($servicios_por_cat)) {
                             <?php endif; ?>
                             <?php echo htmlspecialchars($s['descripcion'] ?? 'Servicio de barbería profesional.'); ?>
                         </div>
+                        <?php if (!empty($s['que_incluye'])): ?>
+                            <div style="margin-top: 6px; font-size: 0.76rem; color: #E5E7EB; line-height: 1.35; background: rgba(255, 255, 255, 0.05); border-left: 2.5px solid var(--color-gold, #C0A062); padding: 5px 8px; border-radius: 0 6px 6px 0;">
+                                <strong style="color: var(--color-gold, #C0A062); font-size: 0.70rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">Incluye:</strong>
+                                <?php 
+                                $incluyeFormatted = preg_replace('/^[•\-\*]\s*/m', '✓ ', trim($s['que_incluye']));
+                                echo nl2br(htmlspecialchars($incluyeFormatted)); 
+                                ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="pwa-service-card__right">

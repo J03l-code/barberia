@@ -56,6 +56,7 @@ try {
         if (empty($s['categoria'])) {
             $s['categoria'] = 'General';
         }
+        $s['que_incluye'] = !empty($s['que_incluye']) ? $s['que_incluye'] : '';
     }
 
     echo json_encode([

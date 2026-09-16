@@ -193,6 +193,30 @@ const ServicesLoader = {
         const tagHtml = service.tag ? `<span class="service-card__tag-badge">${service.tag}</span>` : '';
         const beneficioHtml = service.beneficio ? `<span class="service-card__benefit-text">${service.beneficio}</span>` : '';
 
+        // Formatear ¿Qué incluye?
+        let incluyeHtml = '';
+        if (service.que_incluye && service.que_incluye.trim() !== '') {
+            const rawItems = service.que_incluye.split(/\r?\n/).map(i => i.trim()).filter(i => i.length > 0);
+            if (rawItems.length > 0) {
+                const itemsList = rawItems.map(item => {
+                    const cleanItem = item.replace(/^[•\-\*\✓\s]+/, '').trim();
+                    return `<li class="service-card__includes-item"><span class="service-card__includes-icon">✓</span><span>${cleanItem}</span></li>`;
+                }).join('');
+
+                incluyeHtml = `
+                    <div class="service-card__includes">
+                        <div class="service-card__includes-title">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span>¿Qué incluye?</span>
+                        </div>
+                        <ul class="service-card__includes-list">
+                            ${itemsList}
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
         card.innerHTML = `
             <div class="service-card__image-wrapper">
                  <img src="${service.foto_url || '/assets/images/service-placeholder.jpg'}" alt="${service.nombre}" class="service-card__image" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(service.nombre)}&background=333333&color=fff&size=128'">
@@ -204,6 +228,7 @@ const ServicesLoader = {
                 <h3 class="service-card__title">${service.nombre}</h3>
                 ${beneficioHtml}
                 <p class="service-card__desc">${service.descripcion || ''}</p>
+                ${incluyeHtml}
                 <div class="service-card__footer">
                     <span class="service-card__price">$${price}</span>
                     <span class="service-card__duration">${service.duracion_minutos} min</span>

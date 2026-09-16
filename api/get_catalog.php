@@ -80,6 +80,7 @@ try {
             $s['foto_url'] = $foto;
             $s['imagen_url'] = $foto;
             $s['categoria'] = !empty($s['categoria']) ? $s['categoria'] : 'General';
+            $s['que_incluye'] = !empty($s['que_incluye']) ? $s['que_incluye'] : '';
             
             $bId = !empty($s['barbero_id']) ? intval($s['barbero_id']) : null;
             // Smart auto-detection for Mateo services if barbero_id not explicitly set

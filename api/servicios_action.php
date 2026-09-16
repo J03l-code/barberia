@@ -35,6 +35,7 @@ try {
 
         $neededCols = [
             'descripcion' => "TEXT DEFAULT NULL",
+            'que_incluye' => "TEXT DEFAULT NULL",
             'duracion_minutos' => "INT UNSIGNED NOT NULL DEFAULT 30",
             'categoria' => "VARCHAR(50) NOT NULL DEFAULT 'General'",
             'foto_url' => "VARCHAR(500) DEFAULT NULL",
@@ -98,6 +99,7 @@ try {
         case 'create':
             $nombre = trim($_POST['nombre'] ?? '');
             $descripcion = trim($_POST['descripcion'] ?? '');
+            $que_incluye = trim($_POST['que_incluye'] ?? '');
             $precio = floatval($_POST['precio'] ?? 0);
             $duracion_minutos = intval($_POST['duracion_minutos'] ?? 30);
             $categoria = trim($_POST['categoria'] ?? 'General');
@@ -138,6 +140,7 @@ try {
                 'activo' => $activo
             ];
 
+            if (in_array('que_incluye', $columns)) $dataToInsert['que_incluye'] = $que_incluye;
             if (in_array('categoria', $columns)) $dataToInsert['categoria'] = $categoria;
             if (in_array('destacado', $columns)) $dataToInsert['destacado'] = $destacado;
             if (in_array('barbero_id', $columns)) $dataToInsert['barbero_id'] = $barbero_id;
@@ -179,6 +182,7 @@ try {
             $id = intval($_POST['id'] ?? 0);
             $nombre = trim($_POST['nombre'] ?? '');
             $descripcion = trim($_POST['descripcion'] ?? '');
+            $que_incluye = trim($_POST['que_incluye'] ?? '');
             $precio = floatval($_POST['precio'] ?? 0);
             $duracion_minutos = intval($_POST['duracion_minutos'] ?? 30);
             $categoria = trim($_POST['categoria'] ?? 'General');
@@ -214,6 +218,7 @@ try {
                 'activo' => $activo
             ];
 
+            if (in_array('que_incluye', $columns)) $dataToUpdate['que_incluye'] = $que_incluye;
             if (in_array('categoria', $columns)) $dataToUpdate['categoria'] = $categoria;
             if (in_array('destacado', $columns)) $dataToUpdate['destacado'] = $destacado;
             if (in_array('barbero_id', $columns)) $dataToUpdate['barbero_id'] = $barbero_id;

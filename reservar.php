@@ -771,12 +771,32 @@ $pageTitle = 'Reservar Cita';
                             exclusiveBadgeHtml = `<div style="font-size:0.75rem; color:var(--color-gold, #C0A062); font-weight:800; margin-top:2px;">⭐ Solo con ${bName}</div>`;
                         }
 
+                        let descHtml = s.descripcion ? `<p style="font-size:0.8rem; color:#888888; margin:4px 0 6px 0; line-height:1.35;">${s.descripcion}</p>` : '';
+
+                        let incluyeHtml = '';
+                        if (s.que_incluye && s.que_incluye.trim() !== '') {
+                            const lines = s.que_incluye.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                            const renderedList = lines.slice(0, 4).map(item => {
+                                const clean = item.replace(/^[•\-\*\✓\s]+/, '').trim();
+                                return `<div style="display:flex; align-items:flex-start; gap:4px; margin-bottom:2px;"><span style="color:var(--color-gold, #C0A062); font-size:0.72rem; flex-shrink:0;">✓</span><span>${clean}</span></div>`;
+                            }).join('');
+                            
+                            incluyeHtml = `
+                                <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-left:2.5px solid var(--color-gold, #C0A062); border-radius:4px; padding:6px 8px; margin:6px 0 8px 0; text-align:left; font-size:0.74rem; color:#CCCCCC; line-height:1.3;">
+                                    <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--color-gold, #C0A062); margin-bottom:3px; letter-spacing:0.4px;">Incluye:</div>
+                                    ${renderedList}
+                                </div>
+                            `;
+                        }
+
                         el.innerHTML = `
                             ${imageHtml}
-                            <h3 style="margin:5px 0;">${s.nombre}</h3>
-                            <p style="font-size:0.9rem; color:#666; margin-bottom:2px;">${s.duracion_minutos} min</p>
+                            <h3 style="margin:5px 0 2px 0;">${s.nombre}</h3>
+                            <p style="font-size:0.85rem; color:#777; margin-bottom:2px;">${s.duracion_minutos} min</p>
                             ${exclusiveBadgeHtml}
-                            <span class="price" style="font-size:1.1rem; margin-top:4px; display:block;">$${s.precio}</span>
+                            ${descHtml}
+                            ${incluyeHtml}
+                            <span class="price" style="font-size:1.1rem; margin-top:4px; display:block; font-weight:800; color:#FFFFFF;">$${s.precio}</span>
                         `;
                         grid.appendChild(el);
                     });

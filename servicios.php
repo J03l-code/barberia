@@ -220,8 +220,22 @@ include 'includes/header.php';
                                     </span>
                                 <?php endif; ?>
                                 <?php if ($servicio['descripcion']): ?>
-                                    <div class="service-description">
+                                    <div class="service-description" style="margin-top: 2px;">
                                         <?php echo htmlspecialchars($servicio['descripcion']); ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if (!empty($servicio['que_incluye'])): ?>
+                                    <div style="margin-top: 6px; font-size: 11.5px; background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 3px solid #10B981; border-radius: 4px; padding: 5px 9px; color: #334155; line-height: 1.4; max-width: 380px;">
+                                        <div style="font-weight: 700; color: #059669; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
+                                            ✓ Incluye:
+                                        </div>
+                                        <div style="white-space: pre-line; color: #475569;"><?php echo htmlspecialchars($servicio['que_incluye']); ?></div>
+                                    </div>
+                                <?php else: ?>
+                                    <div style="margin-top: 4px;">
+                                        <a href="servicios_editar.php?id=<?php echo $servicio['id']; ?>" style="font-size: 11px; color: #6B7280; text-decoration: none; font-style: italic;">
+                                            + Especificar qué incluye
+                                        </a>
                                     </div>
                                 <?php endif; ?>
                             </div>

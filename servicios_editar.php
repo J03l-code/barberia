@@ -159,9 +159,21 @@ include 'includes/header.php';
         </div>
 
         <div class="form-group">
-            <label class="form-label">Descripción</label>
+            <label class="form-label">Descripción General</label>
             <textarea name="descripcion" class="form-textarea"
-                placeholder="Corte tradicional con máquina y tijera, incluye lavado"><?php echo $isEdit ? htmlspecialchars($servicio['descripcion']) : ''; ?></textarea>
+                placeholder="Breve resumen del estilo o concepto del servicio"><?php echo $isEdit ? htmlspecialchars($servicio['descripcion']) : ''; ?></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>¿Qué Incluye el Servicio?</span>
+                <span style="font-size: 11px; color: #10B981; font-weight: 700; text-transform: none; background: #ECFDF5; padding: 2px 8px; border-radius: 4px; border: 1px solid #A7F3D0;">✓ Se muestra a los clientes</span>
+            </label>
+            <textarea name="que_incluye" class="form-textarea" style="min-height: 120px;"
+                placeholder="Detalla lo que incluye este servicio. Ej:&#10;• Lavado capilar con shampoo premium&#10;• Asesoría de visagismo&#10;• Corte de precisión a máquina y tijera&#10;• Perfilado de contornos a navaja&#10;• Peinado final con cera mate"><?php echo $isEdit ? htmlspecialchars($servicio['que_incluye'] ?? '') : ''; ?></textarea>
+            <small style="color: var(--text-muted); font-size: 0.8em; display: block; margin-top: 4px;">
+                Escribe cada beneficio o paso del servicio (puedes usar viñetas • o un ítem por renglón).
+            </small>
         </div>
 
         <div class="form-group">

@@ -156,9 +156,58 @@
 .service-card__desc {
     font-size: var(--text-sm);
     color: var(--color-gray);
+    margin-bottom: var(--space-3);
+    line-height: 1.45;
+}
+
+.service-card__includes {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
     margin-bottom: var(--space-4);
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
     flex-grow: 1;
-    /* Pushes footer down */
+}
+
+.service-card__includes-title {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--color-gold, #D4AF37);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.service-card__includes-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.service-card__includes-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--color-gray-light, #E0E0E0);
+    line-height: 1.35;
+}
+
+.service-card__includes-icon {
+    color: var(--color-gold, #D4AF37);
+    font-size: 0.75rem;
+    font-weight: 900;
+    flex-shrink: 0;
+    margin-top: 1px;
 }
 
 .service-card__footer {
