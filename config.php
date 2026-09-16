@@ -387,6 +387,43 @@ function getCategoriasServicios($pdo = null, $onlyActive = true)
 }
 
 /**
+ * Obtener configuraciones del sistema desde la base de datos
+ */
+function getSystemConfigs($pdo = null)
+{
+    if (!$pdo) $pdo = getConnection();
+    $configs = [
+        'puntos_por_corte' => '100',
+        'puntos_por_referido' => '200',
+        'descuento_referido_amigo' => '2.00',
+        'descuento_referente' => '2.00',
+        'puntos_nivel_plata' => '500',
+        'puntos_nivel_oro' => '1500',
+        'puntos_nivel_vip' => '3000',
+        'politica_reserva_titulo' => 'POLÍTICA DE RESERVAS',
+        'politica_reserva_texto' => "• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.\n• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.\n• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada para no afectar los turnos siguientes.\n• Cuidamos tu tiempo y el de los demás caballeros.",
+        'politica_reserva_check_texto' => 'He leído y acepto la política de reserva y condiciones de puntualidad.',
+        'politica_reserva_requiere_check' => '1',
+        'smtp_host' => 'smtp.hostinger.com',
+        'smtp_port' => '465',
+        'smtp_user' => 'info@kortzen.com',
+        'smtp_pass' => 'Kortzen2026!'
+    ];
+
+    try {
+        $stmt = $pdo->query("SELECT clave, valor FROM configuracion");
+        if ($stmt) {
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $r) {
+                $configs[$r['clave']] = $r['valor'];
+            }
+        }
+    } catch (Throwable $e) {}
+
+    return $configs;
+}
+
+/**
  * Verificar si el usuario está autenticado
  * @return bool
  */

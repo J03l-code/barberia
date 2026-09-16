@@ -13,6 +13,13 @@ if (!isClienteLoggedIn()) {
 
 $cliente = getCurrentCliente();
 $pageTitle = 'Reservar Cita';
+
+// Cargar configuraciones del sistema (incluyendo política de reservas)
+$systemConfigs = getSystemConfigs();
+$politicaTitulo = $systemConfigs['politica_reserva_titulo'] ?? 'POLÍTICA DE RESERVAS';
+$politicaTexto = $systemConfigs['politica_reserva_texto'] ?? "• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.\n• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.\n• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada para no afectar los turnos siguientes.\n• Cuidamos tu tiempo y el de los demás caballeros.";
+$politicaCheckTexto = $systemConfigs['politica_reserva_check_texto'] ?? 'He leído y acepto la política de reserva y condiciones de puntualidad.';
+$politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '1') === '1';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -597,28 +604,46 @@ $pageTitle = 'Reservar Cita';
                     </div>
                 </div>
 
-                <div class="policy-section" style="margin-bottom: 14px; padding: 12px; background: #FAFAFA; border: 1px solid #EAEAEA; border-radius: 12px;">
-                    <h4 style="margin: 0 0 5px 0; color: #111111; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">POLÍTICA DE RESERVAS</h4>
-                    <ul style="font-size: 0.78rem; color: #555555; padding-left: 14px; margin: 0 0 8px 0; line-height: 1.35;">
-                        <li style="margin-bottom: 4px;">Si no puede llegar a su cita, informar con 1 hora de anticipación.</li>
-                        <li>Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.</li>
-                    </ul>
-                    <div style="display: flex; align-items: center; gap: 8px; border-top: 1px dashed #DDD; padding-top: 8px;">
-                        <input type="checkbox" id="policyCheckbox" style="width: 18px; height: 18px; accent-color: #111111; cursor: pointer; flex-shrink:0;">
-                        <label for="policyCheckbox" style="color: #111111; font-size: 0.78rem; font-weight: 700; cursor: pointer; user-select: none;">
-                            He leído y acepto los términos y condiciones.
-                        </label>
+                <div class="policy-section" style="margin-bottom: 14px; padding: 14px; background: #FAFAFA; border: 1px solid #EAEAEA; border-radius: 12px;">
+                    <h4 style="margin: 0 0 8px 0; color: #111111; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C0A062" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        <span><?php echo htmlspecialchars($politicaTitulo); ?></span>
+                    </h4>
+                    <div style="font-size: 0.78rem; color: #4B5563; line-height: 1.45; margin-bottom: 10px;">
+                        <?php 
+                        $linesPol = array_filter(array_map('trim', explode("\n", $politicaTexto)));
+                        if (count($linesPol) > 1):
+                        ?>
+                            <ul style="padding-left: 14px; margin: 0; display: flex; flex-direction: column; gap: 4px;">
+                                <?php foreach ($linesPol as $l): 
+                                    $cleanL = preg_replace('/^[•\-\*\✓\s]+/', '', $l);
+                                    if (!empty($cleanL)):
+                                ?>
+                                    <li><?php echo htmlspecialchars($cleanL); ?></li>
+                                <?php endif; endforeach; ?>
+                            </ul>
+                        <?php else: ?>
+                            <p style="margin: 0;"><?php echo nl2br(htmlspecialchars($politicaTexto)); ?></p>
+                        <?php endif; ?>
                     </div>
+                    <?php if ($politicaRequiereCheck): ?>
+                        <div style="display: flex; align-items: center; gap: 8px; border-top: 1px dashed #DDD; padding-top: 8px;">
+                            <input type="checkbox" id="policyCheckbox" style="width: 18px; height: 18px; accent-color: #111111; cursor: pointer; flex-shrink:0;">
+                            <label for="policyCheckbox" style="color: #111111; font-size: 0.78rem; font-weight: 700; cursor: pointer; user-select: none;">
+                                <?php echo htmlspecialchars($politicaCheckTexto); ?>
+                            </label>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
-                <button id="btnConfirmBooking" class="btn btn-next" style="width:100%; background:#111111; color:#FFFFFF; font-size:0.85rem; font-weight: 800; padding: 12px; border:none; border-radius:10px; opacity: 0.4; cursor: not-allowed; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s;" disabled>
+                <button id="btnConfirmBooking" class="btn btn-next" style="width:100%; background:#111111; color:#FFFFFF; font-size:0.85rem; font-weight: 800; padding: 12px; border:none; border-radius:10px; <?php echo $politicaRequiereCheck ? 'opacity: 0.4; cursor: not-allowed;' : 'opacity: 1; cursor: pointer;'; ?> text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s;" <?php echo $politicaRequiereCheck ? 'disabled' : ''; ?>>
                     CONFIRMAR RESERVA
                 </button>
             </div>
         </div>
 
         <script>
-            // Policy Checkbox Logic (Inline for immediate effect, though will be moved to main script block if preferred)
+            // Policy Checkbox Logic
             document.addEventListener('DOMContentLoaded', () => {
                 const checkbox = document.getElementById('policyCheckbox');
                 const btnConfirm = document.getElementById('btnConfirmBooking');
@@ -631,7 +656,7 @@ $pageTitle = 'Reservar Cita';
                             btnConfirm.style.cursor = 'pointer';
                         } else {
                             btnConfirm.disabled = true;
-                            btnConfirm.style.opacity = '0.5';
+                            btnConfirm.style.opacity = '0.4';
                             btnConfirm.style.cursor = 'not-allowed';
                         }
                     });

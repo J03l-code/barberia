@@ -29,6 +29,11 @@ if ($action === 'save_configs') {
         $smtp_user = trim($_POST['smtp_user'] ?? '');
         $smtp_pass = trim($_POST['smtp_pass'] ?? '');
 
+        $politica_reserva_titulo = trim($_POST['politica_reserva_titulo'] ?? 'POLÍTICA DE RESERVAS');
+        $politica_reserva_texto = trim($_POST['politica_reserva_texto'] ?? '');
+        $politica_reserva_check_texto = trim($_POST['politica_reserva_check_texto'] ?? 'He leído y acepto la política de reserva y condiciones de puntualidad.');
+        $politica_reserva_requiere_check = (isset($_POST['politica_reserva_requiere_check']) && $_POST['politica_reserva_requiere_check'] === '0') ? '0' : '1';
+
         $configs = [
             'puntos_por_corte' => (string)$puntos_por_corte,
             'puntos_por_referido' => (string)$puntos_por_referido,
@@ -37,6 +42,10 @@ if ($action === 'save_configs') {
             'puntos_nivel_plata' => (string)$puntos_nivel_plata,
             'puntos_nivel_oro' => (string)$puntos_nivel_oro,
             'puntos_nivel_vip' => (string)$puntos_nivel_vip,
+            'politica_reserva_titulo' => $politica_reserva_titulo,
+            'politica_reserva_texto' => $politica_reserva_texto,
+            'politica_reserva_check_texto' => $politica_reserva_check_texto,
+            'politica_reserva_requiere_check' => $politica_reserva_requiere_check,
             'smtp_host' => $smtp_host,
             'smtp_port' => (string)$smtp_port,
             'smtp_user' => $smtp_user,

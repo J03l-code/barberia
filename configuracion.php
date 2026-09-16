@@ -33,7 +33,11 @@ try {
         ['descuento_referente', '2.00', 'Descuento ($) otorgado al cliente referente para su próxima cita'],
         ['puntos_nivel_plata', '500', 'Puntos requeridos para alcanzar Nivel Plata'],
         ['puntos_nivel_oro', '1500', 'Puntos requeridos para alcanzar Nivel Oro'],
-        ['puntos_nivel_vip', '3000', 'Puntos requeridos para alcanzar Nivel VIP / Máximo']
+        ['puntos_nivel_vip', '3000', 'Puntos requeridos para alcanzar Nivel VIP / Máximo'],
+        ['politica_reserva_titulo', 'POLÍTICA DE RESERVAS', 'Título del cuadro de política en el proceso de reserva'],
+        ['politica_reserva_texto', "• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.\n• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.\n• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada para no afectar los turnos siguientes.\n• Cuidamos tu tiempo y el de los demás caballeros.", 'Cláusulas y términos de la política de reserva'],
+        ['politica_reserva_check_texto', 'He leído y acepto la política de reserva y condiciones de puntualidad.', 'Texto de aceptación que el cliente debe marcar'],
+        ['politica_reserva_requiere_check', '1', 'Si es obligatorio aceptar el checkbox (1 = Sí, 0 = No)']
     ];
 
     $stmtCfg = $pdo->prepare("INSERT INTO configuracion (clave, valor, descripcion) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion)");
@@ -317,6 +321,52 @@ include 'includes/header.php';
             <div>
                 <label class="config-label">Contraseña de Correo SMTP</label>
                 <input type="password" name="smtp_pass" placeholder="••••••••••••" value="<?php echo htmlspecialchars($configs['smtp_pass'] ?? 'Kortzen2026!'); ?>" class="config-input">
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjeta de Política de Reservas & Términos de Cita -->
+    <div class="config-card">
+        <h3 class="config-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <svg class="config-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <span>Política de Reservas & Condiciones de Cita</span>
+            </div>
+            <span style="font-size: 0.75rem; background: #ECFDF5; color: #047857; padding: 4px 12px; border-radius: 20px; font-weight: 800; border: 1px solid #A7F3D0;">
+                ✓ Se muestra al cliente antes de agendar
+            </span>
+        </h3>
+        <p style="color: #666666; font-size: 0.88rem; margin-bottom: 20px; line-height: 1.5;">
+            Personaliza las políticas de puntualidad, tolerancia y aviso de cancelación que los clientes leen y aceptan en el paso final del asistente de reserva.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div>
+                <label class="config-label">Título del Cuadro de Políticas</label>
+                <input type="text" name="politica_reserva_titulo" value="<?php echo htmlspecialchars($configs['politica_reserva_titulo'] ?? 'POLÍTICA DE RESERVAS'); ?>" class="config-input" placeholder="POLÍTICA DE RESERVAS" required>
+            </div>
+
+            <div>
+                <label class="config-label">Cláusulas y Reglas de la Cita (Un ítem por renglón)</label>
+                <textarea name="politica_reserva_texto" class="config-input" style="min-height: 140px; font-family: inherit; font-size: 0.92rem; font-weight: 500; resize: vertical; line-height: 1.5;" placeholder="• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.&#10;• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.&#10;• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada.&#10;• Cuidamos tu tiempo y el de los demás caballeros."><?php echo htmlspecialchars($configs['politica_reserva_texto'] ?? "• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.\n• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.\n• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada para no afectar los turnos siguientes.\n• Cuidamos tu tiempo y el de los demás caballeros."); ?></textarea>
+                <small class="config-help">Puedes ingresar viñetas (•) o escribir línea a línea. El sistema las formateará automáticamente para el cliente.</small>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                <div>
+                    <label class="config-label">Texto de la Casilla de Aceptación (Checkbox)</label>
+                    <input type="text" name="politica_reserva_check_texto" value="<?php echo htmlspecialchars($configs['politica_reserva_check_texto'] ?? 'He leído y acepto la política de reserva y condiciones de puntualidad.'); ?>" class="config-input" required>
+                    <small class="config-help">Frase de consentimiento que el cliente debe leer junto a la casilla de verificación.</small>
+                </div>
+
+                <div>
+                    <label class="config-label">¿Exigir Checkbox para Reservar?</label>
+                    <select name="politica_reserva_requiere_check" class="config-input" style="cursor: pointer;">
+                        <option value="1" <?php echo (($configs['politica_reserva_requiere_check'] ?? '1') === '1') ? 'selected' : ''; ?>>Sí, Obligatorio para agendar</option>
+                        <option value="0" <?php echo (($configs['politica_reserva_requiere_check'] ?? '1') === '0') ? 'selected' : ''; ?>>No, Solo Informativo</option>
+                    </select>
+                    <small class="config-help">Si es obligatorio, el botón no se habilitará hasta que se marque la casilla.</small>
+                </div>
             </div>
         </div>
     </div>
