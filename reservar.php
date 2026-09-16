@@ -728,7 +728,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 const sObj = allServicesList.find(s => s.id == urlServicioId);
                 if (sObj) {
                     const cardEl = document.querySelector(`#servicesGrid .option-card[data-service-id="${sObj.id}"]`);
-                    selectService(sObj.id, sObj.nombre, sObj.precio, cardEl, sObj.barbero_id, sObj.barbero_nombre);
+                    selectService(sObj.id, sObj.nombre, sObj.precio, cardEl, sObj.barbero_id, sObj.barbero_nombre, sObj.barberos_ids);
                 }
             }
         });
@@ -799,7 +799,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         if (bookingData.serviceId && bookingData.serviceId == s.id) {
                             el.classList.add('selected');
                         }
-                        el.onclick = () => selectService(s.id, s.nombre, s.precio, el, s.barbero_id, s.barbero_nombre);
+                        el.onclick = () => selectService(s.id, s.nombre, s.precio, el, s.barbero_id, s.barbero_nombre, s.barberos_ids);
 
                         let imageHtml = '';
                         if (s.foto_url && s.foto_url.trim() !== '') {
@@ -1048,7 +1048,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         // --- Actions ---
 
-        function selectService(id, name, price, el, barberoId = null, barberoNombre = null) {
+        function selectService(id, name, price, el, barberoId = null, barberoNombre = null, barberosIds = []) {
             bookingData.serviceId = id;
             bookingData.serviceName = name;
             bookingData.servicePrice = price;
@@ -1058,7 +1058,69 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             document.querySelectorAll('#servicesGrid .option-card').forEach(c => c.classList.remove('selected'));
             if (el) el.classList.add('selected');
 
-            // Determinar si el corte es exclusivo de un barbero (ej: Mateo Álvaro)
+            // Determinar si hay lista específica de barberos habilitados
+            let assignedIds = [];
+            if (Array.isArray(barberosIds) && barberosIds.length > 0) {
+                assignedIds = barberosIds.map(v => parseInt(v));
+            } else if (allServicesList && allServicesList.length > 0) {
+                const foundS = allServicesList.find(s => s.id == id);
+                if (foundS && Array.isArray(foundS.barberos_ids) && foundS.barberos_ids.length > 0) {
+                    assignedIds = foundS.barberos_ids.map(v => parseInt(v));
+                }
+            }
+
+            // Si hay barberos asignados expresamente en la matriz
+            if (assignedIds.length > 0) {
+                const filteredBarbers = allBarbersList.filter(b => assignedIds.includes(parseInt(b.id)));
+                
+                if (filteredBarbers.length === 1) {
+                    // Solo 1 barbero asignado -> Tratar como Exclusivo y auto-seleccionar
+                    const targetBarber = filteredBarbers[0];
+                    renderBarbersList([targetBarber], true, targetBarber.nombre);
+                    
+                    bookingData.barberId = targetBarber.id;
+                    bookingData.barberName = targetBarber.nombre;
+
+                    const bCard = document.querySelector(`#barbersGrid .option-card[data-barber-id="${targetBarber.id}"]`);
+                    if (bCard) bCard.classList.add('selected');
+
+                    updateNavButtons();
+
+                    // Auto-avanzar directamente al Paso 3 (Fecha y Hora)
+                    setTimeout(() => {
+                        currentStep = 3;
+                        showStep(currentStep);
+                    }, 350);
+                } else if (filteredBarbers.length > 1) {
+                    // Múltiples barberos habilitados -> Mostrar solo los habilitados
+                    bookingData.barberId = null;
+                    bookingData.barberName = null;
+                    renderBarbersList(filteredBarbers, false);
+
+                    updateNavButtons();
+
+                    // Auto-avanzar al Paso 2 (Elegir Barbero)
+                    setTimeout(() => {
+                        currentStep = 2;
+                        showStep(currentStep);
+                    }, 300);
+                } else {
+                    // Los barberos habilitados no pertenecen a esta sucursal
+                    bookingData.barberId = null;
+                    bookingData.barberName = null;
+                    renderBarbersList([], false);
+
+                    updateNavButtons();
+
+                    setTimeout(() => {
+                        currentStep = 2;
+                        showStep(currentStep);
+                    }, 300);
+                }
+                return;
+            }
+
+            // Fallback: Determinar si el corte es exclusivo de un barbero por barbero_id o nombre (ej: Mateo Álvaro)
             const isMateoService = name.toLowerCase().includes('mateo');
             let targetBarber = null;
 

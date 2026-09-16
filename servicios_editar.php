@@ -240,25 +240,73 @@ include 'includes/header.php';
         </div>
 
         <div class="form-group">
-            <label class="form-label">Barbero Asignado / Exclusivo (Opcional)</label>
-            <select name="barbero_id" class="form-select">
-                <option value="">-- Disponible para Todos los Barberos --</option>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="form-label" style="margin-bottom: 0;">Barberos Disponibles para este Servicio</label>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" onclick="toggleAllBarbers(true)" style="font-size: 11px; background: #F3F4F6; border: 1px solid #D1D5DB; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #374151; font-weight: 600;">
+                        ✓ Todos
+                    </button>
+                    <button type="button" onclick="toggleAllBarbers(false)" style="font-size: 11px; background: #F3F4F6; border: 1px solid #D1D5DB; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #374151; font-weight: 600;">
+                        ✗ Ninguno
+                    </button>
+                </div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; padding: 12px; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; background: #FAFAFA;">
                 <?php
-                $barberosList = query("SELECT id, nombre, rol FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local' OR rol = 'admin') ORDER BY nombre ASC");
-                $currentBarberId = $servicio['barbero_id'] ?? null;
-                // If not set but name has mateo, match mateo
+                $barberosList = query("SELECT u.id, u.nombre, u.rol, s.nombre as sucursal_nombre FROM usuarios u LEFT JOIN sucursales s ON u.sucursal_id = s.id WHERE u.activo = 1 AND (u.rol = 'barbero' OR u.rol = 'admin_local' OR u.rol = 'admin') ORDER BY u.nombre ASC");
+                
+                // Get assigned barbers
+                $assignedBarbers = [];
+                if ($isEdit) {
+                    try {
+                        $assignedB = query("SELECT barbero_id FROM servicios_barberos WHERE servicio_id = ?", [$servicio['id']]);
+                        if (!empty($assignedB)) {
+                            $assignedBarbers = array_column($assignedB, 'barbero_id');
+                        } elseif (!empty($servicio['barbero_id'])) {
+                            $assignedBarbers = [intval($servicio['barbero_id'])];
+                        } else {
+                            // If never customized, default to all barbers
+                            $assignedBarbers = array_column($barberosList, 'id');
+                        }
+                    } catch (Throwable $e) {
+                        if (!empty($servicio['barbero_id'])) {
+                            $assignedBarbers = [intval($servicio['barbero_id'])];
+                        } else {
+                            $assignedBarbers = array_column($barberosList, 'id');
+                        }
+                    }
+                } else {
+                    $assignedBarbers = array_column($barberosList, 'id');
+                }
+
                 foreach ($barberosList as $b):
-                    $isSelected = ($currentBarberId && $currentBarberId == $b['id']) || (!$currentBarberId && stripos($servicio['nombre'] ?? '', 'mateo') !== false && stripos($b['nombre'], 'mateo') !== false);
+                    $isChecked = in_array($b['id'], $assignedBarbers) ? 'checked' : '';
                 ?>
-                    <option value="<?php echo $b['id']; ?>" <?php echo $isSelected ? 'selected' : ''; ?>>
-                        ⭐ Solo <?php echo htmlspecialchars($b['nombre']); ?> (<?php echo ucfirst($b['rol']); ?>)
-                    </option>
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 13.5px; padding: 4px 6px; border-radius: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#F3F4F6'" onmouseout="this.style.background='transparent'">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" name="barberos[]" value="<?php echo $b['id']; ?>" <?php echo $isChecked; ?> class="barber-checkbox"
+                                style="width: 16px; height: 16px; cursor: pointer; accent-color: #111827;">
+                            <span style="font-weight: 600; color: #1F2937;">
+                                <?php echo htmlspecialchars($b['nombre']); ?>
+                            </span>
+                        </div>
+                        <span style="font-size: 11px; color: #6B7280; background: #E5E7EB; padding: 2px 6px; border-radius: 4px;">
+                            <?php echo htmlspecialchars($b['sucursal_nombre'] ?? ucfirst($b['rol'])); ?>
+                        </span>
+                    </label>
                 <?php endforeach; ?>
-            </select>
+            </div>
             <small style="color: var(--text-muted); font-size: 0.8em; margin-top: 5px; display: block;">
-                Si seleccionas un barbero (ej: Mateo Álvaro), los clientes solo podrán reservar este servicio con él.
+                Marca qué barberos pueden realizar este servicio. Los clientes solo podrán reservar con los barberos seleccionados.
             </small>
         </div>
+
+        <script>
+            function toggleAllBarbers(check) {
+                document.querySelectorAll('.barber-checkbox').forEach(cb => cb.checked = check);
+            }
+        </script>
 
         <div class="form-group">
             <label class="form-label">Sucursales Disponibles</label>

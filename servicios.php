@@ -13,16 +13,37 @@ try {
     asegurarTablaCategorias($pdo);
     $categoriasList = getCategoriasServicios($pdo, false);
 
+    // Listado de todos los barberos activos para conteos
+    $totalActiveBarbers = $pdo->query("SELECT COUNT(*) FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local' OR rol = 'admin')")->fetchColumn();
+
     $sql = "SELECT s.*, cs.orden as cat_orden, u.nombre as barbero_asignado_nombre 
             FROM servicios s 
             LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre 
             LEFT JOIN usuarios u ON s.barbero_id = u.id 
             ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.activo DESC, s.nombre ASC";
     $servicios = query($sql);
+
+    // Obtener asignaciones de servicios_barberos
+    $barbersByService = [];
+    try {
+        $sbRows = $pdo->query("
+            SELECT sb.servicio_id, sb.barbero_id, u.nombre as barbero_nombre 
+            FROM servicios_barberos sb 
+            JOIN usuarios u ON sb.barbero_id = u.id 
+            WHERE u.activo = 1 
+            ORDER BY u.nombre ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($sbRows as $r) {
+            $barbersByService[$r['servicio_id']][] = $r['barbero_nombre'];
+        }
+    } catch (Throwable $e) {}
+
 } catch (PDOException $e) {
     error_log("Error al obtener servicios: " . $e->getMessage());
     $servicios = [];
     $categoriasList = [];
+    $barbersByService = [];
+    $totalActiveBarbers = 0;
 }
 
 $pageTitle = 'Servicios';
@@ -212,13 +233,23 @@ include 'includes/header.php';
                                     <?php echo htmlspecialchars($servicio['nombre']); ?>
                                 </strong>
                                 <?php 
-                                $bNom = !empty($servicio['barbero_asignado_nombre']) ? $servicio['barbero_asignado_nombre'] : (stripos($servicio['nombre'], 'mateo') !== false ? 'Mateo Álvaro' : null);
-                                if ($bNom): 
+                                $assignedList = $barbersByService[$servicio['id']] ?? [];
+                                $singleB = !empty($servicio['barbero_asignado_nombre']) ? $servicio['barbero_asignado_nombre'] : (stripos($servicio['nombre'], 'mateo') !== false ? 'Mateo Álvaro' : null);
+                                
+                                if (!empty($assignedList)) {
+                                    if (count($assignedList) === 1) {
+                                        echo '<span style="display: inline-block; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 6px;">⭐ Solo ' . htmlspecialchars($assignedList[0]) . '</span>';
+                                    } elseif ($totalActiveBarbers > 0 && count($assignedList) < $totalActiveBarbers) {
+                                        echo '<span style="display: inline-block; background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 6px;" title="' . htmlspecialchars(implode(', ', $assignedList)) . '">✂️ ' . count($assignedList) . ' barberos habilitados</span>';
+                                    } else {
+                                        echo '<span style="display: inline-block; background: #F3F4F6; color: #4B5563; border: 1px solid #E5E7EB; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 6px;">👥 Todos los barberos</span>';
+                                    }
+                                } elseif ($singleB) {
+                                    echo '<span style="display: inline-block; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 6px;">⭐ Solo ' . htmlspecialchars($singleB) . '</span>';
+                                } else {
+                                    echo '<span style="display: inline-block; background: #F3F4F6; color: #4B5563; border: 1px solid #E5E7EB; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 6px;">👥 Todos los barberos</span>';
+                                }
                                 ?>
-                                    <span style="display: inline-block; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 6px;">
-                                        ⭐ Solo <?php echo htmlspecialchars($bNom); ?>
-                                    </span>
-                                <?php endif; ?>
                                 <?php if ($servicio['descripcion']): ?>
                                     <div class="service-description" style="margin-top: 2px;">
                                         <?php echo htmlspecialchars($servicio['descripcion']); ?>

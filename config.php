@@ -211,6 +211,19 @@ function getConnection()
 
                 try {
                     $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS servicios_barberos (
+                            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                            servicio_id INT UNSIGNED NOT NULL,
+                            barbero_id INT UNSIGNED NOT NULL,
+                            UNIQUE KEY uk_servicio_barbero (servicio_id, barbero_id),
+                            INDEX idx_servicio (servicio_id),
+                            INDEX idx_barbero (barbero_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    ");
+                } catch (Throwable $e_sb) {}
+
+                try {
+                    $pdo->exec("
                         CREATE TABLE IF NOT EXISTS push_subscriptions (
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             cliente_id INT NULL,

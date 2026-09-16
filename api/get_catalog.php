@@ -74,22 +74,52 @@ try {
             }
         } catch (Throwable $eb) {}
 
+        // Fetch assigned barbers per service from servicios_barberos
+        $serviceBarbersMap = [];
+        try {
+            $sbRows = $pdo->query("SELECT servicio_id, barbero_id FROM servicios_barberos")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($sbRows as $r) {
+                $sId = intval($r['servicio_id']);
+                $bId = intval($r['barbero_id']);
+                if (isset($allBarbersMap[$bId])) {
+                    $serviceBarbersMap[$sId][] = $bId;
+                }
+            }
+        } catch (Throwable $e_sb) {}
+
         $data = [];
         foreach ($raw_data as $s) {
+            $sId = intval($s['id']);
             $foto = !empty($s['foto_url']) ? $s['foto_url'] : (!empty($s['imagen_url']) ? $s['imagen_url'] : (!empty($s['foto']) ? $s['foto'] : ''));
             $s['foto_url'] = $foto;
             $s['imagen_url'] = $foto;
             $s['categoria'] = !empty($s['categoria']) ? $s['categoria'] : 'General';
             $s['que_incluye'] = !empty($s['que_incluye']) ? $s['que_incluye'] : '';
             
-            $bId = !empty($s['barbero_id']) ? intval($s['barbero_id']) : null;
-            // Smart auto-detection for Mateo services if barbero_id not explicitly set
-            if (!$bId && stripos($s['nombre'], 'mateo') !== false && $mateoBarber) {
-                $bId = intval($mateoBarber['id']);
-            }
+            $assignedBIds = $serviceBarbersMap[$sId] ?? [];
             
-            $s['barbero_id'] = $bId;
-            $s['barbero_nombre'] = ($bId && isset($allBarbersMap[$bId])) ? $allBarbersMap[$bId] : ($bId && $mateoBarber && $bId == $mateoBarber['id'] ? $mateoBarber['nombre'] : null);
+            // Fallback to legacy single barbero_id or Mateo smart detection
+            if (empty($assignedBIds)) {
+                $singleBId = !empty($s['barbero_id']) ? intval($s['barbero_id']) : null;
+                if (!$singleBId && stripos($s['nombre'], 'mateo') !== false && $mateoBarber) {
+                    $singleBId = intval($mateoBarber['id']);
+                }
+                if ($singleBId) {
+                    $assignedBIds = [$singleBId];
+                }
+            }
+
+            $s['barberos_ids'] = $assignedBIds;
+
+            if (count($assignedBIds) === 1) {
+                $singleId = $assignedBIds[0];
+                $s['barbero_id'] = $singleId;
+                $s['barbero_nombre'] = $allBarbersMap[$singleId] ?? 'Barbero Especialista';
+            } else {
+                $s['barbero_id'] = null;
+                $s['barbero_nombre'] = null;
+            }
+
             $data[] = $s;
         }
         echo json_encode(['servicios' => $data]);

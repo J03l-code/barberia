@@ -19,7 +19,7 @@ $action = $_POST['action'] ?? '';
 try {
     $pdo = getConnection();
 
-    // Helper: asegurar tabla servicios_sucursales y columnas en 'servicios'
+    // Helper: asegurar tablas servicios_sucursales, servicios_barberos y columnas en 'servicios'
     $ensureServiciosSchema = function() use ($pdo) {
         try {
             $pdo->exec("
@@ -30,6 +30,20 @@ try {
                     PRIMARY KEY (`id`),
                     UNIQUE KEY `uk_servicio_sucursal` (`servicio_id`, `sucursal_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ");
+        } catch (Exception $e) {}
+
+        try {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `servicios_barberos` (
+                    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `servicio_id` INT UNSIGNED NOT NULL,
+                    `barbero_id` INT UNSIGNED NOT NULL,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uk_servicio_barbero` (`servicio_id`, `barbero_id`),
+                    INDEX `idx_servicio` (`servicio_id`),
+                    INDEX `idx_barbero` (`barbero_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
         } catch (Exception $e) {}
 
@@ -105,17 +119,24 @@ try {
             $categoria = trim($_POST['categoria'] ?? 'General');
             $activo = intval($_POST['activo'] ?? 1);
             $destacado = isset($_POST['destacado']) ? 1 : 0;
-            $barbero_id = !empty($_POST['barbero_id']) ? intval($_POST['barbero_id']) : null;
             $sucursales = $_POST['sucursales'] ?? [];
+            $barberos = isset($_POST['barberos']) && is_array($_POST['barberos']) ? array_map('intval', $_POST['barberos']) : [];
+            
+            // Si solo vino un barbero_id tradicional en POST
+            if (empty($barberos) && !empty($_POST['barbero_id'])) {
+                $barberos = [intval($_POST['barbero_id'])];
+            }
 
-            // Auto-asociar con Mateo si el nombre del corte lo especifica y no se eligió otro barbero
-            if (!$barbero_id && stripos($nombre, 'mateo') !== false) {
+            // Auto-asociar con Mateo si el nombre del corte lo especifica y no se eligieron otros barberos
+            if (empty($barberos) && stripos($nombre, 'mateo') !== false) {
                 try {
                     $mStmt = $pdo->query("SELECT id FROM usuarios WHERE (nombre LIKE '%mateo%' OR email LIKE '%mateo%') AND activo = 1 LIMIT 1");
                     $mId = $mStmt ? $mStmt->fetchColumn() : null;
-                    if ($mId) $barbero_id = intval($mId);
+                    if ($mId) $barberos = [intval($mId)];
                 } catch (Exception $eMateo) {}
             }
+
+            $barbero_id = (count($barberos) === 1) ? $barberos[0] : null;
 
             if (empty($nombre)) {
                 throw new Exception('El nombre del servicio es obligatorio.');
@@ -174,6 +195,21 @@ try {
                 }
             }
 
+            // Guardar asignación de barberos disponibles
+            if ($servicioId) {
+                try {
+                    $pdo->prepare("DELETE FROM servicios_barberos WHERE servicio_id = ?")->execute([$servicioId]);
+                    if (!empty($barberos)) {
+                        $bStmt = $pdo->prepare("INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id) VALUES (?, ?)");
+                        foreach ($barberos as $bId) {
+                            $bStmt->execute([$servicioId, intval($bId)]);
+                        }
+                    }
+                } catch (Exception $e_relb) {
+                    error_log("Error vinculando barberos de servicio: " . $e_relb->getMessage());
+                }
+            }
+
             registrarLog('CREAR', 'servicios', $servicioId, "Servicio '$nombre' creado exitosamente (Precio: $$precio, $duracion_minutos min)");
             header('Location: ../servicios.php?success=' . urlencode("Servicio '$nombre' creado exitosamente"));
             exit;
@@ -188,8 +224,15 @@ try {
             $categoria = trim($_POST['categoria'] ?? 'General');
             $activo = intval($_POST['activo'] ?? 1);
             $destacado = isset($_POST['destacado']) ? 1 : 0;
-            $barbero_id = (isset($_POST['barbero_id']) && $_POST['barbero_id'] !== '') ? intval($_POST['barbero_id']) : null;
             $sucursales = $_POST['sucursales'] ?? [];
+            $barberos = isset($_POST['barberos']) && is_array($_POST['barberos']) ? array_map('intval', $_POST['barberos']) : [];
+            
+            // Si solo vino un barbero_id tradicional en POST y no vino el array
+            if (empty($barberos) && isset($_POST['barbero_id']) && $_POST['barbero_id'] !== '') {
+                $barberos = [intval($_POST['barbero_id'])];
+            }
+
+            $barbero_id = (count($barberos) === 1) ? $barberos[0] : null;
 
             if ($id <= 0) {
                 throw new Exception('ID de servicio no válido.');
@@ -254,6 +297,19 @@ try {
                 error_log("Error actualizando sucursales de servicio: " . $e_rel->getMessage());
             }
 
+            // Actualizar asignaciones de barberos
+            try {
+                $pdo->prepare("DELETE FROM servicios_barberos WHERE servicio_id = ?")->execute([$id]);
+                if (!empty($barberos)) {
+                    $insertStmt = $pdo->prepare("INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id) VALUES (?, ?)");
+                    foreach ($barberos as $bId) {
+                        $insertStmt->execute([$id, intval($bId)]);
+                    }
+                }
+            } catch (Exception $e_relb) {
+                error_log("Error actualizando barberos de servicio: " . $e_relb->getMessage());
+            }
+
             registrarLog('EDITAR', 'servicios', $id, "Servicio '$nombre' (#$id) actualizado exitosamente");
             header('Location: ../servicios.php?success=' . urlencode("Servicio '$nombre' actualizado exitosamente"));
             exit;
@@ -277,9 +333,10 @@ try {
             $sName = query("SELECT nombre FROM servicios WHERE id = ?", [$id]);
             $sNom = !empty($sName) ? $sName[0]['nombre'] : "ID #$id";
 
-            // Eliminar relaciones de sucursal
+            // Eliminar relaciones de sucursal y barberos
             try {
                 $pdo->prepare("DELETE FROM servicios_sucursales WHERE servicio_id = ?")->execute([$id]);
+                $pdo->prepare("DELETE FROM servicios_barberos WHERE servicio_id = ?")->execute([$id]);
             } catch (Exception $e) {}
 
             $sql = "DELETE FROM servicios WHERE id = ?";
