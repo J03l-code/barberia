@@ -344,7 +344,8 @@ function updateBranchInfoBar() {
                         ${fotoHtml}
                         <span style="color:#111111 !important; font-weight:800 !important;">${firstName}</span>
                     </a>
-                    <a href="logout.php" class="single-user-logout-link" title="Cerrar sesión" 
+                    <a href="/logout.php" class="single-user-logout-link" title="Cerrar sesión" 
+                       onclick="event.stopPropagation(); window.location.href='/logout.php';"
                        style="display:inline-flex; align-items:center; gap:3px; color:#dc3545 !important; background:rgba(220,53,69,0.08); padding:2px 7px; border-radius:4px; font-size:0.68rem; font-weight:800; text-decoration:none; margin-left:4px; border:1px solid rgba(220,53,69,0.25); transition:all 0.2s; white-space:nowrap; cursor:pointer !important; z-index:100002; pointer-events:auto !important;"
                        onmouseover="this.style.background='#dc3545'; this.style.color='#FFFFFF';"
                        onmouseout="this.style.background='rgba(220,53,69,0.08)'; this.style.color='#dc3545';">

@@ -11,15 +11,31 @@ if ($isStaff) {
 // Destruir todas las variables de sesión
 $_SESSION = array();
 
-// Destruir la cookie de sesión y cookies PWA persistentes
+// Destruir la cookie de sesión
 if (isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 3600, '/');
+    setcookie(session_name(), '', time() - 86400, '/');
 }
-setcookie('kortzen_pwa_client_id', '', time() - 3600, '/');
-setcookie('kortzen_pwa_user_id', '', time() - 3600, '/');
+
+// Destruir cookies persistentes (Token de cliente PWA, usuario, etc.)
+$cookiesToDelete = [
+    'kortzen_pwa_token',
+    'kortzen_pwa_client_id',
+    'kortzen_pwa_user_id',
+    'kortzen_client_id',
+    'kortzen_auth'
+];
+
+foreach ($cookiesToDelete as $cName) {
+    setcookie($cName, '', time() - 86400, '/');
+    setcookie($cName, '', time() - 86400, '/', '', false, true);
+    setcookie($cName, '', time() - 86400, '/', '', true, true);
+    unset($_COOKIE[$cName]);
+}
 
 // Destruir la sesión
-session_destroy();
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_destroy();
+}
 
 // Si viene parámetro redirect explícito
 if (!empty($_GET['redirect'])) {
