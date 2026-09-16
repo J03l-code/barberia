@@ -301,29 +301,65 @@ try {
 
 $proximo = $nextClient ? $nextClient[0] : null;
 
-// 3. Turnos de Hoy
-$turnosHoy = [];
+// 3. Agenda de Citas: Hoy y Próximos Días
+$citasAgenda = [];
 try {
-    $turnosHoy = query("
-        SELECT c.*, s.nombre as servicio, s.duracion_minutos, cli.nombre as cliente, cli.telefono as cliente_telefono, cli.estilo_buscado, cli.ambiente_preferido, cli.bebida_preferida
+    $citasAgenda = query("
+        SELECT c.*, 
+               s.nombre as servicio, s.duracion_minutos, s.precio as servicio_precio,
+               cli.id as cliente_id_bd, cli.nombre as cliente, cli.telefono as cliente_telefono, 
+               cli.email as cliente_email, cli.foto_perfil, cli.notas_barbero, 
+               cli.estilo_buscado, cli.ambiente_preferido, cli.bebida_preferida
         FROM citas c
         LEFT JOIN servicios s ON c.servicio_id = s.id
         LEFT JOIN clientes cli ON c.cliente_id = cli.id
-        WHERE c.barbero_id = ? AND DATE(c.fecha_hora) = CURDATE()
+        WHERE c.barbero_id = ? 
+          AND DATE(c.fecha_hora) >= CURDATE()
+          AND c.estado != 'cancelada'
         ORDER BY c.fecha_hora ASC
+        LIMIT 60
     ", [$barbero_id]);
-} catch (Throwable $exTurnos) {
+} catch (Throwable $exAgenda) {
     try {
-        $turnosHoy = query("
-            SELECT c.*, s.nombre as servicio, s.duracion_minutos, cli.nombre as cliente, cli.telefono as cliente_telefono
+        $citasAgenda = query("
+            SELECT c.*, 
+                   s.nombre as servicio, s.duracion_minutos,
+                   cli.id as cliente_id_bd, cli.nombre as cliente, cli.telefono as cliente_telefono
             FROM citas c
             LEFT JOIN servicios s ON c.servicio_id = s.id
             LEFT JOIN clientes cli ON c.cliente_id = cli.id
-            WHERE c.barbero_id = ? AND DATE(c.fecha_hora) = CURDATE()
+            WHERE c.barbero_id = ? 
+              AND DATE(c.fecha_hora) >= CURDATE()
+              AND c.estado != 'cancelada'
             ORDER BY c.fecha_hora ASC
+            LIMIT 60
         ", [$barbero_id]);
-    } catch (Throwable $exTurnos2) {
-        $turnosHoy = [];
+    } catch (Throwable $exAgenda2) {
+        $citasAgenda = [];
+    }
+}
+
+// Agrupar citas por fecha (Y-m-d)
+$citasAgrupadasPorFecha = [];
+$todayDateStr = date('Y-m-d');
+$citasAgrupadasPorFecha[$todayDateStr] = [];
+
+foreach ($citasAgenda as $c) {
+    $fKey = date('Y-m-d', strtotime($c['fecha_hora']));
+    $citasAgrupadasPorFecha[$fKey][] = $c;
+}
+
+if (!function_exists('formatearFechaEspanolAgenda')) {
+    function formatearFechaEspanolAgenda($fechaStr) {
+        $ts = strtotime($fechaStr);
+        $dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        
+        $diaSemana = $dias[intval(date('w', $ts))];
+        $diaNum = date('j', $ts);
+        $mesNom = $meses[intval(date('n', $ts))];
+        
+        return "$diaSemana, $diaNum $mesNom";
     }
 }
 
@@ -581,17 +617,156 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 margin-bottom: 0 !important;
             }
         }
-        @media (max-width: 480px) {
-            .barber-stats-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-            .barber-stat-card {
-                padding: 14px 16px;
-            }
-            .barber-stat-val {
-                font-size: 1.4rem;
-            }
+        /* ESTILOS DE AGENDA DE CITAS (EXACTO A LA IMAGEN) */
+        .barber-agenda-section {
+            margin-bottom: 28px;
+        }
+        .barber-agenda-group {
+            margin-bottom: 22px;
+        }
+        .barber-agenda-date-header {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #4B5563;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.01em;
+            text-transform: lowercase;
+        }
+        .barber-agenda-date-header::first-letter {
+            text-transform: uppercase;
+        }
+        .barber-agenda-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .barber-appointment-card {
+            background: #E0F2FE; /* Azul pastel suave idéntico a la referencia */
+            border: 1px solid rgba(186, 230, 253, 0.7);
+            border-left: 4.5px solid #0284C7; /* Barra azul viva en el borde izquierdo */
+            border-radius: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+        .barber-appointment-card:hover {
+            background: #D7EDFD;
+            transform: translateX(3px);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+        }
+        .barber-appointment-card:active {
+            transform: scale(0.99);
+        }
+        .bac-row-top {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .bac-client-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0F172A;
+            line-height: 1.2;
+        }
+        .bac-service-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .bac-row-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .bac-time-range {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #475569;
+        }
+        .bac-badge-confirmed {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #0369A1;
+            background: #BAE6FD;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.02em;
+        }
+        .bac-badge-completed {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #047857;
+            background: #D1FAE5;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.02em;
+        }
+
+        /* MODAL PERFIL DEL CLIENTE */
+        .barber-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .barber-modal-content {
+            background: #FFFFFF;
+            border-radius: 20px;
+            max-width: 480px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 24px;
+            position: relative;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            box-sizing: border-box;
+            animation: barberModalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes barberModalPop {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .barber-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: #F3F4F6;
+            border: none;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1.4rem;
+            line-height: 1;
+            color: #4B5563;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .barber-modal-close:hover {
+            background: #111111;
+            color: #FFFFFF;
         }
     </style>
 </head>
@@ -628,7 +803,86 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             </div>
         <?php endif; ?>
 
-        <!-- Tarjetas de Métricas de Ganancias (Grid Minimalista de 4 columnas) -->
+        <!-- SECCIÓN 1: AGENDA DE CITAS (PRIMERO QUE APARECE) -->
+        <div class="barber-agenda-section">
+            <?php if (!empty($citasAgrupadasPorFecha)): ?>
+                <?php foreach ($citasAgrupadasPorFecha as $fechaYMD => $citasDia): 
+                    $esHoyFecha = ($fechaYMD === $todayDateStr);
+                    $tituloFecha = formatearFechaEspanolAgenda($fechaYMD);
+                    if ($esHoyFecha) {
+                        $tituloFecha = "Hoy — " . $tituloFecha;
+                    }
+                ?>
+                    <div class="barber-agenda-group">
+                        <h2 class="barber-agenda-date-header"><?php echo htmlspecialchars($tituloFecha); ?></h2>
+                        
+                        <div class="barber-agenda-list">
+                            <?php if (empty($citasDia)): ?>
+                                <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 14px 16px; color: #64748B; font-size: 0.88rem; font-weight: 600;">
+                                    No tienes citas agendadas para hoy.
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($citasDia as $c): 
+                                    $tsIni = strtotime($c['fecha_hora']);
+                                    $dur = intval($c['duracion_minutos'] ?? 45);
+                                    if ($dur <= 0) $dur = 45;
+                                    $tsFin = $tsIni + ($dur * 60);
+                                    
+                                    // Formato 12 horas idéntico a la referencia: "3:00PM - 4:00PM"
+                                    $horaInicio = date('g:iA', $tsIni);
+                                    $horaFin = date('g:iA', $tsFin);
+                                    $horaRango = $horaInicio . ' - ' . $horaFin;
+                                    $fechaLegibleCita = formatearFechaEspanolAgenda($fechaYMD);
+                                ?>
+                                <div class="barber-appointment-card"
+                                     onclick="abrirPerfilClienteModal(this)"
+                                     data-cliente-id="<?php echo htmlspecialchars($c['cliente_id_bd'] ?? $c['cliente_id'] ?? ''); ?>"
+                                     data-cliente-nombre="<?php echo htmlspecialchars($c['cliente'] ?? 'Cliente'); ?>"
+                                     data-cliente-telefono="<?php echo htmlspecialchars($c['cliente_telefono'] ?? ''); ?>"
+                                     data-cliente-email="<?php echo htmlspecialchars($c['cliente_email'] ?? ''); ?>"
+                                     data-cliente-foto="<?php echo htmlspecialchars($c['foto_perfil'] ?? ''); ?>"
+                                     data-servicio="<?php echo htmlspecialchars($c['servicio'] ?? 'CORTE'); ?>"
+                                     data-servicio-precio="<?php echo htmlspecialchars($c['servicio_precio'] ?? $c['precio_final'] ?? '0.00'); ?>"
+                                     data-hora-rango="<?php echo htmlspecialchars($horaRango); ?>"
+                                     data-fecha-legible="<?php echo htmlspecialchars($fechaLegibleCita); ?>"
+                                     data-estado="<?php echo htmlspecialchars($c['estado'] ?? 'pendiente'); ?>"
+                                     data-confirmado="<?php echo !empty($c['asistencia_confirmada']) ? '1' : '0'; ?>"
+                                     data-estilo="<?php echo htmlspecialchars($c['estilo_buscado'] ?? ''); ?>"
+                                     data-ambiente="<?php echo htmlspecialchars($c['ambiente_preferido'] ?? ''); ?>"
+                                     data-bebida="<?php echo htmlspecialchars($c['bebida_preferida'] ?? ''); ?>"
+                                     data-notas="<?php echo htmlspecialchars($c['notas_barbero'] ?? ''); ?>"
+                                     data-cita-id="<?php echo $c['id']; ?>"
+                                     title="Haz clic para ver la ficha del cliente"
+                                >
+                                    <div class="bac-row-top">
+                                        <span class="bac-client-name"><?php echo htmlspecialchars($c['cliente'] ?? 'Cliente'); ?></span>
+                                        <span class="bac-service-name"><?php echo htmlspecialchars($c['servicio'] ?? 'CORTE'); ?></span>
+                                    </div>
+                                    <div class="bac-row-bottom">
+                                        <span class="bac-time-range"><?php echo $horaRango; ?></span>
+                                        <?php if (!empty($c['asistencia_confirmada'])): ?>
+                                            <span class="bac-badge-confirmed">✓ Confirmado</span>
+                                        <?php elseif ($c['estado'] === 'completada'): ?>
+                                            <span class="bac-badge-completed">✓ Completada</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="barber-agenda-group">
+                    <h2 class="barber-agenda-date-header"><?php echo formatearFechaEspanolAgenda(date('Y-m-d')); ?></h2>
+                    <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 18px; text-align: center; color: #64748B;">
+                        No tienes citas agendadas por el momento.
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- SECCIÓN 2: TARJETAS DE MÉTRICAS DE GANANCIAS -->
         <div class="barber-stats-grid">
             
             <div class="barber-stat-card">
@@ -678,101 +932,10 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
 
         </div>
 
-        <!-- Próximo Cliente Widget -->
-        <div class="barber-section-card">
-            <h3 class="barber-section-title">
-                <svg class="barber-icon-stroke" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                <span>Próximo Cliente</span>
-            </h3>
-
-            <?php if ($proximo): 
-                $tsProximo = strtotime($proximo['fecha_hora']);
-                $esHoy = (date('Y-m-d', $tsProximo) === date('Y-m-d'));
-                $fechaLegible = $esHoy ? 'Hoy (' . date('d/m/Y', $tsProximo) . ')' : date('d/m/Y', $tsProximo);
-                $horaProxima = date('H:i', $tsProximo);
-            ?>
-            <div style="background: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 14px; padding: 18px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                    <div>
-                        <span style="font-size: 0.75rem; font-weight: 700; color: #777777; text-transform: uppercase; letter-spacing: 1px;">FECHA Y HORA</span>
-                        <div style="font-size: 1.3rem; font-weight: 900; color: #111111; margin-top: 2px;"><?php echo $fechaLegible; ?> • <?php echo $horaProxima; ?></div>
-                    </div>
-                    <div style="text-align: right;">
-                        <span style="font-size: 0.75rem; font-weight: 700; color: #777777; text-transform: uppercase; letter-spacing: 1px;">SERVICIO</span>
-                        <div style="font-size: 1.1rem; font-weight: 800; color: #111111; margin-top: 2px;"><?php echo htmlspecialchars($proximo['servicio'] ?? 'Corte de Autor'); ?></div>
-                    </div>
-                </div>
-
-                <div style="border-top: 1px solid #EAEAEA; padding-top: 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <span style="font-size: 0.8rem; color: #666666;">Cliente:</span>
-                        <strong style="color: #111111; font-size: 0.95rem; margin-left: 4px;"><?php echo htmlspecialchars($proximo['cliente'] ?? 'Cliente'); ?></strong>
-                    </div>
-                    <?php if (!empty($proximo['asistencia_confirmada'])): ?>
-                        <div style="background: #ECFDF5; border: 1.5px solid #10B981; color: #047857; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; display: flex; align-items: center; gap: 4px;">
-                            <i class="fas fa-check-circle" style="color: #10B981;"></i> CLIENTE CONFIRMÓ ASISTENCIA
-                        </div>
-                    <?php else: ?>
-                        <div style="background: #FFFBEB; border: 1px solid #F59E0B; color: #B45309; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.72rem;">
-                            Pendiente confirmación de cliente
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Tarjeta de Preferencias del Cliente (3 preguntas respondidas) -->
-                <?php if (!empty($proximo['estilo_buscado']) || !empty($proximo['ambiente_preferido']) || !empty($proximo['bebida_preferida'])): ?>
-                    <div style="background: #FAFAFA; border: 1px solid #EAEAEA; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
-                        <div style="font-size: 0.72rem; font-weight: 900; color: #111111; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
-                            PREFERENCIAS DEL CLIENTE:
-                        </div>
-                        <?php if (!empty($proximo['estilo_buscado'])): ?>
-                            <div style="font-size: 0.82rem; color: #444444; margin-bottom: 4px;">
-                                <strong>• Estilo buscado:</strong> <?php echo htmlspecialchars($proximo['estilo_buscado']); ?>
-                            </div>
-                        <?php endif; ?>
-                        <?php if (!empty($proximo['ambiente_preferido'])): ?>
-                            <div style="font-size: 0.82rem; color: #444444; margin-bottom: 4px;">
-                                <strong>• Experiencia / Ambiente:</strong> <?php echo htmlspecialchars($proximo['ambiente_preferido']); ?>
-                            </div>
-                        <?php endif; ?>
-                        <?php if (!empty($proximo['bebida_preferida'])): ?>
-                            <div style="font-size: 0.82rem; color: #444444;">
-                                <strong>• Bebida deseada:</strong> <?php echo htmlspecialchars($proximo['bebida_preferida']); ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- Formulario de Notas Privadas del Cliente -->
-                <form action="api/clientes_action.php" method="POST" style="margin-bottom: 16px; background: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 10px; padding: 12px;">
-                    <input type="hidden" name="action" value="guardar_notas_barbero">
-                    <input type="hidden" name="cliente_id" value="<?php echo $proximo['cliente_id_bd'] ?? $proximo['cliente_id']; ?>">
-                    <label style="font-size: 0.72rem; font-weight: 800; color: #555555; text-transform: uppercase; display: block; margin-bottom: 6px;">
-                        Notas de Preferencias del Cliente (Privado)
-                    </label>
-                    <textarea name="notas_barbero" placeholder="Ej: Degradado bajo #1.5, tijera arriba, raya al lado izquierdo..." style="width: 100%; height: 50px; border: 1px solid #DDD; border-radius: 8px; padding: 8px; font-size: 0.82rem; font-family: inherit; resize: none; box-sizing: border-box; background: #FAFAFA;"><?php echo htmlspecialchars($proximo['notas_barbero'] ?? ''); ?></textarea>
-                    <button type="submit" style="margin-top: 6px; background: #111111; color: #FFFFFF; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; cursor: pointer; text-transform: uppercase;">
-                        Guardar Notas
-                    </button>
-                </form>
-
-                <div style="background: #F9FAFB; border: 1px dashed #D1D5DB; border-radius: 10px; padding: 12px; text-align: center;">
-                    <span style="font-size: 0.8rem; font-weight: 800; color: #4B5563;">🔒 Finalización de servicio y cobro a cargo del administrador del local.</span>
-                </div>
-            </div>
-            <?php else: ?>
-            <div style="text-align: center; padding: 24px; background: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 14px;">
-                <svg class="barber-icon-stroke" style="width: 32px; height: 32px; margin-bottom: 8px;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                <div style="font-size: 1rem; font-weight: 800; color: #111111;">No tienes turnos pendientes por hoy</div>
-                <div style="font-size: 0.85rem; color: #666666; margin-top: 4px;">Tus ganancias se encuentran actualizadas en los paneles superiores.</div>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Grid de 4 Cajas en 2x2 -->
+        <!-- SECCIÓN 3: HERRAMIENTAS Y ACCIONES DEL BARBERO (3 CAJAS) -->
         <div class="barber-forms-grid">
             
-            <!-- Caja 1: Registrar Venta de Producto (Fila 1, Izquierda) -->
+            <!-- Caja 1: Registrar Venta de Producto -->
             <div class="barber-section-card" style="margin-bottom: 0;">
                 <h3 class="barber-section-title">
                     <svg class="barber-icon-stroke" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
@@ -807,14 +970,14 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 </form>
             </div>
 
-            <!-- Caja 2: Consumo de Insumos del Turno (Fila 1, Derecha) -->
+            <!-- Caja 2: Consumo de Insumos del Turno -->
             <div class="barber-section-card" style="margin-bottom: 0;">
                 <h3 class="barber-section-title">
                     <svg class="barber-icon-stroke" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     <span>Consumo de Insumos del Turno</span>
                 </h3>
                 <p style="font-size: 0.85rem; color: #666666; margin-bottom: 16px; line-height: 1.4;">
-                    Registra los materiales gastados al final del turno para mantener actualizado el inventario.
+                    Registra los materiales gastados para mantener actualizado el inventario.
                 </p>
 
                 <form id="formConsumoInsumo" onsubmit="descontarInsumoBarbero(event)">
@@ -842,7 +1005,7 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 </form>
             </div>
 
-            <!-- Caja 3: Bloqueo Rápido de Descanso (Fila 2, Izquierda) -->
+            <!-- Caja 3: Bloqueo Rápido de Descanso -->
             <div class="barber-section-card" style="margin-bottom: 0;">
                 <h3 class="barber-section-title">
                     <svg class="barber-icon-stroke" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -874,74 +1037,218 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                         </div>
                         <div style="flex: 1; display: flex; align-items: flex-end; margin-bottom: 12px;">
                             <button type="submit" class="btn-action-black">
-                                <span>Bloquear Horario</span>
+                                <span>Bloquear</span>
                             </button>
                         </div>
                     </div>
                 </form>
             </div>
 
-            <!-- Caja 4: Mis Turnos de Hoy (Fila 2, Derecha) -->
-            <div class="barber-section-card" style="margin-bottom: 0;">
-                <h3 class="barber-section-title">
-                    <svg class="barber-icon-stroke" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <span>Mis Turnos de Hoy (<?php echo date('d/m/Y'); ?>)</span>
-                </h3>
+        </div>
 
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <?php if (!empty($turnosHoy)): ?>
-                        <?php foreach ($turnosHoy as $t): 
-                            $horaT = date('H:i', strtotime($t['fecha_hora']));
-                            $est = strtolower($t['estado']);
-                            $badgeClass = 'badge-pendiente-clean';
-                            if ($est === 'completada') $badgeClass = 'badge-completada-clean';
-                            if ($est === 'cancelada') $badgeClass = 'badge-cancelada-clean';
-                        ?>
-                        <div style="background: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between;">
-                            <div style="font-weight: 900; font-size: 1.1rem; color: #111111; width: 55px;">
-                                <?php echo $horaT; ?>
-                            </div>
-                            <div style="flex: 1; padding: 0 10px;">
-                                <div style="font-weight: 800; font-size: 0.9rem; color: #111111; margin-bottom: 2px;">
-                                    <?php echo htmlspecialchars($t['servicio'] ?? 'Corte'); ?>
-                                </div>
-                                <div style="font-size: 0.8rem; color: #666666; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px;">
-                                    <span>Cliente: <strong style="color: #111111;"><?php echo htmlspecialchars($t['cliente'] ?? 'Cliente'); ?></strong></span>
-                                    <?php if (!empty($t['asistencia_confirmada'])): ?>
-                                        <span style="background: #ECFDF5; color: #047857; border: 1px solid #10B981; font-weight: 800; font-size: 0.68rem; padding: 2px 7px; border-radius: 4px;">
-                                            ✓ CONFIRMADO
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div>
-                                <?php if ($est === 'pendiente' || $est === 'confirmada'): ?>
-                                    <form method="POST" style="margin: 0;">
-                                        <input type="hidden" name="action" value="completar_cita">
-                                        <input type="hidden" name="cita_id" value="<?php echo $t['id']; ?>">
-                                        <button type="submit" style="background: #111111; color: #FFFFFF; border: none; padding: 7px 12px; border-radius: 8px; font-weight: 800; font-size: 0.72rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">
-                                            Finalizar Corte
-                                        </button>
-                                    </form>
-                                <?php else: ?>
-                                    <span class="badge-turno-clean <?php echo $badgeClass; ?>"><?php echo strtoupper($est); ?></span>
-                                <?php endif; ?>
-                            </div>
+        <!-- MODAL PERFIL DEL CLIENTE AL HACER CLIC -->
+        <div id="modalPerfilCliente" class="barber-modal-overlay" style="display: none;" onclick="cerrarPerfilClienteModal(event)">
+            <div class="barber-modal-content" onclick="event.stopPropagation()">
+                <!-- Botón Cerrar -->
+                <button type="button" class="barber-modal-close" onclick="cerrarPerfilClienteModal()">&times;</button>
+                
+                <!-- Encabezado Cliente -->
+                <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 18px; border-bottom: 1px solid #EEEEEE; padding-bottom: 16px;">
+                    <div id="modalClientAvatar" style="width: 54px; height: 54px; border-radius: 50%; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 800; flex-shrink: 0; background-size: cover; background-position: center; border: 2px solid #C0A062;">
+                        C
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <h2 id="modalClientName" style="margin: 0; font-size: 1.25rem; font-weight: 900; color: #111111; line-height: 1.2;">
+                            Cliente
+                        </h2>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                            <a id="modalClientWhatsAppBtn" href="#" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; background: #25D366; color: #FFFFFF; font-size: 0.78rem; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-decoration: none;">
+                                <span>WhatsApp</span>
+                            </a>
+                            <a id="modalClientTelBtn" href="#" style="display: inline-flex; align-items: center; gap: 5px; background: #F3F4F6; color: #111111; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-decoration: none;">
+                                <span id="modalClientPhoneText">Teléfono</span>
+                            </a>
                         </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="text-align: center; padding: 24px; color: #777777; font-size: 0.88rem; background: #FAFAFA; border-radius: 12px;">
-                            No tienes agendamientos registrados para el día de hoy.
+                    </div>
+                </div>
+
+                <!-- Tarjeta de Turno / Cita -->
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
+                    <div style="font-size: 0.7rem; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px;">
+                        DETALLES DEL TURNO
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong id="modalCitaServicio" style="font-size: 1rem; color: #0F172A; display: block;">CORTE</strong>
+                            <span id="modalCitaHorario" style="font-size: 0.85rem; color: #475569; font-weight: 600;">Hora</span>
                         </div>
-                    <?php endif; ?>
+                        <div style="text-align: right;">
+                            <span id="modalCitaPrecio" style="font-size: 1.05rem; font-weight: 900; color: #111111;">$0.00</span>
+                            <div id="modalCitaEstadoBadge" style="margin-top: 2px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferencias de Estilo & Experiencia -->
+                <div id="modalPreferenciasContainer" style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; display: none;">
+                    <div style="font-size: 0.72rem; font-weight: 900; color: #92400E; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+                        ✨ PREFERENCIAS DEL CLIENTE
+                    </div>
+                    <div id="modalEstiloText" style="font-size: 0.82rem; color: #78350F; margin-bottom: 3px;"></div>
+                    <div id="modalAmbienteText" style="font-size: 0.82rem; color: #78350F; margin-bottom: 3px;"></div>
+                    <div id="modalBebidaText" style="font-size: 0.82rem; color: #78350F;"></div>
+                </div>
+
+                <!-- Formulario de Notas Privadas del Barbero -->
+                <form action="api/clientes_action.php" method="POST" style="margin-bottom: 16px;">
+                    <input type="hidden" name="action" value="guardar_notas_barbero">
+                    <input type="hidden" name="cliente_id" id="modalFormClienteId" value="">
+                    <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #374151; text-transform: uppercase; margin-bottom: 6px;">
+                        📝 Notas Privadas del Barbero sobre este cliente
+                    </label>
+                    <textarea name="notas_barbero" id="modalNotasBarberoInput" rows="2" placeholder="Ej: Degradado bajo #1.5, raya izquierda, tijera arriba..." style="width: 100%; border: 1px solid #D1D5DB; border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; font-family: inherit; resize: vertical; box-sizing: border-box; background: #FAFAFA;"></textarea>
+                    <button type="submit" style="margin-top: 6px; background: #111111; color: #FFFFFF; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; cursor: pointer; text-transform: uppercase;">
+                        Guardar Notas
+                    </button>
+                </form>
+
+                <!-- Botones de Acción -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <a id="modalVerFichaCompletaBtn" href="#" class="btn-action-black" style="flex: 1; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 0.82rem;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        <span>Ver Perfil Completo</span>
+                    </a>
+                    <form id="modalFinalizarCitaForm" method="POST" style="flex: 1; margin: 0; display: none;">
+                        <input type="hidden" name="action" value="completar_cita">
+                        <input type="hidden" name="cita_id" id="modalFinalizarCitaId" value="">
+                        <button type="submit" style="width: 100%; background: #059669; color: #FFFFFF; border: none; padding: 11px; border-radius: 10px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <span>✓ Finalizar Corte</span>
+                        </button>
+                    </form>
                 </div>
             </div>
-
         </div>
 
     </div>
 
     <script>
+        function abrirPerfilClienteModal(cardEl) {
+            const d = cardEl.dataset;
+            const modal = document.getElementById('modalPerfilCliente');
+            if (!modal) return;
+
+            // Nombre y teléfono
+            document.getElementById('modalClientName').textContent = d.clienteNombre || 'Cliente';
+            const tel = (d.clienteTelefono || '').trim();
+            document.getElementById('modalClientPhoneText').textContent = tel || 'Sin teléfono';
+
+            // WhatsApp y Llamada
+            const waBtn = document.getElementById('modalClientWhatsAppBtn');
+            const telBtn = document.getElementById('modalClientTelBtn');
+            if (tel) {
+                let cleanPhone = tel.replace(/[^0-9]/g, '');
+                if (cleanPhone.startsWith('0')) {
+                    cleanPhone = '593' + cleanPhone.substring(1);
+                } else if (!cleanPhone.startsWith('593') && cleanPhone.length === 9) {
+                    cleanPhone = '593' + cleanPhone;
+                }
+                waBtn.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent('Hola ' + d.clienteNombre + ', te escribo de KORTZEN respecto a tu cita de ' + d.servicio + ' (' + d.horaRango + ').')}`;
+                waBtn.style.display = 'inline-flex';
+                telBtn.href = `tel:${tel}`;
+                telBtn.style.display = 'inline-flex';
+            } else {
+                waBtn.style.display = 'none';
+                telBtn.style.display = 'none';
+            }
+
+            // Avatar
+            const avatarEl = document.getElementById('modalClientAvatar');
+            if (d.clienteFoto && d.clienteFoto.length > 5) {
+                avatarEl.style.backgroundImage = `url('${d.clienteFoto}')`;
+                avatarEl.textContent = '';
+            } else {
+                avatarEl.style.backgroundImage = 'none';
+                avatarEl.textContent = (d.clienteNombre || 'C').charAt(0).toUpperCase();
+            }
+
+            // Cita actual
+            document.getElementById('modalCitaServicio').textContent = d.servicio || 'CORTE';
+            document.getElementById('modalCitaHorario').textContent = `${d.fechaLegible} • ${d.horaRango}`;
+            document.getElementById('modalCitaPrecio').textContent = `$${parseFloat(d.servicioPrecio || 0).toFixed(2)}`;
+
+            // Badge estado
+            const badgeDiv = document.getElementById('modalCitaEstadoBadge');
+            if (d.estado === 'completada') {
+                badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px;">✓ CITA COMPLETADA</span>';
+            } else if (d.confirmado === '1') {
+                badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px;">✓ ASISTENCIA CONFIRMADA</span>';
+            } else {
+                badgeDiv.innerHTML = '<span style="background:#FFFBEB; color:#B45309; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:6px;">PENDIENTE DE ASISTENCIA</span>';
+            }
+
+            // Preferencias del cliente
+            const prefContainer = document.getElementById('modalPreferenciasContainer');
+            let hasPrefs = false;
+            if (d.estilo) {
+                document.getElementById('modalEstiloText').innerHTML = `<strong>• Estilo buscado:</strong> ${d.estilo}`;
+                document.getElementById('modalEstiloText').style.display = 'block';
+                hasPrefs = true;
+            } else {
+                document.getElementById('modalEstiloText').style.display = 'none';
+            }
+            if (d.ambiente) {
+                document.getElementById('modalAmbienteText').innerHTML = `<strong>• Ambiente preferido:</strong> ${d.ambiente}`;
+                document.getElementById('modalAmbienteText').style.display = 'block';
+                hasPrefs = true;
+            } else {
+                document.getElementById('modalAmbienteText').style.display = 'none';
+            }
+            if (d.bebida) {
+                document.getElementById('modalBebidaText').innerHTML = `<strong>• Bebida deseada:</strong> ${d.bebida}`;
+                document.getElementById('modalBebidaText').style.display = 'block';
+                hasPrefs = true;
+            } else {
+                document.getElementById('modalBebidaText').style.display = 'none';
+            }
+            prefContainer.style.display = hasPrefs ? 'block' : 'none';
+
+            // Formulario de notas del barbero
+            document.getElementById('modalFormClienteId').value = d.clienteId || '';
+            document.getElementById('modalNotasBarberoInput').value = d.notas || '';
+
+            // Enlace a la Ficha Completa del Cliente
+            const btnFicha = document.getElementById('modalVerFichaCompletaBtn');
+            if (d.clienteId) {
+                btnFicha.href = `cliente_detalle.php?id=${d.clienteId}`;
+                btnFicha.style.display = 'inline-flex';
+            } else {
+                btnFicha.style.display = 'none';
+            }
+
+            // Botón de finalizar cita
+            const formFinalizar = document.getElementById('modalFinalizarCitaForm');
+            if (d.citaId && (d.estado === 'pendiente' || d.estado === 'confirmada')) {
+                document.getElementById('modalFinalizarCitaId').value = d.citaId;
+                formFinalizar.style.display = 'block';
+            } else {
+                formFinalizar.style.display = 'none';
+            }
+
+            // Mostrar modal
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function cerrarPerfilClienteModal(e) {
+            if (!e || e.target.id === 'modalPerfilCliente' || e.target.classList.contains('barber-modal-close') || e.target.closest('.barber-modal-close')) {
+                const modal = document.getElementById('modalPerfilCliente');
+                if (modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+
         async function registrarVentaProductoBarbero(e) {
             e.preventDefault();
             const form = e.target;

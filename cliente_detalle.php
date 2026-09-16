@@ -62,10 +62,14 @@ $pageTitle = 'Detalle de Cliente: ' . htmlspecialchars($cliente['nombre']);
 include 'includes/header.php';
 ?>
 
+<?php 
+$backUrl = isBarbero() ? 'barber-dashboard.php' : 'clientes.php';
+$backText = isBarbero() ? 'Volver a mi Panel' : 'Volver a Clientes';
+?>
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
     <div>
-        <a href="clientes.php" style="color: #888888; text-decoration: none; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: color 0.2s;">
-            <i class="fas fa-arrow-left"></i> Volver a Clientes
+        <a href="<?php echo $backUrl; ?>" style="color: #888888; text-decoration: none; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: color 0.2s;">
+            <i class="fas fa-arrow-left"></i> <?php echo $backText; ?>
         </a>
         <h1 class="page-title" style="margin-top: 6px; color: #FFFFFF; font-weight: 800; font-size: 1.8rem;"><?php echo htmlspecialchars($cliente['nombre']); ?></h1>
     </div>
