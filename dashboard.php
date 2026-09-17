@@ -1571,9 +1571,10 @@ if ($currentUser['rol'] === 'admin_local') {
             <h2 style="margin-bottom: 20px; color: var(--primary-gold);">Terminar Cita</h2>
             <p style="margin-bottom: 20px; color: #AAA;">Confirma que has completado el servicio.</p>
 
-            <form id="formTerminar" method="POST" action="api/citas_action.php">
+            <form id="formTerminar" method="POST" action="api/citas_action.php" onsubmit="enviarFormTerminarDashboard(event)">
                 <input type="hidden" name="action" value="completar">
                 <input type="hidden" name="id" id="citaIdTerminar">
+                <input type="hidden" name="return_url" id="returnUrlTerminarDash" value="">
                 <input type="hidden" name="redirect_source" value="dashboard">
 
                 <!-- Para futura expansión de inventario -->
@@ -1583,7 +1584,7 @@ if ($currentUser['rol'] === 'admin_local') {
                     <button type="button" onclick="document.getElementById('modalTerminar').style.display='none'"
                         class="btn-secondary"
                         style="flex: 1; padding: 12px; border-radius: 6px; cursor: pointer;">Cancelar</button>
-                    <button type="submit" class="btn-primary"
+                    <button type="submit" id="btnSubmitTerminarDash" class="btn-primary"
                         style="flex: 1; padding: 12px; border-radius: 6px; border: none; cursor: pointer;">Confirmar
                         Completado</button>
                 </div>
@@ -1595,36 +1596,85 @@ if ($currentUser['rol'] === 'admin_local') {
         // Funciones de Cita (Terminar/Cancelar)
         function confirmarCancelar(id) {
             if (confirm('¿Realmente deseas cancelar esta cita?')) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'api/citas_action.php';
+                const formData = new FormData();
+                formData.append('action', 'cancelar_barbero');
+                formData.append('id', id);
+                formData.append('ajax', '1');
+                formData.append('return_url', window.location.href);
 
-                const actionInput = document.createElement('input');
-                actionInput.type = 'hidden';
-                actionInput.name = 'action';
-                actionInput.value = 'cancelar_barbero';
-
-                const redirectInput = document.createElement('input');
-                redirectInput.type = 'hidden';
-                redirectInput.name = 'redirect_source';
-                redirectInput.value = 'dashboard';
-
-                const idInput = document.createElement('input');
-                idInput.type = 'hidden';
-                idInput.name = 'id';
-                idInput.value = id;
-
-                form.appendChild(actionInput);
-                form.appendChild(redirectInput);
-                form.appendChild(idInput);
-                document.body.appendChild(form);
-                form.submit();
+                fetch('api/citas_action.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.error || data.message || 'No se pudo cancelar la cita.'));
+                    }
+                })
+                .catch(err => {
+                    window.location.reload();
+                });
             }
         }
 
         function abrirModalTerminar(id) {
             document.getElementById('citaIdTerminar').value = id;
+            const rInput = document.getElementById('returnUrlTerminarDash');
+            if (rInput) rInput.value = window.location.href;
+            const submitBtn = document.getElementById('btnSubmitTerminarDash');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Confirmar Completado';
+            }
             document.getElementById('modalTerminar').style.display = 'flex';
+        }
+
+        function enviarFormTerminarDashboard(e) {
+            e.preventDefault();
+            const form = document.getElementById('formTerminar');
+            const submitBtn = document.getElementById('btnSubmitTerminarDash');
+            const originalText = submitBtn ? submitBtn.innerHTML : 'Confirmar Completado';
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            }
+
+            const formData = new FormData(form);
+            formData.append('ajax', '1');
+            formData.append('return_url', window.location.href);
+
+            fetch('api/citas_action.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('modalTerminar').style.display = 'none';
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || data.message || 'No se pudo completar la cita.'));
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
+                }
+            })
+            .catch(err => {
+                window.location.reload();
+            });
         }
 
         // Funciones del Dashboard original

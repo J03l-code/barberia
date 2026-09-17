@@ -12,9 +12,47 @@ if ($action !== 'cancelar_cita_cliente' && !isLoggedIn()) {
 try {
     $pdo = getConnection();
 
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+        || (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
+        || (isset($_POST['ajax']) && $_POST['ajax'] == '1')
+        || (isset($_GET['ajax']) && $_GET['ajax'] == '1');
+
     $redirect_url = '../citas.php'; // Default
-    if (isset($_POST['redirect_source']) && $_POST['redirect_source'] === 'dashboard') {
+    if (!empty($_POST['return_url'])) {
+        $redirect_url = $_POST['return_url'];
+    } elseif (!empty($_GET['return_url'])) {
+        $redirect_url = $_GET['return_url'];
+    } elseif (isset($_POST['redirect_source']) && $_POST['redirect_source'] === 'dashboard') {
         $redirect_url = '../dashboard.php';
+    } elseif (!empty($_SERVER['HTTP_REFERER']) && (strpos($_SERVER['HTTP_REFERER'], 'citas.php') !== false || strpos($_SERVER['HTTP_REFERER'], 'dashboard.php') !== false)) {
+        $redirect_url = $_SERVER['HTTP_REFERER'];
+    }
+
+    if (!function_exists('responderAccionCita')) {
+        function responderAccionCita($isAjax, $redirectUrl, $msgSuccess, $extraData = []) {
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(array_merge([
+                    'success' => true,
+                    'message' => $msgSuccess
+                ], $extraData));
+                exit;
+            }
+
+            $parts = explode('#', $redirectUrl, 2);
+            $urlWithoutHash = $parts[0];
+            $hash = isset($parts[1]) ? '#' . $parts[1] : '';
+
+            $qParts = explode('?', $urlWithoutHash, 2);
+            $path = $qParts[0];
+            $query = [];
+            if (isset($qParts[1])) {
+                parse_str($qParts[1], $query);
+            }
+            $query['success'] = $msgSuccess;
+            header('Location: ' . $path . '?' . http_build_query($query) . $hash);
+            exit;
+        }
     }
 
     switch ($action) {
@@ -167,8 +205,7 @@ try {
             }
 
             registrarLog('CANCELAR', 'citas', $id, "Cita #$id cancelada para el cliente '$clienteNombre'");
-            header('Location: ' . $redirect_url . '?success=' . urlencode('Cita cancelada correctamente.'));
-            exit;
+            responderAccionCita($isAjax, $redirect_url, 'Cita cancelada correctamente.', ['cita_id' => $id]);
 
         case 'completar':
             if (!in_array($_SESSION['user_rol'], ['admin', 'admin_local'])) {
@@ -287,8 +324,7 @@ try {
             if ($propina > 0) {
                 $msgOk .= ' Propina registrada para el barbero: $' . number_format($propina, 2);
             }
-            header('Location: ' . $redirect_url . '?success=' . urlencode($msgOk));
-            exit;
+            responderAccionCita($isAjax, $redirect_url, $msgOk, ['cita_id' => $id, 'propina' => $propina]);
 
         case 'cambiar_estado':
             $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
@@ -357,104 +393,72 @@ try {
             // Si cambió a COMPLETADA y antes NO estaba completada: Otorgar puntos de fidelidad y bonus referido
             if ($nuevoEstado === 'completada' && $estadoAnterior !== 'completada') {
                 if (!empty($citaRow['cliente_id'])) {
-                    // Puntos fidelidad por corte
+                    // Cargar puntos configurados
                     $stmtCfg = $pdo->query("SELECT clave, valor FROM configuracion");
-                    $cfgs = $stmtCfg ? $stmtCfg->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+                    $cfgs = $stmtCfg->fetchAll(PDO::FETCH_KEY_PAIR);
                     $puntosPorCorte = intval($cfgs['puntos_por_corte'] ?? 100);
 
                     try {
                         $pdo->exec("ALTER TABLE clientes ADD COLUMN puntos INT DEFAULT 0 AFTER telefono");
                     } catch (Exception $ex) {}
-
                     $stmtAddPts = $pdo->prepare("UPDATE clientes SET puntos = COALESCE(puntos, 0) + ? WHERE id = ?");
                     $stmtAddPts->execute([$puntosPorCorte, $citaRow['cliente_id']]);
-
-                    // Puntos por referido
-                    try {
-                        $stmtPendingRef = $pdo->prepare("SELECT * FROM referidos WHERE cita_id = ? AND estado = 'pendiente'");
-                        $stmtPendingRef->execute([$id]);
-                        $refPending = $stmtPendingRef->fetch(PDO::FETCH_ASSOC);
-
-                        if ($refPending) {
-                            $referenteId = $refPending['referente_id'];
-                            $puntosBonus = intval($refPending['puntos_otorgados'] ?? 200);
-
-                            $stmtMarkRef = $pdo->prepare("UPDATE referidos SET estado = 'completado' WHERE id = ?");
-                            $stmtMarkRef->execute([$refPending['id']]);
-
-                            if ($referenteId > 0 && $puntosBonus > 0) {
-                                $stmtAddRefPts = $pdo->prepare("UPDATE clientes SET puntos = COALESCE(puntos, 0) + ? WHERE id = ?");
-                                $stmtAddRefPts->execute([$puntosBonus, $referenteId]);
-                            }
-                        }
-                    } catch (Exception $exRef) {}
                 }
-            }
-
-            // Notificaciones PWA & WebPush al Cliente
-            if (!empty($citaRow['cliente_id'])) {
-                $titulosNotif = [
-                    'completada' => 'Cita Completada',
-                    'confirmada' => 'Cita Confirmada',
-                    'cancelada'  => 'Cita Cancelada',
-                    'en_atencion'=> 'Tu turno ha comenzado',
-                    'pendiente'  => 'Estado de cita: Pendiente'
-                ];
-                $mensajesNotif = [
-                    'completada' => 'Tu servicio de ' . ($citaRow['servicio_nombre'] ?? 'barbería') . ' ha sido completado. Gracias por elegir KORTZEN.',
-                    'confirmada' => 'Tu cita de ' . ($citaRow['servicio_nombre'] ?? 'barbería') . ' para el ' . date('d/m/Y H:i', strtotime($citaRow['fecha_hora'])) . ' fue confirmada.',
-                    'cancelada'  => 'Tu cita del ' . date('d/m/Y H:i', strtotime($citaRow['fecha_hora'])) . ' ha sido cancelada.',
-                    'en_atencion'=> 'El barbero ' . ($citaRow['barbero_nombre'] ?? '') . ' está listo para atenderte.',
-                    'pendiente'  => 'El estado de tu cita ha sido modificado a Pendiente.'
-                ];
-
-                $notifTitulo = $titulosNotif[$nuevoEstado] ?? 'Actualización de Cita';
-                $notifMensaje = $mensajesNotif[$nuevoEstado] ?? ('El estado de tu cita ha cambiado a ' . ucfirst($nuevoEstado));
 
                 try {
-                    notificarCliente($pdo, $citaRow['cliente_id'], $id, $notifTitulo, $notifMensaje, '/cliente-dashboard.php');
-                } catch (Exception $exNotif) {}
+                    $stmtPendingRef = $pdo->prepare("SELECT * FROM referidos WHERE cita_id = ? AND estado = 'pendiente'");
+                    $stmtPendingRef->execute([$id]);
+                    $refPending = $stmtPendingRef->fetch(PDO::FETCH_ASSOC);
+
+                    if ($refPending) {
+                        $referenteId = $refPending['referente_id'];
+                        $puntosBonus = intval($refPending['puntos_otorgados'] ?? 200);
+
+                        $stmtMarkRef = $pdo->prepare("UPDATE referidos SET estado = 'completado' WHERE id = ?");
+                        $stmtMarkRef->execute([$refPending['id']]);
+
+                        if ($referenteId > 0 && $puntosBonus > 0) {
+                            $stmtAddRefPts = $pdo->prepare("UPDATE clientes SET puntos = COALESCE(puntos, 0) + ? WHERE id = ?");
+                            $stmtAddRefPts->execute([$puntosBonus, $referenteId]);
+                        }
+                    }
+                } catch (Exception $exRef) {}
             }
 
-            // Notificación al Barbero Asignado si el cambio fue hecho por admin o cliente
-            if (!empty($citaRow['barbero_id'])) {
-                $tipoNotifBarbero = null;
-                if ($nuevoEstado === 'confirmada') $tipoNotifBarbero = 'cita_confirmada';
-                elseif ($nuevoEstado === 'cancelada') $tipoNotifBarbero = 'cita_cancelada';
-                elseif ($nuevoEstado === 'pendiente' && $estadoAnterior !== 'pendiente') $tipoNotifBarbero = 'cita_reagendada';
-
-                if ($tipoNotifBarbero) {
-                    try {
-                        notificarBarbero($pdo, $citaRow['barbero_id'], $id, $tipoNotifBarbero, [
-                            'cliente' => $citaRow['cliente_nombre'] ?? 'Cliente',
-                            'servicio' => $citaRow['servicio_nombre'] ?? 'Servicio',
-                            'fecha' => date('d/m/Y', strtotime($citaRow['fecha_hora'])),
-                            'hora' => date('H:i', strtotime($citaRow['fecha_hora']))
-                        ]);
-                    } catch (Exception $exNotifB) {}
-                }
+            // Notificaciones en tiempo real al Barbero Asignado (PWA + WebPush)
+            $barberoIdNotif = intval($citaRow['barbero_id'] ?? 0);
+            if ($barberoIdNotif > 0) {
+                try {
+                    $tipoNotif = 'cambio_estado';
+                    if ($nuevoEstado === 'confirmada') $tipoNotif = 'cita_confirmada';
+                    elseif ($nuevoEstado === 'cancelada') $tipoNotif = 'cita_cancelada';
+                    
+                    notificarBarbero($pdo, $barberoIdNotif, $id, $tipoNotif, [
+                        'cliente' => $citaRow['cliente_nombre'] ?? 'Cliente',
+                        'servicio' => $citaRow['servicio_nombre'] ?? 'Servicio',
+                        'fecha' => date('d/m/Y', strtotime($citaRow['fecha_hora'])),
+                        'hora' => date('H:i', strtotime($citaRow['fecha_hora']))
+                    ]);
+                } catch (Exception $eNotif) {}
             }
 
-            registrarLog('EDITAR', 'citas', $id, "Estado de cita #$id cambiado de '$estadoAnterior' a '$nuevoEstado'");
-
-            $isAjax = isset($_POST['ajax'])
-                || isset($_GET['ajax'])
-                || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
-                || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
-
-            if ($isAjax) {
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => true,
-                    'id' => $id,
-                    'estado' => $nuevoEstado,
-                    'message' => "Estado actualizado exitosamente a " . ucfirst($nuevoEstado) . "."
-                ]);
-                exit;
+            // Notificar al Cliente si se cancela o confirma
+            $clienteIdNotif = intval($citaRow['cliente_id'] ?? 0);
+            if ($clienteIdNotif > 0) {
+                try {
+                    if ($nuevoEstado === 'confirmada') {
+                        notificarCliente($pdo, $clienteIdNotif, $id, 'Cita Confirmada', 'Tu cita en Kortzen ha sido confirmada por el equipo.', '/cliente-dashboard.php');
+                    } elseif ($nuevoEstado === 'cancelada') {
+                        notificarCliente($pdo, $clienteIdNotif, $id, 'Cita Cancelada', 'Tu cita de barbería ha sido cancelada.', '/cliente-dashboard.php');
+                    }
+                } catch (Exception $eNotif) {}
             }
 
-            header('Location: ' . $redirect_url . '?success=' . urlencode("Estado de cita actualizado exitosamente a " . ucfirst($nuevoEstado)));
-            exit;
+            $cNombre = $citaRow['cliente_nombre'] ?? "Cita #$id";
+            $sNombre = $citaRow['servicio_nombre'] ?? "Servicio";
+            registrarLog('EDITAR', 'citas', $id, "Estado de cita #$id ($sNombre) cambiado a '$nuevoEstado' para '$cNombre'");
+
+            responderAccionCita($isAjax, $redirect_url, "Estado de cita actualizado exitosamente a " . ucfirst($nuevoEstado), ['cita_id' => $id, 'estado' => $nuevoEstado]);
 
         case 'delete':
             $id = intval($_POST['id'] ?? 0);
@@ -497,8 +501,7 @@ try {
 
             registrarLog('ELIMINAR', 'citas', $id, "Cita #$id ('$sNombre') del cliente '$cNombre' fue eliminada del sistema");
 
-            header('Location: ../citas.php?success=Cita eliminada exitosamente');
-            exit;
+            responderAccionCita($isAjax, $redirect_url, 'Cita eliminada exitosamente.', ['cita_id' => $id]);
 
         default:
             throw new Exception('Acción no válida.');
@@ -506,26 +509,33 @@ try {
 
 } catch (PDOException $e) {
     error_log("Error en citas_action.php: " . $e->getMessage());
-    $isAjax = isset($_GET['ajax']) 
-        || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
-        || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
     if ($isAjax) {
         header('Content-Type: application/json');
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Error de base de datos: ' . $e->getMessage()]);
         exit;
     }
-    header('Location: ' . $redirect_url . '?error=' . urlencode('Error de base de datos'));
+    $parts = explode('?', $redirect_url, 2);
+    $path = $parts[0];
+    $query = [];
+    if (isset($parts[1])) parse_str($parts[1], $query);
+    $query['error'] = 'Error de base de datos';
+    header('Location: ' . $path . '?' . http_build_query($query));
     exit;
 
 } catch (Exception $e) {
-    $isAjax = isset($_GET['ajax']) 
-        || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
-        || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
+    error_log("Error en citas_action.php: " . $e->getMessage());
     if ($isAjax) {
         header('Content-Type: application/json');
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         exit;
     }
-    header('Location: ' . $redirect_url . '?error=' . urlencode($e->getMessage()));
+    $parts = explode('?', $redirect_url, 2);
+    $path = $parts[0];
+    $query = [];
+    if (isset($parts[1])) parse_str($parts[1], $query);
+    $query['error'] = $e->getMessage();
+    header('Location: ' . $path . '?' . http_build_query($query));
     exit;
 }

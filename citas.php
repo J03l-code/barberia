@@ -552,9 +552,10 @@ function toggleFiltroHoy() {
         <h2 style="margin-bottom: 14px; color: #111827; font-weight: 900;">Finalizar Corte y Asignar Propina</h2>
         <p style="margin-bottom: 20px; color: #4B5563; font-size: 0.88rem;">Registra los materiales consumidos y la propina otorgada al barbero por el cliente:</p>
 
-        <form id="formTerminar" method="POST" action="api/citas_action.php">
+        <form id="formTerminar" method="POST" action="api/citas_action.php" onsubmit="enviarFormTerminar(event)">
             <input type="hidden" name="action" value="completar">
             <input type="hidden" name="id" id="citaIdTerminar">
+            <input type="hidden" name="return_url" id="returnUrlTerminar" value="">
 
             <!-- Campo de Propina -->
             <div style="margin-bottom: 20px; background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 10px; padding: 14px;">
@@ -563,10 +564,12 @@ function toggleFiltroHoy() {
                 </label>
                 <div style="position: relative;">
                     <span style="position: absolute; left: 12px; top: 10px; font-weight: 800; color: #374151;">$</span>
-                    <input type="number" step="0.01" min="0" name="propina" value="0.00" placeholder="0.00" style="width: 100%; padding: 10px 10px 10px 28px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 1.05rem; font-weight: 800; box-sizing: border-box;">
+                    <input type="number" step="0.01" min="0" name="propina" id="inputPropinaTerminar" value="0.00" placeholder="0.00" style="width: 100%; padding: 10px 10px 10px 28px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 1.05rem; font-weight: 800; box-sizing: border-box;">
                 </div>
                 <span style="font-size: 0.75rem; color: #6B7280; margin-top: 4px; display: block;">Esta propina se sumará a los ingresos del barbero en un rubro independiente.</span>
-        <p style="margin-bottom: 12px; color: #4B5563; font-weight: 700; font-size: 0.85rem;">Materiales consumidos (opcional):</p>
+            </div>
+
+            <p style="margin-bottom: 12px; color: #4B5563; font-weight: 700; font-size: 0.85rem;">Materiales consumidos (opcional):</p>
 
             <div id="materialesList">
                 <div class="material-row">
@@ -588,7 +591,7 @@ function toggleFiltroHoy() {
 
             <div style="display: flex; gap: 10px; margin-top: 30px;">
                 <button type="button" onclick="cerrarModal()" class="btn-secondary" style="flex: 1;">Cancelar</button>
-                <button type="submit" class="btn-primary" style="flex: 1;">Confirmar y Terminar</button>
+                <button type="submit" id="btnSubmitTerminar" class="btn-primary" style="flex: 1;">Confirmar y Terminar</button>
             </div>
         </form>
     </div>
@@ -608,34 +611,91 @@ function toggleFiltroHoy() {
     }
 
     function enviarAccion(id, action) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'api/citas_action.php';
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('id', id);
+        formData.append('ajax', '1');
+        formData.append('return_url', window.location.href);
 
-        const actionInput = document.createElement('input');
-        actionInput.type = 'hidden';
-        actionInput.name = 'action';
-        actionInput.value = action;
-
-        const idInput = document.createElement('input');
-        idInput.type = 'hidden';
-        idInput.name = 'id';
-        idInput.value = id;
-
-        form.appendChild(actionInput);
-        form.appendChild(idInput);
-        document.body.appendChild(form);
-        form.submit();
+        fetch('api/citas_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || data.message || 'No se pudo procesar la solicitud.'));
+            }
+        })
+        .catch(err => {
+            window.location.reload();
+        });
     }
 
     // Modal Logic
     function abrirModalTerminar(id) {
         document.getElementById('citaIdTerminar').value = id;
+        document.getElementById('returnUrlTerminar').value = window.location.href;
+        const pInput = document.getElementById('inputPropinaTerminar');
+        if (pInput) pInput.value = '0.00';
+        const submitBtn = document.getElementById('btnSubmitTerminar');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Confirmar y Terminar';
+        }
         document.getElementById('modalTerminar').style.display = 'flex';
     }
 
     function cerrarModal() {
         document.getElementById('modalTerminar').style.display = 'none';
+    }
+
+    function enviarFormTerminar(e) {
+        e.preventDefault();
+        const form = document.getElementById('formTerminar');
+        const submitBtn = document.getElementById('btnSubmitTerminar');
+        const originalText = submitBtn ? submitBtn.innerHTML : 'Confirmar y Terminar';
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        }
+
+        const formData = new FormData(form);
+        formData.append('ajax', '1');
+        formData.append('return_url', window.location.href);
+
+        fetch('api/citas_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cerrarModal();
+                // Recargar la página conservando exactamente todos los filtros y parámetros de búsqueda actuales
+                window.location.reload();
+            } else {
+                alert('Error al completar cita: ' + (data.error || data.message || 'Ocurrió un error en el servidor.'));
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        })
+        .catch(err => {
+            window.location.reload();
+        });
     }
 
     function agregarFilaMaterial() {
