@@ -256,6 +256,49 @@ try {
 $gananciaServiciosVentasMes = floatval($gananciaMesServicios) + floatval($gananciaMesVentas);
 $miGananciaMes = $gananciaServiciosVentasMes + $propinasMes;
 
+// Ganancia Histórica Total Acumulada (Toda la historia del barbero)
+$gananciaHistServicios = 0;
+try {
+    $r = query("
+        SELECT SUM((IFNULL(precio_final, 0) * (CASE WHEN DAYOFWEEK(fecha_hora) IN (1, 7) THEN $com_finde ELSE $com_diaria END) / 100)) as total
+        FROM citas 
+        WHERE barbero_id = ? AND estado = 'completada'
+    ", [$barbero_id]);
+    $gananciaHistServicios = floatval($r[0]['total'] ?? 0);
+} catch (Throwable $e) {}
+
+$gananciaHistVentas = 0;
+try {
+    $r = query("
+        SELECT SUM((IFNULL(cantidad * precio_unitario, 0) * $com_productos / 100)) as total
+        FROM ventas_productos 
+        WHERE usuario_id = ?
+    ", [$barbero_id]);
+    $gananciaHistVentas = floatval($r[0]['total'] ?? 0);
+} catch (Throwable $e) {}
+
+$propinasHist = 0;
+try {
+    $r = query("
+        SELECT SUM(IFNULL(propina, 0)) as total
+        FROM citas 
+        WHERE barbero_id = ? AND estado = 'completada'
+    ", [$barbero_id]);
+    $propinasHist = floatval($r[0]['total'] ?? 0);
+} catch (Throwable $e) {}
+
+$citasCompletadasHist = 0;
+try {
+    $r = query("
+        SELECT COUNT(*) as total
+        FROM citas 
+        WHERE barbero_id = ? AND estado = 'completada'
+    ", [$barbero_id]);
+    $citasCompletadasHist = intval($r[0]['total'] ?? 0);
+} catch (Throwable $e) {}
+
+$miGananciaHistorica = floatval($gananciaHistServicios) + floatval($gananciaHistVentas) + floatval($propinasHist);
+
 // Total de citas completadas hoy
 $totalCitasHoy = 0;
 try {
@@ -556,7 +599,7 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
         }
         .barber-stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
@@ -586,8 +629,8 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 font-size: 0.76rem;
             }
             .barber-stats-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 8px;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
                 margin-bottom: 16px;
             }
             .barber-stat-card {
@@ -896,6 +939,29 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 <div class="barber-stat-sub">Servicios + Ventas + Propinas</div>
             </div>
 
+            <div class="barber-stat-card">
+                <div class="barber-stat-header">
+                    <span class="barber-stat-label">Ganancias Mes</span>
+                    <div class="barber-stat-icon-box">
+                        <svg class="barber-icon-stroke" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                    </div>
+                </div>
+                <div class="barber-stat-val">$<?php echo number_format($miGananciaMes, 2); ?></div>
+                <div class="barber-stat-sub">Total acumulado del mes</div>
+            </div>
+
+            <!-- CUADRO DE INGRESOS HISTÓRICOS TOTALES -->
+            <div class="barber-stat-card" style="border: 1.5px solid #111111; background: #111111; color: #FFFFFF;">
+                <div class="barber-stat-header">
+                    <span class="barber-stat-label" style="color: #E2E8F0; font-weight: 800;">Ingresos Históricos</span>
+                    <div class="barber-stat-icon-box" style="color: #FFFFFF; background: rgba(255, 255, 255, 0.15);">
+                        <svg class="barber-icon-stroke" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    </div>
+                </div>
+                <div class="barber-stat-val" style="color: #FFFFFF; font-size: 1.55rem; font-weight: 900;">$<?php echo number_format($miGananciaHistorica, 2); ?></div>
+                <div class="barber-stat-sub" style="color: #CBD5E1;"><?php echo number_format($citasCompletadasHist); ?> servicios completados en total</div>
+            </div>
+
             <!-- RUBRO APARTE DE PROPINAS -->
             <div class="barber-stat-card" style="border: 1.5px solid #10B981; background: #F0FDF4;">
                 <div class="barber-stat-header">
@@ -906,17 +972,6 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 </div>
                 <div class="barber-stat-val" style="color: #065F46;">+$<?php echo number_format($propinasHoy, 2); ?></div>
                 <div class="barber-stat-sub" style="color: #047857; font-weight: 700;">Acumulado Mes: +$<?php echo number_format($propinasMes, 2); ?></div>
-            </div>
-
-            <div class="barber-stat-card">
-                <div class="barber-stat-header">
-                    <span class="barber-stat-label">Ganancias Mes</span>
-                    <div class="barber-stat-icon-box">
-                        <svg class="barber-icon-stroke" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                    </div>
-                </div>
-                <div class="barber-stat-val">$<?php echo number_format($miGananciaMes, 2); ?></div>
-                <div class="barber-stat-sub">Total acumulado del mes</div>
             </div>
 
             <div class="barber-stat-card">
