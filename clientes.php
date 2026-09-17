@@ -3,6 +3,11 @@ require_once 'config.php';
 requireLogin();
 $currentUser = getCurrentUser();
 
+if (isBarbero()) {
+    header('Location: barber-dashboard.php');
+    exit;
+}
+
 // Búsqueda
 $search = $_GET['search'] ?? '';
 

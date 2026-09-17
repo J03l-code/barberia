@@ -3,6 +3,11 @@ require_once 'config.php';
 requireLogin();
 $currentUser = getCurrentUser();
 
+if (isBarbero()) {
+    header('Location: barber-dashboard.php?error=' . urlencode('No tienes permiso para editar clientes.'));
+    exit;
+}
+
 $cliente = null;
 $isEdit = false;
 

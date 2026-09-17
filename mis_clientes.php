@@ -239,27 +239,19 @@ include 'includes/header.php';
                 </div>
 
                 <div class="client-actions">
-                    <!-- Información de Contacto (Rol Check) -->
-                    <?php if (!empty($c['telefono'])): ?>
-                        <?php if (isAdminTecnico() || isAdminLocal()):
-                            $wa_phone = formatPhoneForWhatsapp($c['telefono']);
-                            $wa_msg = urlencode("Hola " . explode(' ', $c['nombre'])[0] . ", habla tu barbero de Kortzen.");
-                            ?>
-                            <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
-                                class="btn-icon btn-whatsapp">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.991.602 1.83.896 3.003.896 3.179 0 5.764-2.585 5.763-5.766.001-3.18-2.587-5.767-5.766-5.767z" />
-                                </svg>
-                                WhatsApp
-                            </a>
-                        <?php else: ?>
-                            <!-- Barbero solo ve el número -->
-                            <div class="btn-icon" style="cursor: default; opacity: 0.8; border-color: rgba(255,255,255,0.1);">
-                                <span style="font-size: 14px;">📱</span>
-                                <?php echo htmlspecialchars($c['telefono']); ?>
-                            </div>
-                        <?php endif; ?>
+                    <!-- Información de Contacto (Solo Admins) -->
+                    <?php if (!empty($c['telefono']) && (isAdminTecnico() || isAdminLocal())): 
+                        $wa_phone = formatPhoneForWhatsapp($c['telefono']);
+                        $wa_msg = urlencode("Hola " . explode(' ', $c['nombre'])[0] . ", habla tu barbero de Kortzen.");
+                    ?>
+                        <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
+                            class="btn-icon btn-whatsapp">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path
+                                    d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.991.602 1.83.896 3.003.896 3.179 0 5.764-2.585 5.763-5.766.001-3.18-2.587-5.767-5.766-5.767z" />
+                            </svg>
+                            WhatsApp
+                        </a>
                     <?php endif; ?>
 
                     <!-- Botón Editar Nota -->

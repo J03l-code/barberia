@@ -881,7 +881,6 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                      onclick="abrirPerfilClienteModal(this)"
                                      data-cliente-id="<?php echo htmlspecialchars($c['cliente_id_bd'] ?? $c['cliente_id'] ?? ''); ?>"
                                      data-cliente-nombre="<?php echo htmlspecialchars($c['cliente'] ?? 'Cliente'); ?>"
-                                     data-cliente-telefono="<?php echo htmlspecialchars($c['cliente_telefono'] ?? ''); ?>"
                                      data-cliente-email="<?php echo htmlspecialchars($c['cliente_email'] ?? ''); ?>"
                                      data-cliente-foto="<?php echo htmlspecialchars($c['foto_perfil'] ?? ''); ?>"
                                      data-servicio="<?php echo htmlspecialchars($c['servicio'] ?? 'CORTE'); ?>"
@@ -1077,13 +1076,8 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                         <h2 id="modalClientName" style="margin: 0; font-size: 1.25rem; font-weight: 900; color: #111111; line-height: 1.2;">
                             Cliente
                         </h2>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
-                            <a id="modalClientWhatsAppBtn" href="#" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; background: #25D366; color: #FFFFFF; font-size: 0.78rem; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-decoration: none;">
-                                <span>WhatsApp</span>
-                            </a>
-                            <a id="modalClientTelBtn" href="#" style="display: inline-flex; align-items: center; gap: 5px; background: #F3F4F6; color: #111111; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-decoration: none;">
-                                <span id="modalClientPhoneText">Teléfono</span>
-                            </a>
+                        <div style="font-size: 0.8rem; color: #888888; margin-top: 4px; font-weight: 600;">
+                            Perfil del Cliente
                         </div>
                     </div>
                 </div>
@@ -1153,29 +1147,8 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             const modal = document.getElementById('modalPerfilCliente');
             if (!modal) return;
 
-            // Nombre y teléfono
+            // Nombre
             document.getElementById('modalClientName').textContent = d.clienteNombre || 'Cliente';
-            const tel = (d.clienteTelefono || '').trim();
-            document.getElementById('modalClientPhoneText').textContent = tel || 'Sin teléfono';
-
-            // WhatsApp y Llamada
-            const waBtn = document.getElementById('modalClientWhatsAppBtn');
-            const telBtn = document.getElementById('modalClientTelBtn');
-            if (tel) {
-                let cleanPhone = tel.replace(/[^0-9]/g, '');
-                if (cleanPhone.startsWith('0')) {
-                    cleanPhone = '593' + cleanPhone.substring(1);
-                } else if (!cleanPhone.startsWith('593') && cleanPhone.length === 9) {
-                    cleanPhone = '593' + cleanPhone;
-                }
-                waBtn.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent('Hola ' + d.clienteNombre + ', te escribo de KORTZEN respecto a tu cita de ' + d.servicio + ' (' + d.horaRango + ').')}`;
-                waBtn.style.display = 'inline-flex';
-                telBtn.href = `tel:${tel}`;
-                telBtn.style.display = 'inline-flex';
-            } else {
-                waBtn.style.display = 'none';
-                telBtn.style.display = 'none';
-            }
 
             // Avatar
             const avatarEl = document.getElementById('modalClientAvatar');

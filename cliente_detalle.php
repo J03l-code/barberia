@@ -73,11 +73,13 @@ $backText = isBarbero() ? 'Volver a mi Panel' : 'Volver a Clientes';
         </a>
         <h1 class="page-title" style="margin-top: 6px; color: #FFFFFF; font-weight: 800; font-size: 1.8rem;"><?php echo htmlspecialchars($cliente['nombre']); ?></h1>
     </div>
+    <?php if (!isBarbero()): ?>
     <div style="display: flex; gap: 10px;">
         <a href="clientes_editar.php?id=<?php echo $cliente['id']; ?>" class="btn btn-secondary" style="background: #1F1F1F; color: #FFFFFF; border: 1px solid #333333; padding: 10px 18px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
             <i class="fas fa-user-edit"></i> EDITAR DATOS
         </a>
     </div>
+    <?php endif; ?>
 </div>
 
 <?php if (isset($_GET['success'])): ?>
@@ -101,6 +103,7 @@ $backText = isBarbero() ? 'Volver a mi Panel' : 'Volver a Clientes';
                     <span style="color: #888888; font-weight: 600;">Email:</span>
                     <strong style="color: #FFFFFF; font-weight: 700;"><?php echo $cliente['email'] ? htmlspecialchars($cliente['email']) : 'Sin registrar'; ?></strong>
                 </div>
+                <?php if (!isBarbero()): ?>
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1F1F1F; padding-bottom: 10px;">
                     <span style="color: #888888; font-weight: 600;">Teléfono:</span>
                     <div style="display: flex; align-items: center; gap: 10px;">
@@ -114,6 +117,7 @@ $backText = isBarbero() ? 'Volver a mi Panel' : 'Volver a Clientes';
                         <?php endif; ?>
                     </div>
                 </div>
+                <?php endif; ?>
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1F1F1F; padding-bottom: 10px;">
                     <span style="color: #888888; font-weight: 600;">Fecha de Registro:</span>
                     <strong style="color: #FFFFFF; font-weight: 700;"><?php echo date('d/m/Y H:i', strtotime($cliente['fecha_creacion'])); ?></strong>
