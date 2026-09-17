@@ -820,7 +820,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         let incluyeHtml = '';
                         if (s.que_incluye && s.que_incluye.trim() !== '') {
                             const lines = s.que_incluye.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-                            const renderedList = lines.slice(0, 4).map(item => {
+                            const renderedList = lines.map(item => {
                                 const clean = item.replace(/^[•\-\*\✓\s]+/, '').trim();
                                 return `<div style="display:flex; align-items:flex-start; gap:4px; margin-bottom:2px;"><span style="color:var(--color-gold, #C0A062); font-size:0.72rem; flex-shrink:0;">✓</span><span>${clean}</span></div>`;
                             }).join('');
