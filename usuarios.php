@@ -4,12 +4,32 @@ requireLogin();
 requirePermission(canViewUsers());
 $currentUser = getCurrentUser();
 
-// Obtener usuarios
+// Filtros
+$sucursal_id = isset($_GET['sucursal_id']) && $_GET['sucursal_id'] !== '' ? intval($_GET['sucursal_id']) : '';
+
+// Obtener lista de sucursales para el filtro
+$sucursales_lista = [];
 try {
-    $usuarios = query("SELECT u.*, s.nombre as sucursal_nombre 
-                      FROM usuarios u 
-                      LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                      ORDER BY u.fecha_creacion DESC");
+    $sucursales_lista = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
+} catch (Exception $e) {
+    $sucursales_lista = [];
+}
+
+// Obtener usuarios con filtro
+try {
+    $sql = "SELECT u.*, s.nombre as sucursal_nombre 
+            FROM usuarios u 
+            LEFT JOIN sucursales s ON u.sucursal_id = s.id 
+            WHERE 1=1";
+    $params = [];
+
+    if ($sucursal_id !== '') {
+        $sql .= " AND u.sucursal_id = ?";
+        $params[] = $sucursal_id;
+    }
+
+    $sql .= " ORDER BY u.fecha_creacion DESC";
+    $usuarios = query($sql, $params);
 } catch (PDOException $e) {
     error_log("Error al obtener usuarios: " . $e->getMessage());
     $usuarios = [];
@@ -19,19 +39,48 @@ $pageTitle = 'Usuarios';
 include 'includes/header.php';
 ?>
 
-<div class="page-header">
-    <h1 class="page-title">Gestión de Usuarios</h1>
-    <?php if (canManageUsers()): ?>
-        <button onclick="window.location.href='usuarios_crear.php'" class="btn btn-primary">+ AÑADIR USUARIO</button>
-    <?php endif; ?>
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 28px;">
+    <h1 class="page-title" style="margin: 0;">Gestión de Usuarios</h1>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <form method="GET" id="filterFormUsuarios" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0;">
+            <!-- Filtro por Sucursal -->
+            <select name="sucursal_id" class="filter-select" onchange="this.form.submit()">
+                <option value="">Todas las sucursales</option>
+                <?php foreach ($sucursales_lista as $suc): ?>
+                    <option value="<?php echo $suc['id']; ?>" <?php echo (string)$sucursal_id === (string)$suc['id'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($suc['nombre']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <?php if ($sucursal_id !== ''): ?>
+                <a href="usuarios.php" class="btn btn-secondary" style="padding: 9px 14px; text-decoration: none;">Limpiar</a>
+            <?php endif; ?>
+        </form>
+
+        <?php if (canManageUsers()): ?>
+            <button onclick="window.location.href='usuarios_crear.php'" class="btn btn-primary" style="white-space: nowrap;">+ AÑADIR USUARIO</button>
+        <?php endif; ?>
+    </div>
 </div>
 
 <style>
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 32px;
+    .filter-select {
+        padding: 9px 14px;
+        background: #FFFFFF;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.2s ease;
+    }
+
+    .filter-select:hover,
+    .filter-select:focus {
+        border-color: #111111;
     }
 
     .user-cell {
@@ -199,8 +248,8 @@ include 'includes/header.php';
                 <?php endforeach; ?>
             <?php else: ?>
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                        No hay usuarios registrados
+                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px;">
+                        <?php echo $sucursal_id !== '' ? 'No hay usuarios ni barberos registrados en esta sucursal.' : 'No hay usuarios registrados.'; ?>
                     </td>
                 </tr>
             <?php endif; ?>
