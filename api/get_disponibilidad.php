@@ -7,9 +7,10 @@ header('Content-Type: application/json');
 $fecha = $_GET['fecha'] ?? null;
 $barberoId = isset($_GET['barbero_id']) ? intval($_GET['barbero_id']) : 0;
 $servicioId = isset($_GET['servicio_id']) ? intval($_GET['servicio_id']) : 0;
+$excludeCitaId = isset($_GET['exclude_cita_id']) ? intval($_GET['exclude_cita_id']) : 0;
 
 if (!$fecha || !$barberoId || !$servicioId) {
-    echo json_encode(['error' => 'Faltan parámetros (fecha, barbero, servicio)']);
+    echo json_encode(['success' => false, 'error' => 'Faltan parámetros (fecha, barbero, servicio)', 'slots' => []]);
     exit;
 }
 
@@ -17,7 +18,7 @@ try {
     $pdo = getConnection();
 
     // 1. Obtener duración del servicio
-    $stmtServicio = $pdo->prepare("SELECT duracion_minutos FROM servicios WHERE id = ?");
+    $stmtServicio = $pdo->prepare("SELECT duracion_minutos, nombre FROM servicios WHERE id = ?");
     $stmtServicio->execute([$servicioId]);
     $servicio = $stmtServicio->fetch();
     $duracion = $servicio ? intval($servicio['duracion_minutos']) : 30;
@@ -32,7 +33,12 @@ try {
     $horarioBase = $stmtHorario->fetch();
 
     if (!$horarioBase) {
-        echo json_encode([]); // No trabaja ese día
+        echo json_encode([
+            'success' => true,
+            'slots' => [],
+            'mensaje' => 'El barbero no labora el día seleccionado.',
+            'duracion_servicio' => $duracion
+        ]);
         exit;
     }
 
@@ -42,16 +48,21 @@ try {
     $bloqueo = $stmtBloqueo->fetch();
 
     if ($bloqueo && $bloqueo['todo_el_dia']) {
-        echo json_encode([]); // Día bloqueado completo
+        echo json_encode([
+            'success' => true,
+            'slots' => [],
+            'mensaje' => 'El barbero tiene el día completo bloqueado o en descanso.',
+            'duracion_servicio' => $duracion
+        ]);
         exit;
     }
 
-    // 3.5. Obtener bloqueos por horas (NUEVO)
+    // 3.5. Obtener bloqueos por horas
     $stmtBloqueoHoras = $pdo->prepare("SELECT hora_inicio, hora_fin FROM bloqueos_horas WHERE barbero_id = ? AND fecha = ?");
     $stmtBloqueoHoras->execute([$barberoId, $fecha]);
     $bloqueosParciales = $stmtBloqueoHoras->fetchAll(PDO::FETCH_ASSOC);
 
-    // 3.6. Incluir Horario de Almuerzo Fijo del Barbero (Gestionado por Administrador)
+    // 3.6. Incluir Horario de Almuerzo Fijo del Barbero
     $stmtBarberUser = $pdo->prepare("SELECT almuerzo_inicio, almuerzo_fin, almuerzo_activo FROM usuarios WHERE id = ?");
     $stmtBarberUser->execute([$barberoId]);
     $barberUser = $stmtBarberUser->fetch(PDO::FETCH_ASSOC);
@@ -68,7 +79,6 @@ try {
     $horaFinStr = $horarioBase['hora_fin'];       // Ej: "20:00:00"
 
     // Convertir a timestamps para el día específico
-    // Asegurar que empiece en hora exacta (xx:00:00)
     $startOfDay = ceil(strtotime("$fecha $horaInicioStr") / 3600) * 3600;
     $endOfDay = strtotime("$fecha $horaFinStr");
 
@@ -78,18 +88,24 @@ try {
         $startOfDay = max($startOfDay, ceil($now / 3600) * 3600); // Próxima hora en punto
     }
 
-    // 4. Obtener citas existentes para ese barbero y fecha
-    // Buscamos citas que se solapen con el horario laboral
-    $stmtCitas = $pdo->prepare("
-        SELECT fecha_hora, servicio_id, 
+    // 4. Obtener citas existentes para ese barbero y fecha (excluyendo cita actual si es edición)
+    $sqlCitas = "
+        SELECT c.id, c.fecha_hora, c.servicio_id, 
                s.duracion_minutos 
         FROM citas c
         JOIN servicios s ON c.servicio_id = s.id
         WHERE c.barbero_id = ? 
           AND c.estado != 'cancelada'
           AND DATE(c.fecha_hora) = ?
-    ");
-    $stmtCitas->execute([$barberoId, $fecha]);
+    ";
+    $paramsCitas = [$barberoId, $fecha];
+    if ($excludeCitaId > 0) {
+        $sqlCitas .= " AND c.id != ?";
+        $paramsCitas[] = $excludeCitaId;
+    }
+
+    $stmtCitas = $pdo->prepare($sqlCitas);
+    $stmtCitas->execute($paramsCitas);
     $citas = $stmtCitas->fetchAll();
 
     // Mapear intervalos ocupados
@@ -108,7 +124,7 @@ try {
         $ocupados[] = ['inicio' => $inicioBloqueo, 'fin' => $finBloqueo];
     }
 
-    // 5. Generar slots disponibles (SOLO HORAS EN PUNTO)
+    // 5. Generar slots disponibles (SOLO HORAS EN PUNTO O INTERVALOS REGULARES)
     $slots = [];
     $intervalo = 60 * 60; // Slots cada 60 minutos (Horas en punto)
 
@@ -120,9 +136,8 @@ try {
 
         $disponible = true;
 
-        // Verificar colisión con citas
+        // Verificar colisión con citas o bloqueos
         foreach ($ocupados as $ocupado) {
-            // Si el slot empieza antes de que termine la cita Y termina después de que empiece la cita
             if ($slotInicio < $ocupado['fin'] && $slotFin > $ocupado['inicio']) {
                 $disponible = false;
                 break;
@@ -157,16 +172,24 @@ try {
         }
 
         echo json_encode([
+            'success' => true,
             'slots' => [],
+            'mensaje' => 'No hay horarios disponibles para esta fecha.',
+            'duracion_servicio' => $duracion,
             'sugerencia_proxima_fecha' => $proximaFecha,
             'sugerencia_legible' => $proximaFecha ? date('d/m/Y', strtotime($proximaFecha)) : null
         ]);
         exit;
     }
 
-    echo json_encode(['slots' => $slots]);
+    echo json_encode([
+        'success' => true,
+        'slots' => $slots,
+        'duracion_servicio' => $duracion,
+        'total_disponibles' => count($slots)
+    ]);
 
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Error de base de datos']);
+    echo json_encode(['success' => false, 'error' => 'Error de base de datos']);
 }

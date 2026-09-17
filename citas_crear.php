@@ -47,9 +47,13 @@ try {
 }
 
 try {
-    $barberos = query("SELECT id, nombre FROM usuarios WHERE rol = 'barbero' ORDER BY nombre ASC");
+    $barberos = query("SELECT id, nombre, sucursal_id FROM usuarios WHERE rol IN ('barbero', 'admin_local', 'admin') AND activo = 1 ORDER BY nombre ASC");
 } catch (PDOException $e) {
-    $barberos = [];
+    try {
+        $barberos = query("SELECT id, nombre FROM usuarios WHERE rol = 'barbero' ORDER BY nombre ASC");
+    } catch (PDOException $e2) {
+        $barberos = [];
+    }
 }
 
 try {
@@ -426,6 +430,101 @@ include 'includes/header.php';
     color: #111827;
 }
 
+/* REAL-TIME SLOTS PICKER */
+.slots-live-container {
+    margin-bottom: 22px;
+    margin-top: -6px;
+}
+
+.slots-status-banner {
+    padding: 11px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    line-height: 1.45;
+    transition: all 0.2s ease;
+}
+
+.slots-status-banner.info {
+    background: #F8FAFC;
+    color: #475569;
+    border: 1.5px solid #E2E8F0;
+}
+
+.slots-status-banner.loading {
+    background: #F9FAFB;
+    color: #111827;
+    border: 1.5px solid #D1D5DB;
+}
+
+.slots-status-banner.success {
+    background: #ECFDF5;
+    color: #065F46;
+    border: 1.5px solid #A7F3D0;
+}
+
+.slots-status-banner.warning,
+.slots-status-banner.empty {
+    background: #FEF2F2;
+    color: #991B1B;
+    border: 1.5px solid #FECACA;
+}
+
+.slots-pills-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 4px 1px;
+}
+
+.slot-pill-btn {
+    padding: 8px 14px;
+    border: 1.5px solid #E5E7EB;
+    background: #FFFFFF;
+    color: #111827;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    user-select: none;
+}
+
+.slot-pill-btn:hover {
+    background: #F3F4F6;
+    border-color: #111827;
+    transform: translateY(-1px);
+}
+
+.slot-pill-btn.active {
+    background: #111827 !important;
+    color: #FFFFFF !important;
+    border-color: #111827 !important;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.2);
+}
+
+.slot-pill-btn svg {
+    flex-shrink: 0;
+}
+
+@keyframes spinSlots {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.icon-spin {
+    animation: spinSlots 1s linear infinite;
+}
+
 /* MODAL CREAR CLIENTE RÁPIDO */
 .modal-quick-client-overlay {
     display: none;
@@ -580,7 +679,7 @@ include 'includes/header.php';
         
         <div class="form-group">
             <label class="form-label"><span>Servicio *</span></label>
-            <select name="servicio_id" class="form-select" required>
+            <select name="servicio_id" id="servicioSelect" class="form-select" required onchange="actualizarHorariosDisponibles()">
                 <option value="">Seleccionar servicio</option>
                 <?php foreach ($servicios as $servicio): ?>
                     <option value="<?php echo $servicio['id']; ?>" 
@@ -593,21 +692,8 @@ include 'includes/header.php';
         
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label">Barbero</label>
-                <select name="barbero_id" class="form-select" required>
-                    <option value="">Seleccionar barbero</option>
-                    <?php foreach ($barberos as $barbero): ?>
-                        <option value="<?php echo $barbero['id']; ?>" 
-                            <?php echo ($isEdit && $cita['barbero_id'] == $barbero['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($barbero['nombre']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Sucursal</label>
-                <select name="sucursal_id" class="form-select" required>
+                <label class="form-label"><span>Sucursal *</span></label>
+                <select name="sucursal_id" id="sucursalSelect" class="form-select" required onchange="filtrarBarberosPorSucursal(); actualizarHorariosDisponibles();">
                     <option value="">Seleccionar sucursal</option>
                     <?php foreach ($sucursales as $sucursal): ?>
                         <option value="<?php echo $sucursal['id']; ?>" 
@@ -617,30 +703,57 @@ include 'includes/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
+            
+            <div class="form-group">
+                <label class="form-label"><span>Barbero *</span></label>
+                <select name="barbero_id" id="barberoSelect" class="form-select" required onchange="sincronizarSucursalConBarbero(); actualizarHorariosDisponibles();">
+                    <option value="">Seleccionar barbero</option>
+                    <?php foreach ($barberos as $barbero): ?>
+                        <option value="<?php echo $barbero['id']; ?>" 
+                            data-sucursal="<?php echo $barbero['sucursal_id'] ?? ''; ?>"
+                            <?php echo ($isEdit && $cita['barbero_id'] == $barbero['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($barbero['nombre']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
         
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label">Fecha</label>
+                <label class="form-label"><span>Fecha *</span></label>
                 <input 
                     type="date" 
                     name="fecha" 
+                    id="fechaInput"
                     class="form-input"
-                    value="<?php echo $isEdit ? date('Y-m-d', strtotime($cita['fecha_hora'])) : ''; ?>"
+                    value="<?php echo $isEdit ? date('Y-m-d', strtotime($cita['fecha_hora'])) : date('Y-m-d'); ?>"
+                    min="<?php echo date('Y-m-d'); ?>"
                     required
+                    onchange="actualizarHorariosDisponibles()"
                 >
             </div>
             
             <div class="form-group">
-                <label class="form-label">Hora</label>
-                <input 
-                    type="time" 
-                    name="hora" 
-                    class="form-input"
-                    value="<?php echo $isEdit ? date('H:i', strtotime($cita['fecha_hora'])) : ''; ?>"
-                    required
-                >
+                <label class="form-label">
+                    <span>Hora Disponible *</span>
+                    <span id="slotsCountBadge" style="font-size: 10.5px; font-weight: 800; color: #047857; background: #ECFDF5; padding: 1px 7px; border-radius: 4px; display: none;">0 disponibles</span>
+                </label>
+                <select name="hora" id="horaSelect" class="form-select" required onchange="onHoraSelectChange(this.value)">
+                    <option value="<?php echo $isEdit ? date('H:i', strtotime($cita['fecha_hora'])) : ''; ?>">
+                        <?php echo $isEdit ? date('H:i', strtotime($cita['fecha_hora'])) : 'Selecciona fecha, servicio y barbero primero'; ?>
+                    </option>
+                </select>
             </div>
+        </div>
+
+        <!-- CONTENEDOR DE HORARIOS EN TIEMPO REAL -->
+        <div class="slots-live-container" id="slotsLiveContainer">
+            <div id="slotsStatusBanner" class="slots-status-banner info">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span id="slotsStatusText">Selecciona el servicio, sucursal, barbero y fecha para consultar los turnos disponibles en tiempo real.</span>
+            </div>
+            <div id="slotsPillsGrid" class="slots-pills-grid" style="display: none;"></div>
         </div>
         
         <div class="form-group">
@@ -1016,6 +1129,216 @@ async function guardarNuevoClienteAjax(e) {
         btn.innerHTML = originalText;
     }
 }
+
+/* =========================================================================
+   SISTEMA DE GESTIÓN DE HORARIOS EN TIEMPO REAL (DISPONIBILIDAD EXACTA)
+   ========================================================================= */
+const citaIdActual = <?php echo $isEdit ? intval($cita['id']) : 0; ?>;
+let initialHoraValue = '<?php echo $isEdit ? date('H:i', strtotime($cita['fecha_hora'])) : ''; ?>';
+
+function onHoraSelectChange(val) {
+    const pills = document.querySelectorAll('.slot-pill-btn');
+    pills.forEach(p => {
+        if (p.dataset.time === val) {
+            p.classList.add('active');
+        } else {
+            p.classList.remove('active');
+        }
+    });
+}
+
+function sincronizarSucursalConBarbero() {
+    const barberoSelect = document.getElementById('barberoSelect');
+    const sucursalSelect = document.getElementById('sucursalSelect');
+    if (!barberoSelect || !sucursalSelect) return;
+
+    const opt = barberoSelect.selectedOptions[0];
+    if (opt && opt.dataset.sucursal && parseInt(opt.dataset.sucursal) > 0) {
+        sucursalSelect.value = opt.dataset.sucursal;
+    }
+}
+
+function filtrarBarberosPorSucursal() {
+    const sucursalSelect = document.getElementById('sucursalSelect');
+    const barberoSelect = document.getElementById('barberoSelect');
+    if (!sucursalSelect || !barberoSelect) return;
+
+    const sucId = sucursalSelect.value;
+    if (!sucId) return;
+
+    const currOpt = barberoSelect.selectedOptions[0];
+    if (currOpt && currOpt.value) {
+        const barberSuc = currOpt.dataset.sucursal;
+        if (barberSuc && barberSuc != sucId) {
+            barberoSelect.value = '';
+        }
+    }
+}
+
+let slotFetchController = null;
+async function actualizarHorariosDisponibles() {
+    const servicioSelect = document.getElementById('servicioSelect');
+    const barberoSelect = document.getElementById('barberoSelect');
+    const sucursalSelect = document.getElementById('sucursalSelect');
+    const fechaInput = document.getElementById('fechaInput');
+    const horaSelect = document.getElementById('horaSelect');
+    const statusBanner = document.getElementById('slotsStatusBanner');
+    const pillsGrid = document.getElementById('slotsPillsGrid');
+    const countBadge = document.getElementById('slotsCountBadge');
+
+    if (!servicioSelect || !barberoSelect || !fechaInput || !horaSelect || !statusBanner || !pillsGrid) return;
+
+    const servicioId = servicioSelect.value;
+    const barberoId = barberoSelect.value;
+    const fecha = fechaInput.value;
+    const sucursalId = sucursalSelect ? sucursalSelect.value : '';
+
+    if (!servicioId || !barberoId || !fecha) {
+        horaSelect.innerHTML = '<option value="">Selecciona fecha, servicio y barbero primero</option>';
+        horaSelect.disabled = true;
+        if (countBadge) countBadge.style.display = 'none';
+        pillsGrid.style.display = 'none';
+        pillsGrid.innerHTML = '';
+        statusBanner.className = 'slots-status-banner info';
+        statusBanner.style.display = 'flex';
+        statusBanner.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Selecciona el servicio, sucursal, barbero y fecha para consultar los turnos disponibles en tiempo real.</span>
+        `;
+        return;
+    }
+
+    if (slotFetchController) {
+        slotFetchController.abort();
+    }
+    slotFetchController = new AbortController();
+
+    horaSelect.disabled = true;
+    horaSelect.innerHTML = '<option value="">Consultando disponibilidad en tiempo real...</option>';
+    if (countBadge) countBadge.style.display = 'none';
+    statusBanner.className = 'slots-status-banner loading';
+    statusBanner.style.display = 'flex';
+    statusBanner.innerHTML = `
+        <svg class="icon-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+        <span>Verificando agenda y turnos libres en tiempo real...</span>
+    `;
+    pillsGrid.style.display = 'none';
+
+    try {
+        let url = `api/get_disponibilidad.php?fecha=${encodeURIComponent(fecha)}&barbero_id=${encodeURIComponent(barberoId)}&servicio_id=${encodeURIComponent(servicioId)}`;
+        if (citaIdActual > 0) {
+            url += `&exclude_cita_id=${citaIdActual}`;
+        }
+        if (sucursalId) {
+            url += `&sucursal_id=${encodeURIComponent(sucursalId)}`;
+        }
+
+        const resp = await fetch(url, { signal: slotFetchController.signal });
+        const data = await resp.json();
+
+        const slots = Array.isArray(data) ? data : (data.slots || []);
+
+        horaSelect.innerHTML = '';
+        pillsGrid.innerHTML = '';
+
+        if (!slots || slots.length === 0) {
+            horaSelect.disabled = true;
+            horaSelect.innerHTML = '<option value="">Sin turnos disponibles para esta fecha</option>';
+            if (countBadge) countBadge.style.display = 'none';
+            pillsGrid.style.display = 'none';
+
+            let sugerenciaHtml = '';
+            if (data.sugerencia_proxima_fecha && data.sugerencia_legible) {
+                sugerenciaHtml = `
+                    <div style="margin-top: 6px;">
+                        <span>Próxima fecha disponible: <strong>${escapeHtml(data.sugerencia_legible)}</strong></span>
+                        <button type="button" onclick="document.getElementById('fechaInput').value='${data.sugerencia_proxima_fecha}'; actualizarHorariosDisponibles();" class="btn-cancel" style="padding: 3px 10px; font-size: 11px; margin-left: 8px; background: #FFFFFF; border-color: #FECACA; color: #991B1B;">
+                            Cambiar a ${escapeHtml(data.sugerencia_legible)}
+                        </button>
+                    </div>
+                `;
+            }
+
+            statusBanner.className = 'slots-status-banner empty';
+            statusBanner.innerHTML = `
+                <div style="width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                        <span>${escapeHtml(data.mensaje || 'No hay horarios disponibles para esta fecha y barbero.')}</span>
+                    </div>
+                    ${sugerenciaHtml}
+                </div>
+            `;
+            return;
+        }
+
+        horaSelect.disabled = false;
+        horaSelect.innerHTML = '<option value="">-- Seleccionar Hora Disponible --</option>';
+
+        let targetHora = initialHoraValue;
+        initialHoraValue = ''; // consume once
+
+        let matchedHora = false;
+
+        slots.forEach(slot => {
+            const opt = document.createElement('option');
+            opt.value = slot;
+            opt.textContent = slot + ' hrs';
+            if (targetHora && targetHora.substring(0, 5) === slot) {
+                opt.selected = true;
+                matchedHora = true;
+            }
+            horaSelect.appendChild(opt);
+
+            const pill = document.createElement('button');
+            pill.type = 'button';
+            pill.className = 'slot-pill-btn' + (matchedHora && targetHora.substring(0, 5) === slot ? ' active' : '');
+            pill.dataset.time = slot;
+            pill.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> ${slot}`;
+            pill.onclick = () => {
+                horaSelect.value = slot;
+                onHoraSelectChange(slot);
+            };
+            pillsGrid.appendChild(pill);
+        });
+
+        if (countBadge) {
+            countBadge.textContent = `${slots.length} turnos disponibles`;
+            countBadge.style.display = 'inline-block';
+        }
+
+        statusBanner.className = 'slots-status-banner success';
+        statusBanner.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span><strong>${slots.length} turnos disponibles</strong> en tiempo real. Selecciona una hora en el desplegable o haz clic en los turnos:</span>
+        `;
+        pillsGrid.style.display = 'flex';
+
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Error cargando disponibilidad:', err);
+        horaSelect.disabled = true;
+        horaSelect.innerHTML = '<option value="">Error al consultar horarios</option>';
+        statusBanner.className = 'slots-status-banner warning';
+        statusBanner.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>No se pudo conectar para verificar la disponibilidad. Intenta nuevamente.</span>
+        `;
+    }
+}
+
+// Inicialización al cargar la página
+document.addEventListener('DOMContentLoaded', () => {
+    const servicioSelect = document.getElementById('servicioSelect');
+    const barberoSelect = document.getElementById('barberoSelect');
+    const fechaInput = document.getElementById('fechaInput');
+
+    if (servicioSelect && barberoSelect && fechaInput) {
+        if (servicioSelect.value && barberoSelect.value && fechaInput.value) {
+            actualizarHorariosDisponibles();
+        }
+    }
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>
