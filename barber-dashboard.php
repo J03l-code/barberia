@@ -932,7 +932,7 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
 
         </div>
 
-        <!-- SECCIÓN 3: HERRAMIENTAS Y ACCIONES DEL BARBERO (3 CAJAS) -->
+        <!-- SECCIÓN 3: HERRAMIENTAS Y ACCIONES DEL BARBERO (2 CAJAS) -->
         <div class="barber-forms-grid">
             
             <!-- Caja 1: Registrar Venta de Producto -->
@@ -999,45 +999,6 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                         <div style="flex: 2; display: flex; align-items: flex-end; margin-bottom: 12px;">
                             <button type="submit" class="btn-action-black" style="background: #FFFFFF; color: #111111; border: 1px solid #111111;">
                                 <span>Debitar Insumo</span>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Caja 3: Bloqueo Rápido de Descanso -->
-            <div class="barber-section-card" style="margin-bottom: 0;">
-                <h3 class="barber-section-title">
-                    <svg class="barber-icon-stroke" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span>Bloqueo Rápido de Descanso</span>
-                </h3>
-                <p style="font-size: 0.85rem; color: #666666; margin-bottom: 16px; line-height: 1.4;">
-                    Bloquea tu horario de almuerzo o pausa personal para evitar reservas en esa hora.
-                </p>
-
-                <form method="POST" action="api/block_time_action.php">
-                    <input type="hidden" name="action" value="bloquear_descanso_barbero">
-                    <label class="config-label" style="font-size: 0.78rem;">Hora de Inicio del Descanso</label>
-                    <select name="hora_inicio" class="barber-input" required>
-                        <option value="">-- Seleccionar hora --</option>
-                        <option value="12:00">12:00 PM</option>
-                        <option value="13:00">01:00 PM</option>
-                        <option value="14:00">02:00 PM</option>
-                        <option value="15:00">03:00 PM</option>
-                        <option value="16:00">04:00 PM</option>
-                    </select>
-
-                    <div style="display: flex; gap: 12px;">
-                        <div style="flex: 1;">
-                            <label class="config-label" style="font-size: 0.78rem;">Duración</label>
-                            <select name="duracion_minutos" class="barber-input">
-                                <option value="30">30 Minutos</option>
-                                <option value="60" selected>1 Hora</option>
-                            </select>
-                        </div>
-                        <div style="flex: 1; display: flex; align-items: flex-end; margin-bottom: 12px;">
-                            <button type="submit" class="btn-action-black">
-                                <span>Bloquear</span>
                             </button>
                         </div>
                     </div>
