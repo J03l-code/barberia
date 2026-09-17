@@ -4,7 +4,7 @@
  * Retorna eventos de citas, estado de barberos y slots disponibles por día/semana
  */
 
-require_once '../config.php';
+require_once __DIR__ . '/../config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -69,7 +69,7 @@ try {
 
     // 2. Obtener Barberos
     $paramsBarberos = [];
-    $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, u.foto_perfil, u.almuerzo_inicio, u.almuerzo_fin, u.almuerzo_activo, s.nombre AS sucursal_nombre 
+    $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, COALESCE(u.foto_url, '') AS foto_url, u.almuerzo_inicio, u.almuerzo_fin, u.almuerzo_activo, s.nombre AS sucursal_nombre 
                     FROM usuarios u 
                     LEFT JOIN sucursales s ON u.sucursal_id = s.id 
                     WHERE u.rol IN ('barbero', 'admin_local')";

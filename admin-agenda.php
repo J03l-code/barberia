@@ -51,7 +51,7 @@ try {
     if ($userRol === 'admin_local') {
         if (!empty($scopedBranchIds)) {
             $inList = implode(',', array_fill(0, count($scopedBranchIds), '?'));
-            $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, u.foto_perfil, u.sucursal_id, s.nombre AS sucursal_nombre 
+            $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, s.nombre AS sucursal_nombre 
                                     FROM usuarios u 
                                     LEFT JOIN sucursales s ON u.sucursal_id = s.id 
                                     WHERE u.rol IN ('barbero', 'admin_local') 
@@ -62,7 +62,7 @@ try {
         }
     } else {
         if ($filterSucursalId > 0) {
-            $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, u.foto_perfil, u.sucursal_id, s.nombre AS sucursal_nombre 
+            $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, s.nombre AS sucursal_nombre 
                                     FROM usuarios u 
                                     LEFT JOIN sucursales s ON u.sucursal_id = s.id 
                                     WHERE u.rol IN ('barbero', 'admin_local') AND u.sucursal_id = ?
@@ -70,7 +70,7 @@ try {
             $stmt->execute([$filterSucursalId]);
             $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
-            $stmt = $pdo->query("SELECT u.id, u.nombre, u.email, u.foto_perfil, u.sucursal_id, s.nombre AS sucursal_nombre 
+            $stmt = $pdo->query("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, s.nombre AS sucursal_nombre 
                                  FROM usuarios u 
                                  LEFT JOIN sucursales s ON u.sucursal_id = s.id 
                                  WHERE u.rol IN ('barbero', 'admin_local') 
