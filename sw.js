@@ -63,8 +63,8 @@ self.addEventListener('fetch', event => {
 // Push Notification Event
 self.addEventListener('push', event => {
   let data = { 
-    title: '✂️ KORTZEN Barbería: Recordatorio de Cita', 
-    body: 'Tienes un nuevo recordatorio de tu cita. Toca aquí para confirmar asistencia.', 
+    title: 'KORTZEN Barbería: Recordatorio de Cita', 
+    body: 'Tienes un nuevo recordatorio de tu cita. Toca aquí para ver detalles.', 
     icon: '/assets/icons/favicon.png',
     url: '/cliente-dashboard.php'
   };

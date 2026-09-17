@@ -40,13 +40,33 @@ try {
     $stmtUpd = $pdo->prepare("UPDATE citas SET asistencia_confirmada = 1, estado = 'confirmada' WHERE id = ?");
     $stmtUpd->execute([$cita_id]);
 
-    $stmtCName = $pdo->prepare("SELECT c.nombre FROM citas cita JOIN clientes c ON cita.cliente_id = c.id WHERE cita.id = ?");
+    $stmtCName = $pdo->prepare("
+        SELECT c.nombre, cita.barbero_id, s.nombre as servicio_nombre, cita.fecha_hora 
+        FROM citas cita 
+        LEFT JOIN clientes c ON cita.cliente_id = c.id 
+        LEFT JOIN servicios s ON cita.servicio_id = s.id 
+        WHERE cita.id = ?
+    ");
     $stmtCName->execute([$cita_id]);
-    $clienteNombre = $stmtCName->fetchColumn() ?: "Cita #$cita_id";
+    $citaData = $stmtCName->fetch(PDO::FETCH_ASSOC);
+    $clienteNombre = $citaData['nombre'] ?? "Cita #$cita_id";
 
     registrarLog('CONFIRMAR', 'citas', $cita_id, "El cliente '$clienteNombre' confirmó su asistencia a la cita #$cita_id. Estado actualizado a 'confirmada'.");
 
-    header('Location: ../cliente-dashboard.php?success=' . urlencode('¡Excelente! Has confirmado tu asistencia a la cita. El barbero ha sido notificado.'));
+    // Notificar al barbero en tiempo real
+    try {
+        require_once __DIR__ . '/../includes/webpush_helper.php';
+        if (!empty($citaData['barbero_id'])) {
+            notificarBarbero($pdo, $citaData['barbero_id'], $cita_id, 'cita_confirmada', [
+                'cliente' => $clienteNombre,
+                'servicio' => $citaData['servicio_nombre'] ?? 'Servicio',
+                'fecha' => !empty($citaData['fecha_hora']) ? date('d/m/Y', strtotime($citaData['fecha_hora'])) : date('d/m/Y'),
+                'hora' => !empty($citaData['fecha_hora']) ? date('H:i', strtotime($citaData['fecha_hora'])) : date('H:i')
+            ]);
+        }
+    } catch (Exception $eNotif) {}
+
+    header('Location: ../cliente-dashboard.php?success=' . urlencode('Excelente. Has confirmado tu asistencia a la cita. Tu barbero ha sido notificado.'));
     exit;
 
 } catch (Exception $e) {

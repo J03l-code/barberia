@@ -43,10 +43,16 @@ try {
     $stmtUpdate = $pdo->prepare("UPDATE citas SET estado = 'cancelada' WHERE id = ?");
     $stmtUpdate->execute([$citaId]);
 
-    // 4. Log para admins (opcional, si existe función registrarLog)
+    // 4. Notificar al barbero
+    try {
+        require_once __DIR__ . '/../includes/webpush_helper.php';
+        notificarBarbero($pdo, $cita['barbero_id'] ?? 0, $citaId, 'cita_cancelada');
+    } catch (Exception $eNotif) {}
+
+    // 5. Log para admins
     if (function_exists('registrarLog')) {
-        // Asumimos que registrarLog maneja usuario_id=0 para clientes o un sistema independiente
-        // Por ahora lo omitimos para no complicar dependencias de auth de admin
+        $cName = $cliente['nombre'] ?? 'Cliente';
+        registrarLog('CANCELAR', 'citas', $citaId, "El cliente '$cName' canceló su cita #$citaId.");
     }
 
     header('Location: ../mis-citas.php?success=' . urlencode('Cita cancelada correctamente.'));

@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/../includes/webpush_helper.php';
 
 $action = $_POST['action'] ?? '';
 
@@ -29,7 +30,7 @@ try {
             }
 
             // Verificar propiedad de la cita y tiempo límite (> 2 horas)
-            $stmtCita = $pdo->prepare("SELECT id, fecha_hora, estado FROM citas WHERE id = ? AND cliente_id = ?");
+            $stmtCita = $pdo->prepare("SELECT id, barbero_id, fecha_hora, estado FROM citas WHERE id = ? AND cliente_id = ?");
             $stmtCita->execute([$citaId, $clienteId]);
             $cita = $stmtCita->fetch(PDO::FETCH_ASSOC);
 
@@ -50,6 +51,11 @@ try {
 
             $stmtCancel = $pdo->prepare("UPDATE citas SET estado = 'cancelada' WHERE id = ?");
             $stmtCancel->execute([$citaId]);
+
+            // Notificar al barbero en tiempo real
+            try {
+                notificarBarbero($pdo, $cita['barbero_id'] ?? 0, $citaId, 'cita_cancelada');
+            } catch (Exception $eNotif) {}
 
             header('Location: ../cliente-dashboard.php?success=' . urlencode('Tu cita ha sido cancelada exitosamente.'));
             exit;
@@ -89,6 +95,11 @@ try {
             $clienteNombre = $stmtCName->fetchColumn() ?: "Cliente #$cliente_id";
 
             registrarLog('CREAR', 'citas', $newCitaId, "Cita agendada para el cliente '$clienteNombre' ($fecha_hora)");
+
+            // Notificar al Barbero Asignado (PWA + WebPush)
+            try {
+                notificarBarbero($pdo, $barbero_id, $newCitaId, 'nueva_reserva');
+            } catch (Exception $eNotif) {}
 
             // Enviar correo de confirmación al cliente si tiene correo registrado
             try {
@@ -138,13 +149,22 @@ try {
             }
             // Si es admin, no verificamos ownership, confiamos en su poder.
 
-            $stmtCName = $pdo->prepare("SELECT c.nombre FROM citas cita JOIN clientes c ON cita.cliente_id = c.id WHERE cita.id = ?");
-            $stmtCName->execute([$id]);
-            $clienteNombre = $stmtCName->fetchColumn() ?: "Cita #$id";
+            $stmtCInfo = $pdo->prepare("SELECT cita.cliente_id, c.nombre FROM citas cita JOIN clientes c ON cita.cliente_id = c.id WHERE cita.id = ?");
+            $stmtCInfo->execute([$id]);
+            $citaCli = $stmtCInfo->fetch(PDO::FETCH_ASSOC);
+            $clienteNombre = $citaCli ? $citaCli['nombre'] : "Cita #$id";
+            $clienteIdNotif = $citaCli ? $citaCli['cliente_id'] : 0;
 
             $sql = "UPDATE citas SET estado = 'cancelada' WHERE id = ?";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$id]);
+
+            // Notificar al cliente si existe
+            if ($clienteIdNotif > 0) {
+                try {
+                    notificarCliente($pdo, $clienteIdNotif, $id, 'Cita Cancelada', 'Tu cita de barbería ha sido cancelada por la administración o barbero.', '/cliente-dashboard.php');
+                } catch (Exception $eNotif) {}
+            }
 
             registrarLog('CANCELAR', 'citas', $id, "Cita #$id cancelada para el cliente '$clienteNombre'");
             header('Location: ' . $redirect_url . '?success=' . urlencode('Cita cancelada correctamente.'));
@@ -371,17 +391,17 @@ try {
                 }
             }
 
-            // PWA Notification & Push Notification al Cliente
+            // Notificaciones PWA & WebPush al Cliente
             if (!empty($citaRow['cliente_id'])) {
                 $titulosNotif = [
-                    'completada' => '✂️ Cita Completada',
-                    'confirmada' => '✅ Cita Confirmada',
-                    'cancelada'  => '❌ Cita Cancelada',
-                    'en_atencion'=> '💈 Tu turno ha comenzado',
-                    'pendiente'  => '📅 Estado de cita: Pendiente'
+                    'completada' => 'Cita Completada',
+                    'confirmada' => 'Cita Confirmada',
+                    'cancelada'  => 'Cita Cancelada',
+                    'en_atencion'=> 'Tu turno ha comenzado',
+                    'pendiente'  => 'Estado de cita: Pendiente'
                 ];
                 $mensajesNotif = [
-                    'completada' => '¡Tu servicio de ' . ($citaRow['servicio_nombre'] ?? 'barbería') . ' ha sido completado! Gracias por elegir KORTZEN.',
+                    'completada' => 'Tu servicio de ' . ($citaRow['servicio_nombre'] ?? 'barbería') . ' ha sido completado. Gracias por elegir KORTZEN.',
                     'confirmada' => 'Tu cita de ' . ($citaRow['servicio_nombre'] ?? 'barbería') . ' para el ' . date('d/m/Y H:i', strtotime($citaRow['fecha_hora'])) . ' fue confirmada.',
                     'cancelada'  => 'Tu cita del ' . date('d/m/Y H:i', strtotime($citaRow['fecha_hora'])) . ' ha sido cancelada.',
                     'en_atencion'=> 'El barbero ' . ($citaRow['barbero_nombre'] ?? '') . ' está listo para atenderte.',
@@ -389,21 +409,30 @@ try {
                 ];
 
                 $notifTitulo = $titulosNotif[$nuevoEstado] ?? 'Actualización de Cita';
-                $notifMensaje = $mensajesNotif[$nuevoEstado] ?? 'El estado de tu cita ha cambiado a ' . ucfirst($nuevoEstado);
+                $notifMensaje = $mensajesNotif[$nuevoEstado] ?? ('El estado de tu cita ha cambiado a ' . ucfirst($nuevoEstado));
 
                 try {
-                    // 1. Insertar en tabla notificaciones_pwa
-                    $stmtNotif = $pdo->prepare("INSERT INTO notificaciones_pwa (cliente_id, cita_id, titulo, mensaje, url, leido, fecha_creacion) VALUES (?, ?, ?, ?, ?, 0, NOW())");
-                    $stmtNotif->execute([$citaRow['cliente_id'], $id, $notifTitulo, $notifMensaje, '/cliente-dashboard.php']);
-
-                    // 2. Intentar WebPush VAPID si el helper existe
-                    if (file_exists(__DIR__ . '/webpush_helper.php')) {
-                        require_once __DIR__ . '/webpush_helper.php';
-                        if (function_exists('enviarPushACliente')) {
-                            enviarPushACliente($citaRow['cliente_id'], $notifTitulo, $notifMensaje, '/cliente-dashboard.php');
-                        }
-                    }
+                    notificarCliente($pdo, $citaRow['cliente_id'], $id, $notifTitulo, $notifMensaje, '/cliente-dashboard.php');
                 } catch (Exception $exNotif) {}
+            }
+
+            // Notificación al Barbero Asignado si el cambio fue hecho por admin o cliente
+            if (!empty($citaRow['barbero_id'])) {
+                $tipoNotifBarbero = null;
+                if ($nuevoEstado === 'confirmada') $tipoNotifBarbero = 'cita_confirmada';
+                elseif ($nuevoEstado === 'cancelada') $tipoNotifBarbero = 'cita_cancelada';
+                elseif ($nuevoEstado === 'pendiente' && $estadoAnterior !== 'pendiente') $tipoNotifBarbero = 'cita_reagendada';
+
+                if ($tipoNotifBarbero) {
+                    try {
+                        notificarBarbero($pdo, $citaRow['barbero_id'], $id, $tipoNotifBarbero, [
+                            'cliente' => $citaRow['cliente_nombre'] ?? 'Cliente',
+                            'servicio' => $citaRow['servicio_nombre'] ?? 'Servicio',
+                            'fecha' => date('d/m/Y', strtotime($citaRow['fecha_hora'])),
+                            'hora' => date('H:i', strtotime($citaRow['fecha_hora']))
+                        ]);
+                    } catch (Exception $exNotifB) {}
+                }
             }
 
             registrarLog('EDITAR', 'citas', $id, "Estado de cita #$id cambiado de '$estadoAnterior' a '$nuevoEstado'");

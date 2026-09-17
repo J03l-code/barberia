@@ -250,7 +250,7 @@ try {
         }
     }
 
-    // 5.5. Crear Notificación PWA e Instant WebPush para la Confirmación de Reserva
+    // 5.5. Enviar Notificaciones PWA / WebPush al Cliente y al Barbero Asignado
     $fechaLegible = date('d/m/Y', strtotime($fecha));
 
     $stmtCInfo = $pdo->prepare("SELECT nombre, email FROM clientes WHERE id = ?");
@@ -261,50 +261,21 @@ try {
     $finalNombre = !empty($cInfo['nombre']) ? trim($cInfo['nombre']) : trim($_SESSION['cliente_nombre'] ?? 'Cliente');
 
     try {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS notificaciones_pwa (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                cliente_id INT NOT NULL,
-                cita_id INT NULL,
-                titulo VARCHAR(255) NOT NULL,
-                mensaje TEXT NOT NULL,
-                url VARCHAR(500) NULL,
-                leido TINYINT(1) DEFAULT 0,
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_cli_leido (cliente_id, leido)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ");
+        require_once __DIR__ . '/../includes/webpush_helper.php';
 
-        $tituloConf = "✂️ ¡Reserva Confirmada!";
-        $msgConf = "¡Hola {$finalNombre}! Tu cita de {$nombreServicio} con {$nombreBarbero} ha sido agendada para el {$fechaLegible} a las {$hora}.";
-        $urlConf = "/cliente-dashboard.php";
+        // 1. Notificar al Cliente (PWA + WebPush)
+        $tituloConf = "Reserva Confirmada";
+        $msgConf = "Hola {$finalNombre}, tu cita de {$nombreServicio} con {$nombreBarbero} ha sido agendada para el {$fechaLegible} a las {$hora}.";
+        notificarCliente($pdo, $clienteId, $citaId, $tituloConf, $msgConf, '/cliente-dashboard.php');
 
-        $stmtNotifPwa = $pdo->prepare("
-            INSERT INTO notificaciones_pwa (cliente_id, cita_id, titulo, mensaje, url) 
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        $stmtNotifPwa->execute([$clienteId, $citaId, $tituloConf, $msgConf, $urlConf]);
-
-        // Intentar Web Push directo si el cliente tiene suscripción push activa
-        try {
-            require_once __DIR__ . '/../includes/webpush_helper.php';
-            $stmtPush = $pdo->prepare("SELECT * FROM push_subscriptions WHERE cliente_id = ?");
-            $stmtPush->execute([$clienteId]);
-            $subs = $stmtPush->fetchAll(PDO::FETCH_ASSOC);
-            if (!empty($subs)) {
-                $payloadPush = json_encode([
-                    'title' => $tituloConf,
-                    'body' => $msgConf,
-                    'icon' => '/assets/icons/favicon.png',
-                    'url' => $urlConf
-                ]);
-                foreach ($subs as $sub) {
-                    if (!empty($sub['endpoint'])) {
-                        @enviarWebPushVapid($sub, $payloadPush);
-                    }
-                }
-            }
-        } catch (Exception $exPush) {}
+        // 2. Notificar explícitamente al Barbero Asignado (PWA + WebPush)
+        notificarBarbero($pdo, $barberoId, $citaId, 'nueva_reserva', [
+            'cliente' => $finalNombre,
+            'servicio' => $nombreServicio,
+            'fecha' => $fechaLegible,
+            'hora' => $hora,
+            'sucursal' => $barberoData['nombre'] ?? ''
+        ]);
     } catch (Exception $exNotif) {}
 
     // 6. Enviar Correo Electrónico de Confirmación

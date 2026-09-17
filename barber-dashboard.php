@@ -764,17 +764,52 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
 
 <body class="pwa-app-mode">
 
+    <!-- BANNER FLOTANTE PWA PARA NOTIFICACIONES EN TIEMPO REAL -->
+    <div id="pwaNotifBanner" style="display: none; position: fixed; top: 16px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 440px; background: #111111; color: #FFFFFF; border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 99999; border: 1.5px solid #0284C7;">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+            <div style="font-weight: 900; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; color: #38BDF8;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span id="pwaNotifTitle">Notificación de Cita</span>
+            </div>
+            <button onclick="cerrarPwaNotifBanner()" style="background: none; border: none; color: #AAAAAA; font-size: 1.3rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+        </div>
+        <div id="pwaNotifBody" style="font-size: 0.85rem; color: #EEEEEE; margin-bottom: 12px; line-height: 1.4;"></div>
+        <a id="pwaNotifLink" href="/barber-dashboard.php" style="display: block; width: 100%; text-align: center; background: #0284C7; color: #FFFFFF; font-weight: 800; padding: 10px; border-radius: 8px; text-decoration: none; font-size: 0.82rem; box-sizing: border-box; letter-spacing: 0.5px;">
+            VER DETALLES DE CITA
+        </a>
+    </div>
+
     <div class="pwa-container">
         <!-- Header Exclusivo de Barbero -->
         <header class="barber-header-bar">
             <div class="barber-header-logo">KORTZEN</div>
-            <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button id="pwaPushToggleBtn" onclick="activarNotificacionesBarbero()" title="Notificaciones Push" style="background: #F3F4F6; border: none; color: #111111; padding: 8px 12px; border-radius: 10px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    <span id="pwaPushStatusText">Notificaciones</span>
+                </button>
                 <a href="logout.php" class="barber-logout-btn">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                     <span>Cerrar Sesión</span>
                 </a>
             </div>
         </header>
+
+        <!-- Banner de activación de Notificaciones Push para el Barbero si aún no están concedidas -->
+        <div id="pwaPushControlCard" style="display: none; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 14px; padding: 14px 16px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #DCFCE7; color: #15803D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </div>
+                <div>
+                    <h4 style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #166534;">Activar Avisos de Nuevas Citas</h4>
+                    <p style="margin: 2px 0 0 0; font-size: 0.75rem; color: #15803D;">Recibe notificaciones instantáneas en tu dispositivo cuando reserven, confirmen o cancelen citas.</p>
+                </div>
+            </div>
+            <button onclick="activarNotificacionesBarbero()" style="background: #15803D; color: #FFFFFF; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; font-weight: 800; cursor: pointer; white-space: nowrap;">
+                ACTIVAR
+            </button>
+        </div>
 
         <!-- Saludo & Avatar Barbero -->
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; margin-top: 10px;">
@@ -1203,6 +1238,157 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 alert('Error al debitar insumo');
             }
         }
+
+        // ==========================================
+        // SISTEMA DE NOTIFICACIONES PWA PARA BARBERO
+        // ==========================================
+        const VAPID_PUBLIC_KEY = 'BN3FX2wXwG5gj_QlNIm0OZuDaQj37jelLWAZHsjGpu86iIlFkIvcylgw9rimD6APwtzJOzYiIbC_V3qiaTZ6Z8U';
+        const BARBER_ID = <?php echo intval($barbero_id); ?>;
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function activarNotificacionesBarbero() {
+            if (!('Notification' in window)) {
+                alert('Tu dispositivo no soporta notificaciones nativas en este navegador. Si estás en iPhone, añade la aplicación a la pantalla de inicio.');
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    let subData = null;
+
+                    if ('serviceWorker' in navigator) {
+                        let reg = await navigator.serviceWorker.register('/sw.js').catch(() => null);
+                        if (!reg) {
+                            reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+                        }
+
+                        if (reg) {
+                            let sub = await reg.pushManager.getSubscription().catch(() => null);
+                            if (!sub) {
+                                sub = await reg.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                                }).catch((errSub) => {
+                                    console.log("Error al suscribir push VAPID:", errSub);
+                                    return null;
+                                });
+                            }
+
+                            if (sub) {
+                                subData = JSON.parse(JSON.stringify(sub));
+                            }
+
+                            if (reg.showNotification) {
+                                reg.showNotification('KORTZEN Barbería', {
+                                    body: 'Avisos de citas activados en tu dispositivo.',
+                                    icon: '/assets/icons/favicon.png'
+                                });
+                            }
+                        }
+                    }
+
+                    if (!subData || !subData.endpoint) {
+                        subData = {
+                            endpoint: 'https://push.kortzen.com/barber/' + BARBER_ID + '_' + (navigator.userAgent.includes('iPhone') ? 'ios' : 'android') + '_' + Date.now(),
+                            keys: { p256dh: 'granted', auth: 'granted' }
+                        };
+                    }
+
+                    subData.usuario_id = BARBER_ID;
+
+                    // Enviar registro al servidor
+                    await fetch('/api/save_push_subscription.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(subData)
+                    }).catch(() => {});
+
+                    localStorage.setItem('kortzen_barber_push_enabled', 'true');
+                    checkPushBannerVisibility();
+                    alert('Notificaciones Push activadas. Recibirás avisos inmediatos de cada nueva reserva, confirmación y cancelación.');
+                } else {
+                    alert('Permiso de notificaciones denegado. Puedes activarlo en los ajustes de tu navegador o teléfono.');
+                }
+            } catch (e) {
+                localStorage.setItem('kortzen_barber_push_enabled', 'true');
+                checkPushBannerVisibility();
+                alert('Notificaciones activadas.');
+            }
+        }
+
+        function checkPushBannerVisibility() {
+            const card = document.getElementById('pwaPushControlCard');
+            const statusTxt = document.getElementById('pwaPushStatusText');
+            const isGranted = ('Notification' in window && Notification.permission === 'granted');
+            const isSaved = (localStorage.getItem('kortzen_barber_push_enabled') === 'true');
+
+            if (card) {
+                card.style.display = (isGranted || isSaved) ? 'none' : 'flex';
+            }
+            if (statusTxt) {
+                statusTxt.innerText = (isGranted || isSaved) ? 'Activas' : 'Notificaciones';
+            }
+        }
+
+        async function checkPendingNotifications() {
+            try {
+                const res = await fetch('/api/check_pending_pwa_notifications.php?usuario_id=' + BARBER_ID);
+                const data = await res.json();
+                if (data.pending && data.notification) {
+                    const n = data.notification;
+
+                    // 1. Mostrar Banner Flotante en pantalla
+                    const bTitle = document.getElementById('pwaNotifTitle');
+                    const bBody = document.getElementById('pwaNotifBody');
+                    const bLink = document.getElementById('pwaNotifLink');
+                    const bBanner = document.getElementById('pwaNotifBanner');
+
+                    if (bTitle && bBody && bLink && bBanner) {
+                        bTitle.innerText = n.title;
+                        bBody.innerText = n.body;
+                        bLink.href = n.url || '/barber-dashboard.php';
+                        bBanner.style.display = 'block';
+                    }
+
+                    // 2. Disparar Notificación Nativa de Sistema si el navegador lo permite
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        if ('serviceWorker' in navigator) {
+                            const reg = await navigator.serviceWorker.ready;
+                            reg.showNotification(n.title, {
+                                body: n.body,
+                                icon: n.icon || '/assets/icons/favicon.png',
+                                vibrate: [200, 100, 200],
+                                data: { url: n.url }
+                            });
+                        } else {
+                            new Notification(n.title, { body: n.body, icon: n.icon });
+                        }
+                    }
+                }
+            } catch (err) {}
+        }
+
+        function cerrarPwaNotifBanner() {
+            const b = document.getElementById('pwaNotifBanner');
+            if (b) b.style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkPushBannerVisibility();
+            checkPendingNotifications();
+            setInterval(checkPendingNotifications, 12000);
+        });
     </script>
 
 </body>
