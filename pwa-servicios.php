@@ -60,6 +60,147 @@ if (empty($servicios_por_cat)) {
     <meta name="apple-mobile-web-app-title" content="KORTZEN">
     <link rel="apple-touch-icon" href="/assets/icons/favicon.png">
     <script src="/js/pwa.js" defer></script>
+    <style>
+        .pwa-service-card {
+            background: var(--pwa-card-bg, #FFFFFF);
+            border: 1px solid var(--pwa-border, #EAEAEA);
+            border-radius: 16px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+            margin-bottom: 0.85rem;
+        }
+        .pwa-service-card:active {
+            transform: scale(0.985);
+            background: #FAFAFA;
+        }
+        .pwa-service-card__top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .pwa-service-card__thumb-box {
+            position: relative;
+            width: 68px;
+            height: 68px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #F3F4F6;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .pwa-service-card__thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .pwa-service-card__main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .pwa-service-card__header-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .pwa-service-card__title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--pwa-text-main, #111111);
+            line-height: 1.25;
+            margin: 0;
+        }
+        .pwa-service-card__price {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--pwa-text-main, #111111);
+            white-space: nowrap;
+        }
+        .pwa-service-card__meta {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: #6B7280;
+            font-weight: 600;
+        }
+        .pwa-service-card__desc {
+            font-size: 0.78rem;
+            color: var(--pwa-text-muted, #777777);
+            line-height: 1.35;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .pwa-service-card__incluye {
+            margin-top: 4px;
+            padding: 8px 10px;
+            background: #F9FAFB;
+            border: 1px solid #F0F0F0;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .pwa-service-card__incluye-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--color-gold, #C0A062);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .pwa-service-card__incluye-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .pwa-service-card__incluye-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #374151;
+            line-height: 1.3;
+            font-weight: 500;
+        }
+        .pwa-check-icon {
+            flex-shrink: 0;
+            margin-top: 2px;
+            color: #10B981;
+        }
+        .pwa-service-card__footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-top: 4px;
+        }
+        .pwa-service-card__book-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--color-gold, #C0A062);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+    </style>
     <script src="/js/branch-selector.js?v=26000"></script>
 </head>
 
@@ -95,42 +236,88 @@ if (empty($servicios_por_cat)) {
         </div>
 
         <div class="pwa-services-list" style="margin-top: 0.75rem;">
-            <?php foreach ($lista_servicios as $s): ?>
+            <?php foreach ($lista_servicios as $s): 
+                // Imagen con fallback inteligente según nombre/categoría
+                $foto = !empty($s['foto_url']) ? $s['foto_url'] : (!empty($s['imagen_url']) ? $s['imagen_url'] : (!empty($s['foto']) ? $s['foto'] : ''));
+                if (empty($foto)) {
+                    $nom_lower = mb_strtolower(($s['nombre'] ?? '') . ' ' . ($s['categoria'] ?? ''));
+                    if (strpos($nom_lower, 'barba') !== false || strpos($nom_lower, 'beard') !== false) {
+                        $foto = '/assets/images/service-beard-care.jpg';
+                    } elseif (strpos($nom_lower, 'afeit') !== false || strpos($nom_lower, 'shave') !== false) {
+                        $foto = '/assets/images/service-traditional-shave.jpg';
+                    } elseif (strpos($nom_lower, 'facial') !== false || strpos($nom_lower, 'spa') !== false || strpos($nom_lower, 'mascarilla') !== false) {
+                        $foto = '/assets/images/service-facial-treatment.jpg';
+                    } else {
+                        $foto = '/assets/images/service-classic-cut.jpg';
+                    }
+                }
+
+                // Procesamiento limpio de "que_incluye" sin caracteres corruptos ni emojis
+                $incluye_items = [];
+                if (!empty($s['que_incluye'])) {
+                    $raw_lines = preg_split('/\r\n|\r|\n/u', trim($s['que_incluye']));
+                    foreach ($raw_lines as $l) {
+                        $cleaned = preg_replace('/^[\s\x{2022}\x{2023}\x{25E6}\x{2043}\x{2219}\x{2713}\x{2714}•\-\*\✓\✔\?\¿\.\:\s]+/u', '', trim($l));
+                        $cleaned = trim($cleaned);
+                        if (!empty($cleaned)) {
+                            $incluye_items[] = $cleaned;
+                        }
+                    }
+                }
+            ?>
             <a href="reservar.php?servicio_id=<?php echo $s['id']; ?>" class="pwa-service-card">
-                <div class="pwa-service-card__left">
-                    <div class="pwa-service-card__icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="6" cy="6" r="3"></circle>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
-                            <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
-                            <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
-                        </svg>
+                <div class="pwa-service-card__top">
+                    <div class="pwa-service-card__thumb-box">
+                        <img src="<?php echo htmlspecialchars($foto); ?>" alt="<?php echo htmlspecialchars($s['nombre']); ?>" class="pwa-service-card__thumb" onerror="this.onerror=null; this.src='/assets/images/service-classic-cut.jpg';">
                     </div>
-                    <div class="pwa-service-card__info">
-                        <div class="pwa-service-card__name"><?php echo htmlspecialchars($s['nombre']); ?></div>
-                        <div class="pwa-service-card__desc">
-                            <?php if (!empty($s['duracion_minutos'])): ?>
-                                <span style="font-weight: 600; color: var(--pwa-text-main);"><?php echo $s['duracion_minutos']; ?> min</span> • 
-                            <?php endif; ?>
-                            <?php echo htmlspecialchars($s['descripcion'] ?? 'Servicio de barbería profesional.'); ?>
+                    <div class="pwa-service-card__main">
+                        <div class="pwa-service-card__header-row">
+                            <h3 class="pwa-service-card__title"><?php echo htmlspecialchars($s['nombre']); ?></h3>
+                            <span class="pwa-service-card__price">$<?php echo number_format((float)$s['precio'], 2); ?></span>
                         </div>
-                        <?php if (!empty($s['que_incluye'])): ?>
-                            <div style="margin-top: 6px; font-size: 0.76rem; color: #E5E7EB; line-height: 1.35; background: rgba(255, 255, 255, 0.05); border-left: 2.5px solid var(--color-gold, #C0A062); padding: 5px 8px; border-radius: 0 6px 6px 0;">
-                                <strong style="color: var(--color-gold, #C0A062); font-size: 0.70rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">Incluye:</strong>
-                                <?php 
-                                $incluyeFormatted = preg_replace('/^[•\-\*]\s*/m', '✓ ', trim($s['que_incluye']));
-                                echo nl2br(htmlspecialchars($incluyeFormatted)); 
-                                ?>
+                        <?php if (!empty($s['duracion_minutos'])): ?>
+                            <div class="pwa-service-card__meta">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                                <span><?php echo (int)$s['duracion_minutos']; ?> min</span>
                             </div>
                         <?php endif; ?>
+                        <p class="pwa-service-card__desc">
+                            <?php echo htmlspecialchars($s['descripcion'] ?? 'Servicio de barbería profesional.'); ?>
+                        </p>
                     </div>
                 </div>
-                <div class="pwa-service-card__right">
-                    <div class="pwa-service-card__price">$<?php echo number_format($s['precio'], 2); ?></div>
-                    <svg class="pwa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
+
+                <?php if (!empty($incluye_items)): ?>
+                    <div class="pwa-service-card__incluye">
+                        <span class="pwa-service-card__incluye-label">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                            </svg>
+                            Incluye
+                        </span>
+                        <div class="pwa-service-card__incluye-list">
+                            <?php foreach ($incluye_items as $item): ?>
+                                <div class="pwa-service-card__incluye-item">
+                                    <svg class="pwa-check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                    <span><?php echo htmlspecialchars($item); ?></span>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <div class="pwa-service-card__footer">
+                    <span class="pwa-service-card__book-cta">
+                        Reservar
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </span>
                 </div>
             </a>
             <?php endforeach; ?>
