@@ -27,7 +27,7 @@ if (isset($_GET['id'])) {
 
 // Obtener datos para los selects
 try {
-    $clientes = query("SELECT id, nombre FROM clientes ORDER BY nombre ASC");
+    $clientes = query("SELECT id, nombre, telefono, email, puntos_fidelidad FROM clientes ORDER BY nombre ASC");
     $servicios = query("SELECT id, nombre, duracion_minutos FROM servicios WHERE activo = 1 ORDER BY nombre ASC");
     $barberos = query("SELECT id, nombre FROM usuarios WHERE rol = 'barbero' ORDER BY nombre ASC");
     $sucursales = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
@@ -38,38 +38,54 @@ try {
     $sucursales = [];
 }
 
+$selectedClient = null;
+if ($isEdit && !empty($cita['cliente_id'])) {
+    foreach ($clientes as $c) {
+        if ($c['id'] == $cita['cliente_id']) {
+            $selectedClient = $c;
+            break;
+        }
+    }
+}
+
 $pageTitle = $isEdit ? 'Editar Cita' : 'Nueva Cita';
 include 'includes/header.php';
 ?>
 
 <style>
 .form-modal {
-    max-width: 580px;
-    margin: 40px auto;
+    max-width: 620px;
+    margin: 30px auto 60px auto;
     background: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 12px;
-    padding: 40px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    padding: 36px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
 }
 
 .form-title {
-    font-size: 22px;
-    font-weight: 500;
+    font-size: 24px;
+    font-weight: 800;
     color: var(--text-primary);
-    margin-bottom: 32px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .form-group {
-    margin-bottom: 24px;
+    margin-bottom: 22px;
+    position: relative;
 }
 
 .form-label {
-    display: block;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #4B5563;
     margin-bottom: 8px;
     text-transform: uppercase;
 }
@@ -78,14 +94,15 @@ include 'includes/header.php';
 .form-select,
 .form-textarea {
     width: 100%;
-    padding: 14px 16px;
+    padding: 13px 16px;
     background: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    border-radius: 6px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 8px;
     color: var(--text-primary);
-    font-size: 15px;
-    font-family: var(--font-body);
-    transition: all 0.3s ease;
+    font-size: 14.5px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 
 .form-textarea {
@@ -97,9 +114,9 @@ include 'includes/header.php';
 .form-select:focus,
 .form-textarea:focus {
     outline: none;
-    border-color: rgba(51, 51, 51, 0.5);
+    border-color: #111827;
     background: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(51, 51, 51, 0.1);
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
 }
 
 .form-select {
@@ -120,70 +137,405 @@ include 'includes/header.php';
 }
 
 .btn-cancel {
-    padding: 12px 28px;
+    padding: 12px 26px;
     background: transparent;
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    color: var(--text-primary);
+    border: 1.5px solid #E5E7EB;
+    border-radius: 8px;
+    color: #4B5563;
     font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 1px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-cancel:hover {
-    background: rgba(0, 0, 0, 0.05);
-    border-color: rgba(0, 0, 0, 0.3);
+    background: #F3F4F6;
+    border-color: #D1D5DB;
+    color: #111827;
 }
 
 .btn-confirm {
-    padding: 12px 28px;
-    background: linear-gradient(135deg, #333333, #555555);
+    padding: 12px 32px;
+    background: #111827;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     color: #FFFFFF;
     font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 1px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(17, 24, 39, 0.25);
 }
 
 .btn-confirm:hover {
-    background: linear-gradient(135deg, #444444, #333333);
+    background: #000000;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(51, 51, 51, 0.3);
+    box-shadow: 0 6px 20px rgba(17, 24, 39, 0.35);
+}
+
+/* SMART CLIENT SELECTOR STYLES (SETMORE PRO STYLE) */
+.client-picker-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.client-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.client-search-icon {
+    position: absolute;
+    left: 14px;
+    color: #9CA3AF;
+    font-size: 15px;
+    pointer-events: none;
+}
+
+.client-search-input {
+    width: 100%;
+    padding: 13px 40px 13px 40px;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 14.5px;
+    color: #111827;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.client-search-input:focus {
+    outline: none;
+    border-color: #111827;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+}
+
+.client-search-clear {
+    position: absolute;
+    right: 12px;
+    background: #E5E7EB;
+    border: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 12px;
+    color: #4B5563;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.client-search-clear:hover {
+    background: #D1D5DB;
+    color: #111827;
+}
+
+/* DROPDOWN RESULTS */
+.client-dropdown-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+}
+
+.client-dropdown-results.active {
+    display: block;
+}
+
+.client-item-option {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #F3F4F6;
+    transition: background 0.15s ease;
+}
+
+.client-item-option:last-child {
+    border-bottom: none;
+}
+
+.client-item-option:hover,
+.client-item-option.highlighted {
+    background: #F9FAFB;
+}
+
+.client-avatar-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #111827;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.client-info-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.client-info-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.client-info-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 2px;
+    flex-wrap: wrap;
+}
+
+.client-phone-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 600;
+    color: #047857;
+    background: #ECFDF5;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.client-create-btn-option {
+    padding: 12px 16px;
+    background: #F0FDF4;
+    border-bottom: 1.5px solid #DCFCE7;
+    color: #059669;
+    font-weight: 800;
+    font-size: 13.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+}
+
+.client-create-btn-option:hover {
+    background: #DCFCE7;
+    color: #047857;
+}
+
+.client-empty-state {
+    padding: 24px 16px;
+    text-align: center;
+    color: #6B7280;
+}
+
+/* SELECTED CLIENT CARD */
+.selected-client-card {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    background: #F9FAFB;
+    border: 1.5px solid #10B981;
+    border-radius: 10px;
+    padding: 12px 16px;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+}
+
+.selected-client-card.active {
+    display: flex;
+}
+
+.btn-change-client {
+    background: #FFFFFF;
+    border: 1px solid #D1D5DB;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #374151;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.btn-change-client:hover {
+    background: #F3F4F6;
+    border-color: #9CA3AF;
+    color: #111827;
+}
+
+/* MODAL CREAR CLIENTE RÁPIDO */
+.modal-quick-client-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 99999;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.modal-quick-client-overlay.active {
+    display: flex;
+}
+
+.modal-quick-client-content {
+    background: #FFFFFF;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    position: relative;
+    box-sizing: border-box;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.toast-feedback {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #10B981;
+    color: #FFFFFF;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+    z-index: 100000;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    animation: toastIn 0.25s ease-out;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 
 <div class="form-modal">
-    <h1 class="form-title"><?php echo $isEdit ? 'Editar Cita' : 'Nueva Cita'; ?></h1>
+    <h1 class="form-title">
+        <span>📅</span> <?php echo $isEdit ? 'Editar Cita' : 'Nueva Cita'; ?>
+    </h1>
     
-    <form method="POST" action="api/citas_action.php">
+    <form method="POST" action="api/citas_action.php" id="formCita">
         <input type="hidden" name="action" value="<?php echo $isEdit ? 'update' : 'create'; ?>">
         <?php if ($isEdit): ?>
             <input type="hidden" name="id" value="<?php echo $cita['id']; ?>">
         <?php endif; ?>
         
+        <!-- SELECTOR INTELIGENTE DE CLIENTE -->
         <div class="form-group">
-            <label class="form-label">Cliente</label>
-            <select name="cliente_id" class="form-select" required>
-                <option value="">Seleccionar cliente</option>
-                <?php foreach ($clientes as $cliente): ?>
-                    <option value="<?php echo $cliente['id']; ?>" 
-                        <?php echo ($isEdit && $cita['cliente_id'] == $cliente['id']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($cliente['nombre']); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <div class="form-label">
+                <span>Cliente *</span>
+                <button type="button" onclick="abrirModalNuevoCliente()" style="background: none; border: none; color: #059669; font-weight: 800; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0; text-transform: uppercase;">
+                    + Nuevo Cliente
+                </button>
+            </div>
+
+            <input type="hidden" name="cliente_id" id="cliente_id" value="<?php echo $selectedClient ? $selectedClient['id'] : ''; ?>" required>
+
+            <div class="client-picker-wrapper" id="clientPickerWrapper">
+                <!-- Estado Buscador -->
+                <div class="client-search-box" id="clientSearchBox" style="<?php echo $selectedClient ? 'display: none;' : ''; ?>">
+                    <span class="client-search-icon">🔍</span>
+                    <input type="text" 
+                           id="clientSearchInput" 
+                           class="client-search-input" 
+                           placeholder="Buscar cliente por nombre o teléfono..." 
+                           autocomplete="off">
+                    <button type="button" id="clientSearchClear" class="client-search-clear" onclick="limpiarBusquedaCliente()">&times;</button>
+                    
+                    <!-- Menú Desplegable con Resultados -->
+                    <div class="client-dropdown-results" id="clientDropdownResults">
+                        <div class="client-create-btn-option" id="btnDropdownCreateClient" onclick="abrirModalNuevoClienteConQuery()">
+                            <span>✨</span> <span>+ Registrar nuevo cliente</span>
+                        </div>
+                        <div id="clientResultsList"></div>
+                    </div>
+                </div>
+
+                <!-- Estado Cliente Seleccionado -->
+                <div class="selected-client-card <?php echo $selectedClient ? 'active' : ''; ?>" id="selectedClientCard">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                        <div class="client-avatar-badge" id="selectedClientAvatar" style="background: #047857;">
+                            <?php 
+                            if ($selectedClient) {
+                                $words = explode(' ', trim($selectedClient['nombre']));
+                                echo strtoupper(substr($words[0], 0, 1) . (isset($words[1]) ? substr($words[1], 0, 1) : ''));
+                            } else {
+                                echo '👤';
+                            }
+                            ?>
+                        </div>
+                        <div style="min-width: 0;">
+                            <div style="font-weight: 800; font-size: 14.5px; color: #065F46;" id="selectedClientName">
+                                <?php echo $selectedClient ? htmlspecialchars($selectedClient['nombre']) : ''; ?>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #047857; margin-top: 2px; flex-wrap: wrap;">
+                                <span id="selectedClientPhone">
+                                    <?php if ($selectedClient && !empty($selectedClient['telefono'])): ?>
+                                        📱 <?php echo htmlspecialchars($selectedClient['telefono']); ?>
+                                    <?php endif; ?>
+                                </span>
+                                <span id="selectedClientEmail" style="color: #6B7280;">
+                                    <?php if ($selectedClient && !empty($selectedClient['email'])): ?>
+                                        • <?php echo htmlspecialchars($selectedClient['email']); ?>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-change-client" onclick="deseleccionarCliente()">
+                        🔄 Cambiar
+                    </button>
+                </div>
+            </div>
         </div>
         
         <div class="form-group">
-            <label class="form-label">Servicio</label>
+            <label class="form-label"><span>Servicio *</span></label>
             <select name="servicio_id" class="form-select" required>
                 <option value="">Seleccionar servicio</option>
                 <?php foreach ($servicios as $servicio): ?>
@@ -272,5 +624,316 @@ include 'includes/header.php';
         </div>
     </form>
 </div>
+
+<!-- MODAL CREAR NUEVO CLIENTE RÁPIDO (SETMORE PRO STYLE) -->
+<div id="modalNuevoClienteRapido" class="modal-quick-client-overlay" onclick="if(event.target === this) cerrarModalNuevoCliente()">
+    <div class="modal-quick-client-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <h3 style="margin:0; font-size:1.2rem; font-weight:800; color:#111827; display:flex; align-items:center; gap:8px;">
+                <span>👤</span> Registrar Nuevo Cliente
+            </h3>
+            <button type="button" onclick="cerrarModalNuevoCliente()" style="background:#F3F4F6; border:none; width:32px; height:32px; border-radius:50%; font-size:1.2rem; cursor:pointer; color:#4B5563; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+        <form id="formNuevoClienteRapido" onsubmit="guardarNuevoClienteAjax(event)">
+            <div class="form-group" style="margin-bottom:14px;">
+                <label class="form-label" style="margin-bottom:6px;">Nombre Completo *</label>
+                <input type="text" id="nuevoClienteNombre" class="form-input" placeholder="Ej: Carlos Mendoza" required>
+            </div>
+            <div class="form-group" style="margin-bottom:14px;">
+                <label class="form-label" style="margin-bottom:6px;">Teléfono / WhatsApp *</label>
+                <input type="tel" id="nuevoClienteTelefono" class="form-input" placeholder="Ej: 0991234567" required>
+            </div>
+            <div class="form-group" style="margin-bottom:14px;">
+                <label class="form-label" style="margin-bottom:6px;">Email (Opcional)</label>
+                <input type="email" id="nuevoClienteEmail" class="form-input" placeholder="cliente@correo.com">
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label class="form-label" style="margin-bottom:6px;">Notas / Preferencias (Opcional)</label>
+                <textarea id="nuevoClienteNotas" class="form-textarea" placeholder="Corte favorito, estilo, alergias, etc." style="min-height:65px;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" onclick="cerrarModalNuevoCliente()" class="btn-cancel" style="padding:10px 18px;">Cancelar</button>
+                <button type="submit" id="btnGuardarNuevoCliente" class="btn-confirm" style="background:#059669; padding:10px 22px;">Guardar y Seleccionar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="toastCliente" class="toast-feedback"></div>
+
+<script>
+let allClients = <?php echo json_encode($clientes); ?>;
+let selectedClient = <?php echo $selectedClient ? json_encode($selectedClient) : 'null'; ?>;
+
+const searchInput = document.getElementById('clientSearchInput');
+const searchClearBtn = document.getElementById('clientSearchClear');
+const dropdownResults = document.getElementById('clientDropdownResults');
+const resultsList = document.getElementById('clientResultsList');
+const hiddenClienteId = document.getElementById('cliente_id');
+const searchBox = document.getElementById('clientSearchBox');
+const selectedClientCard = document.getElementById('selectedClientCard');
+const selectedClientAvatar = document.getElementById('selectedClientAvatar');
+const selectedClientName = document.getElementById('selectedClientName');
+const selectedClientPhone = document.getElementById('selectedClientPhone');
+const selectedClientEmail = document.getElementById('selectedClientEmail');
+const btnDropdownCreateClient = document.getElementById('btnDropdownCreateClient');
+const toastEl = document.getElementById('toastCliente');
+
+function getInitials(name) {
+    if (!name) return '👤';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0].substring(0, 2).toUpperCase();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function highlightMatch(text, query) {
+    if (!query || !text) return escapeHtml(text);
+    const escaped = escapeHtml(text);
+    const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return escaped.replace(regex, '<span class="client-match-highlight">$1</span>');
+}
+
+function renderClientResults(clientsToRender, query = '') {
+    resultsList.innerHTML = '';
+    
+    if (clientsToRender.length === 0) {
+        resultsList.innerHTML = `
+            <div class="client-no-results">
+                <div style="font-size:24px; margin-bottom:6px;">🔎</div>
+                <div style="font-weight:700; color:#374151;">No se encontraron clientes</div>
+                <div style="font-size:12px; color:#6B7280; margin-top:2px;">
+                    ${query ? `No hay coincidencias para "<strong>${escapeHtml(query)}</strong>"` : 'Escribe para buscar'}
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    clientsToRender.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'client-result-item';
+        item.onclick = () => selectClient(c);
+
+        const initials = getInitials(c.nombre);
+        const nameHtml = highlightMatch(c.nombre, query);
+        const phoneHtml = c.telefono ? `<span>📱 ${highlightMatch(c.telefono, query)}</span>` : '';
+        const emailHtml = c.email ? `<span>✉️ ${highlightMatch(c.email, query)}</span>` : '';
+        const ptsHtml = (c.puntos_fidelidad > 0) ? `<span style="background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10.5px;">⭐ ${c.puntos_fidelidad} pts</span>` : '';
+
+        item.innerHTML = `
+            <div class="client-avatar-badge">${initials}</div>
+            <div class="client-result-info">
+                <div class="client-result-name">${nameHtml}</div>
+                <div class="client-result-meta">
+                    ${phoneHtml}
+                    ${emailHtml}
+                    ${ptsHtml}
+                </div>
+            </div>
+        `;
+        resultsList.appendChild(item);
+    });
+}
+
+function filterClients(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+        renderClientResults(allClients.slice(0, 25), '');
+        if (btnDropdownCreateClient) {
+            btnDropdownCreateClient.innerHTML = '<span>✨</span> <span>+ Registrar nuevo cliente</span>';
+        }
+        return;
+    }
+
+    if (btnDropdownCreateClient) {
+        btnDropdownCreateClient.innerHTML = `<span>✨</span> <span>+ Crear nuevo cliente "<strong>${escapeHtml(query.trim())}</strong>"</span>`;
+    }
+
+    const filtered = allClients.filter(c => {
+        const name = (c.nombre || '').toLowerCase();
+        const phone = (c.telefono || '').toLowerCase().replace(/\s+/g, '');
+        const email = (c.email || '').toLowerCase();
+        const cleanQ = q.replace(/\s+/g, '');
+
+        return name.includes(q) || phone.includes(cleanQ) || email.includes(q);
+    });
+
+    filtered.sort((a, b) => {
+        const aName = (a.nombre || '').toLowerCase();
+        const bName = (b.nombre || '').toLowerCase();
+        const aPhone = (a.telefono || '').toLowerCase();
+        const bPhone = (b.telefono || '').toLowerCase();
+
+        if (aName.startsWith(q) && !bName.startsWith(q)) return -1;
+        if (!aName.startsWith(q) && bName.startsWith(q)) return 1;
+        if (aPhone.startsWith(q) && !bPhone.startsWith(q)) return -1;
+        if (!aPhone.startsWith(q) && bPhone.startsWith(q)) return 1;
+        return aName.localeCompare(bName);
+    });
+
+    renderClientResults(filtered.slice(0, 30), query);
+}
+
+function selectClient(client) {
+    hiddenClienteId.value = client.id;
+    selectedClient = client;
+
+    selectedClientAvatar.textContent = getInitials(client.nombre);
+    selectedClientName.textContent = client.nombre;
+    selectedClientPhone.innerHTML = client.telefono ? `📱 ${escapeHtml(client.telefono)}` : '';
+    selectedClientEmail.innerHTML = client.email ? `• ${escapeHtml(client.email)}` : '';
+
+    dropdownResults.classList.remove('active');
+    searchBox.style.display = 'none';
+    selectedClientCard.classList.add('active');
+    searchInput.value = '';
+    searchClearBtn.style.display = 'none';
+}
+
+function deseleccionarCliente() {
+    hiddenClienteId.value = '';
+    selectedClient = null;
+    selectedClientCard.classList.remove('active');
+    searchBox.style.display = 'flex';
+    searchInput.value = '';
+    searchClearBtn.style.display = 'none';
+    searchInput.focus();
+    filterClients('');
+    dropdownResults.classList.add('active');
+}
+
+function limpiarBusquedaCliente() {
+    searchInput.value = '';
+    searchClearBtn.style.display = 'none';
+    filterClients('');
+    searchInput.focus();
+}
+
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        searchClearBtn.style.display = val.length > 0 ? 'flex' : 'none';
+        dropdownResults.classList.add('active');
+        filterClients(val);
+    });
+
+    searchInput.addEventListener('focus', () => {
+        dropdownResults.classList.add('active');
+        filterClients(searchInput.value);
+    });
+}
+
+document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('clientPickerWrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        dropdownResults.classList.remove('active');
+    }
+});
+
+function abrirModalNuevoCliente(prefill = {}) {
+    document.getElementById('formNuevoClienteRapido').reset();
+    if (prefill.nombre) {
+        document.getElementById('nuevoClienteNombre').value = prefill.nombre;
+    }
+    if (prefill.telefono) {
+        document.getElementById('nuevoClienteTelefono').value = prefill.telefono;
+    }
+    const modal = document.getElementById('modalNuevoClienteRapido');
+    modal.classList.add('active');
+    dropdownResults.classList.remove('active');
+
+    setTimeout(() => {
+        if (prefill.telefono && !prefill.nombre) {
+            document.getElementById('nuevoClienteNombre').focus();
+        } else if (prefill.nombre) {
+            document.getElementById('nuevoClienteTelefono').focus();
+        } else {
+            document.getElementById('nuevoClienteNombre').focus();
+        }
+    }, 100);
+}
+
+function abrirModalNuevoClienteConQuery() {
+    const q = searchInput.value.trim();
+    const isPhoneLike = /^[\d\s\+\-\(\)]{4,}$/.test(q);
+    if (isPhoneLike) {
+        abrirModalNuevoCliente({ telefono: q });
+    } else {
+        abrirModalNuevoCliente({ nombre: q });
+    }
+}
+
+function cerrarModalNuevoCliente() {
+    document.getElementById('modalNuevoClienteRapido').classList.remove('active');
+}
+
+function mostrarToast(msg) {
+    if (!toastEl) return;
+    toastEl.innerHTML = `<span>✅</span> <span>${escapeHtml(msg)}</span>`;
+    toastEl.style.display = 'flex';
+    setTimeout(() => {
+        toastEl.style.display = 'none';
+    }, 4000);
+}
+
+async function guardarNuevoClienteAjax(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnGuardarNuevoCliente');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Guardando...';
+
+    const nombre = document.getElementById('nuevoClienteNombre').value.trim();
+    const telefono = document.getElementById('nuevoClienteTelefono').value.trim();
+    const email = document.getElementById('nuevoClienteEmail').value.trim();
+    const notas = document.getElementById('nuevoClienteNotas').value.trim();
+
+    const formData = new FormData();
+    formData.append('action', 'create');
+    formData.append('ajax', '1');
+    formData.append('nombre', nombre);
+    formData.append('telefono', telefono);
+    formData.append('email', email);
+    formData.append('notas', notas);
+
+    try {
+        const resp = await fetch('api/clientes_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const data = await resp.json();
+        if (data.success && data.cliente) {
+            allClients.unshift(data.cliente);
+            selectClient(data.cliente);
+            cerrarModalNuevoCliente();
+            mostrarToast(`Cliente "${data.cliente.nombre}" creado exitosamente.`);
+        } else {
+            alert(data.error || data.message || 'Error al crear el cliente.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error de conexión al registrar el cliente.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+</script>
 
 <?php include 'includes/footer.php'; ?>

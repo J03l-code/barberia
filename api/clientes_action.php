@@ -6,33 +6,74 @@ if (!isLoggedIn()) {
     exit;
 }
 
-$action = $_POST['action'] ?? '';
+$action = $_POST['action'] ?? ($_GET['action'] ?? '');
+$isAjax = (!empty($_POST['ajax']) || !empty($_GET['ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false));
 
 try {
     $pdo = getConnection();
 
     switch ($action) {
+        case 'search':
+            $q = trim($_GET['q'] ?? ($_POST['q'] ?? ''));
+            $limit = min(50, max(5, intval($_GET['limit'] ?? 20)));
+            
+            if ($q === '') {
+                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, puntos_fidelidad, notas FROM clientes ORDER BY nombre ASC LIMIT ?");
+                $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+                $stmt->execute();
+            } else {
+                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, puntos_fidelidad, notas 
+                                       FROM clientes 
+                                       WHERE nombre LIKE ? OR telefono LIKE ? OR email LIKE ? 
+                                       ORDER BY 
+                                         CASE 
+                                           WHEN nombre LIKE ? THEN 1 
+                                           WHEN telefono LIKE ? THEN 2 
+                                           ELSE 3 
+                                         END, nombre ASC 
+                                       LIMIT ?");
+                $paramLike = "%$q%";
+                $paramStart = "$q%";
+                $stmt->bindValue(1, $paramLike, PDO::PARAM_STR);
+                $stmt->bindValue(2, $paramLike, PDO::PARAM_STR);
+                $stmt->bindValue(3, $paramLike, PDO::PARAM_STR);
+                $stmt->bindValue(4, $paramStart, PDO::PARAM_STR);
+                $stmt->bindValue(5, $paramStart, PDO::PARAM_STR);
+                $stmt->bindValue(6, $limit, PDO::PARAM_INT);
+                $stmt->execute();
+            }
+            $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'clientes' => $resultados]);
+            exit;
+
         case 'create':
             $nombre = mb_substr(trim($_POST['nombre'] ?? ''), 0, 100);
             $email = mb_substr(trim($_POST['email'] ?? ''), 0, 100);
             $telefono = mb_substr(trim($_POST['telefono'] ?? ''), 0, 20);
-            $fecha_nacimiento = $_POST['fecha_nacimiento'] ?? null;
+            $fecha_nacimiento = !empty($_POST['fecha_nacimiento']) ? $_POST['fecha_nacimiento'] : null;
             $notas = mb_substr(trim($_POST['notas'] ?? ''), 0, 1000);
 
             if (empty($nombre)) {
-                throw new Exception('El nombre es obligatorio.');
+                throw new Exception('El nombre del cliente es obligatorio.');
             }
 
             // Validar email si se proporcionó
             if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                throw new Exception('El email no es válido.');
+                throw new Exception('El email ingresado no es válido.');
             }
 
             // Verificar si el email ya existe
             if ($email) {
-                $check = query("SELECT COUNT(*) as count FROM clientes WHERE email = ?", [$email]);
-                if ($check[0]['count'] > 0) {
-                    throw new Exception('El email ya está registrado.');
+                $check = query("SELECT id, nombre FROM clientes WHERE email = ?", [$email]);
+                if (count($check) > 0) {
+                    if ($isAjax) {
+                        // Si ya existe y es por AJAX, permitir seleccionarlo o notificar
+                        throw new Exception("El email '$email' ya pertenece al cliente " . $check[0]['nombre'] . ".");
+                    } else {
+                        throw new Exception('El email ya está registrado.');
+                    }
                 }
             }
 
@@ -44,11 +85,28 @@ try {
                 $email ?: null,
                 $telefono ?: null,
                 $fecha_nacimiento ?: null,
-                $notas
+                $notas ?: null
             ]);
 
-            $newId = $pdo->lastInsertId();
+            $newId = intval($pdo->lastInsertId());
             registrarLog('CREAR', 'clientes', $newId, "Cliente '$nombre' registrado en el sistema");
+
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'message' => "Cliente '$nombre' registrado exitosamente.",
+                    'cliente' => [
+                        'id' => $newId,
+                        'nombre' => $nombre,
+                        'telefono' => $telefono,
+                        'email' => $email,
+                        'puntos_fidelidad' => 0,
+                        'notas' => $notas
+                    ]
+                ]);
+                exit;
+            }
 
             header('Location: ../clientes.php?success=Cliente creado exitosamente');
             exit;
@@ -213,10 +271,20 @@ try {
 
 } catch (PDOException $e) {
     error_log("Error en clientes_action.php: " . $e->getMessage());
+    if ($isAjax) {
+        header('Content-Type: application/json', true, 400);
+        echo json_encode(['success' => false, 'error' => 'Error en la base de datos: ' . $e->getMessage()]);
+        exit;
+    }
     header('Location: ../clientes.php?error=' . urlencode('Error de base de datos'));
     exit;
 
 } catch (Exception $e) {
+    if ($isAjax) {
+        header('Content-Type: application/json', true, 400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
     header('Location: ../clientes.php?error=' . urlencode($e->getMessage()));
     exit;
 }
