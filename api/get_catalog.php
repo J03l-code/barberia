@@ -40,7 +40,7 @@ try {
     } else {
         $sucursalId = isset($_GET['sucursal_id']) ? intval($_GET['sucursal_id']) : 0;
 
-        $sql = "SELECT s.* FROM servicios s";
+        $sql = "SELECT s.*, cs.orden as cat_orden FROM servicios s LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre";
 
         if ($sucursalId > 0) {
             try {
@@ -57,7 +57,7 @@ try {
             $sql .= " WHERE s.activo = 1";
         }
 
-        $sql .= " ORDER BY s.id ASC";
+        $sql .= " ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";
 
         $raw_data = query($sql);
 

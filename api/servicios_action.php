@@ -52,6 +52,7 @@ try {
             'que_incluye' => "TEXT DEFAULT NULL",
             'duracion_minutos' => "INT UNSIGNED NOT NULL DEFAULT 30",
             'categoria' => "VARCHAR(50) NOT NULL DEFAULT 'General'",
+            'orden' => "INT NOT NULL DEFAULT 0",
             'foto_url' => "VARCHAR(500) DEFAULT NULL",
             'imagen_url' => "VARCHAR(500) DEFAULT NULL",
             'destacado' => "TINYINT(1) DEFAULT 0",
@@ -110,6 +111,31 @@ try {
     }
 
     switch ($action) {
+        case 'update_order':
+            $id = intval($_POST['id'] ?? 0);
+            $orden = intval($_POST['orden'] ?? 0);
+            if ($id <= 0) {
+                throw new Exception('ID de servicio no válido.');
+            }
+            $stmt = $pdo->prepare("UPDATE servicios SET orden = ? WHERE id = ?");
+            $stmt->execute([$orden, $id]);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => 'Orden actualizado correctamente.', 'id' => $id, 'orden' => $orden]);
+            exit;
+
+        case 'reorder_batch':
+            $items = $_POST['items'] ?? [];
+            if (!is_array($items) || empty($items)) {
+                throw new Exception('No se enviaron servicios para reordenar.');
+            }
+            $stmt = $pdo->prepare("UPDATE servicios SET orden = ? WHERE id = ?");
+            foreach ($items as $pos => $sId) {
+                $stmt->execute([intval($pos) + 1, intval($sId)]);
+            }
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => 'Servicios reordenados exitosamente.']);
+            exit;
+
         case 'create':
             $nombre = trim($_POST['nombre'] ?? '');
             $descripcion = trim($_POST['descripcion'] ?? '');
@@ -117,11 +143,23 @@ try {
             $precio = floatval($_POST['precio'] ?? 0);
             $duracion_minutos = intval($_POST['duracion_minutos'] ?? 30);
             $categoria = trim($_POST['categoria'] ?? 'General');
+            $orden = isset($_POST['orden']) ? intval($_POST['orden']) : 0;
             $activo = intval($_POST['activo'] ?? 1);
             $destacado = isset($_POST['destacado']) ? 1 : 0;
             $sucursales = $_POST['sucursales'] ?? [];
             $barberos = isset($_POST['barberos']) && is_array($_POST['barberos']) ? array_map('intval', $_POST['barberos']) : [];
             
+            // Si no se asignó orden explícito, calcular el siguiente dentro de su categoría
+            if ($orden <= 0) {
+                try {
+                    $maxStmt = $pdo->prepare("SELECT COALESCE(MAX(orden), 0) FROM servicios WHERE categoria = ?");
+                    $maxStmt->execute([$categoria]);
+                    $orden = intval($maxStmt->fetchColumn()) + 1;
+                } catch (Throwable $eOrd) {
+                    $orden = 1;
+                }
+            }
+
             // Si solo vino un barbero_id tradicional en POST
             if (empty($barberos) && !empty($_POST['barbero_id'])) {
                 $barberos = [intval($_POST['barbero_id'])];
@@ -163,6 +201,7 @@ try {
 
             if (in_array('que_incluye', $columns)) $dataToInsert['que_incluye'] = $que_incluye;
             if (in_array('categoria', $columns)) $dataToInsert['categoria'] = $categoria;
+            if (in_array('orden', $columns)) $dataToInsert['orden'] = $orden;
             if (in_array('destacado', $columns)) $dataToInsert['destacado'] = $destacado;
             if (in_array('barbero_id', $columns)) $dataToInsert['barbero_id'] = $barbero_id;
             if (in_array('sucursal_id', $columns)) $dataToInsert['sucursal_id'] = $sucursal_id_default;
@@ -210,7 +249,7 @@ try {
                 }
             }
 
-            registrarLog('CREAR', 'servicios', $servicioId, "Servicio '$nombre' creado exitosamente (Precio: $$precio, $duracion_minutos min)");
+            registrarLog('CREAR', 'servicios', $servicioId, "Servicio '$nombre' creado exitosamente (Orden: #$orden, Precio: $$precio, $duracion_minutos min)");
             header('Location: ../servicios.php?success=' . urlencode("Servicio '$nombre' creado exitosamente"));
             exit;
 
@@ -222,6 +261,7 @@ try {
             $precio = floatval($_POST['precio'] ?? 0);
             $duracion_minutos = intval($_POST['duracion_minutos'] ?? 30);
             $categoria = trim($_POST['categoria'] ?? 'General');
+            $orden = isset($_POST['orden']) ? intval($_POST['orden']) : 0;
             $activo = intval($_POST['activo'] ?? 1);
             $destacado = isset($_POST['destacado']) ? 1 : 0;
             $sucursales = $_POST['sucursales'] ?? [];
@@ -263,6 +303,7 @@ try {
 
             if (in_array('que_incluye', $columns)) $dataToUpdate['que_incluye'] = $que_incluye;
             if (in_array('categoria', $columns)) $dataToUpdate['categoria'] = $categoria;
+            if (in_array('orden', $columns)) $dataToUpdate['orden'] = $orden;
             if (in_array('destacado', $columns)) $dataToUpdate['destacado'] = $destacado;
             if (in_array('barbero_id', $columns)) $dataToUpdate['barbero_id'] = $barbero_id;
             if (in_array('sucursal_id', $columns)) $dataToUpdate['sucursal_id'] = $sucursal_id_default;

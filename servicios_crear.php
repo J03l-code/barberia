@@ -234,6 +234,19 @@ include 'includes/header.php';
         </div>
 
         <div class="form-group">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Orden de Visualización dentro de su Categoría</span>
+                <span style="font-size: 11px; color: #4B5563; font-weight: 600; text-transform: none;">(1 = Primero, 2 = Segundo, etc.)</span>
+            </label>
+            <input type="number" name="orden" id="servicio_orden" class="form-input"
+                value="<?php echo $isEdit ? intval($servicio['orden'] ?? 1) : 1; ?>" min="1" step="1"
+                placeholder="1" required>
+            <small style="color: var(--text-muted); font-size: 0.8em; display: block; margin-top: 4px;">
+                Define la posición exacta en la que se mostrará este servicio en la web y reservas dentro de su sección.
+            </small>
+        </div>
+
+        <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <label class="form-label" style="margin-bottom: 0;">Barberos Disponibles para este Servicio</label>
                 <div style="display: flex; gap: 8px;">

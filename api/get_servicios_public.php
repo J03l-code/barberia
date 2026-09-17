@@ -26,20 +26,20 @@ try {
                         INNER JOIN servicios_sucursales ss ON s.id = ss.servicio_id 
                         LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre 
                         WHERE s.activo = 1 AND ss.sucursal_id = ? 
-                        ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.id ASC";
+                        ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";
                 $params = [$sucursal_id];
             } else {
                 $sql .= " AND (s.sucursal_id = ? OR s.sucursal_id IS NULL OR s.sucursal_id = 0) 
-                          ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.id ASC";
+                          ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";
                 $params = [$sucursal_id];
             }
         } catch (Throwable $e) {
             $sql .= " AND (s.sucursal_id = ? OR s.sucursal_id IS NULL OR s.sucursal_id = 0) 
-                      ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.id ASC";
+                      ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";
             $params = [$sucursal_id];
         }
     } else {
-        $sql .= " ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.id ASC";
+        $sql .= " ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";
     }
 
     $stmt = $pdo->prepare($sql);

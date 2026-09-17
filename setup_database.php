@@ -102,6 +102,7 @@ try {
             `precio` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
             `duracion_minutos` INT UNSIGNED NOT NULL DEFAULT 30,
             `categoria` VARCHAR(50) NOT NULL DEFAULT 'General',
+            `orden` INT NOT NULL DEFAULT 0,
             `foto_url` VARCHAR(500) DEFAULT NULL,
             `imagen_url` VARCHAR(500) DEFAULT NULL,
             `destacado` TINYINT(1) DEFAULT 0,
@@ -110,7 +111,8 @@ try {
             `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `fecha_actualizacion` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
-            INDEX `idx_servicios_activo` (`activo`)
+            INDEX `idx_servicios_activo` (`activo`),
+            INDEX `idx_servicio_categoria_orden` (`categoria`, `orden`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
     $status[] = "✓ Tabla `servicios` lista";

@@ -20,7 +20,7 @@ try {
             FROM servicios s 
             LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre 
             LEFT JOIN usuarios u ON s.barbero_id = u.id 
-            ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.activo DESC, s.nombre ASC";
+            ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";
     $servicios = query($sql);
 
     // Obtener asignaciones de servicios_barberos
@@ -54,13 +54,13 @@ include 'includes/header.php';
     <div>
         <h1 class="page-title" style="margin-bottom: 4px;">Catálogo de Servicios</h1>
         <p style="color: var(--text-muted, #6B7280); font-size: 14px; margin: 0;">
-            Administra los servicios, precios, duraciones y categorías de tu barbería.
+            Administra los servicios, precios, duraciones, categorías y el <strong>orden exacto de aparición</strong> en la web.
         </p>
     </div>
     <?php if (!$isReadOnly): ?>
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
             <a href="categorias_servicios.php" class="btn-secondary-custom" style="padding: 10px 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; border: 1px solid #D1D5DB; border-radius: 6px; background: #FFFFFF; color: #374151; transition: all 0.2s ease;">
-                <span>🏷️</span> GESTIONAR CATEGORÍAS
+                <span>🏷️</span> GESTIONAR Y ORDENAR CATEGORÍAS
             </a>
             <button onclick="window.location.href='servicios_crear.php'" class="btn btn-primary">+ AÑADIR SERVICIO</button>
         </div>
@@ -86,6 +86,7 @@ include 'includes/header.php';
         </button>
         <?php foreach ($categoriasList as $cl): ?>
             <button type="button" onclick="filterByCategory('<?php echo htmlspecialchars(addslashes($cl['nombre'])); ?>')" class="cat-filter-pill" id="pill-<?php echo md5($cl['nombre']); ?>">
+                <span style="opacity: 0.65; font-size: 0.85em; margin-right: 2px;">#<?php echo intval($cl['orden']); ?></span>
                 <?php echo htmlspecialchars($cl['nombre']); ?> (<?php echo intval($cl['total_servicios'] ?? 0); ?>)
             </button>
         <?php endforeach; ?>
@@ -100,52 +101,70 @@ include 'includes/header.php';
         margin-bottom: 32px;
     }
 
+    .table-container {
+        background: #FFFFFF;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+        padding: 16px 20px;
+        text-align: left;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
     .status-badge {
-        padding: 6px 16px;
-        border-radius: 4px;
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.5px;
-        text-transform: uppercase;
-        display: inline-block;
     }
 
     .status-active {
-        background: rgba(46, 204, 113, 0.12);
+        background: rgba(46, 204, 113, 0.15);
         color: #2ECC71;
-        border: 1px solid rgba(46, 204, 113, 0.3);
     }
 
     .status-inactive {
-        background: rgba(142, 142, 147, 0.12);
-        color: #8E8E93;
-        border: 1px solid rgba(142, 142, 147, 0.3);
+        background: rgba(231, 76, 60, 0.15);
+        color: #E74C3C;
     }
 
     .btn-action {
-        padding: 8px 18px;
-        background: transparent;
-        border: 1px solid #333333;
-        border-radius: 4px;
-        color: #333333;
-        font-size: 11px;
+        padding: 6px 14px;
+        font-size: 12px;
         font-weight: 600;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
+        border-radius: 4px;
         cursor: pointer;
+        border: none;
         transition: all 0.3s ease;
         text-decoration: none;
         display: inline-block;
     }
 
-    .btn-action:hover {
+    .btn-action:first-child {
         background: #333333;
         color: #FFFFFF;
     }
 
+    .btn-action:first-child:hover {
+        background: #111111;
+    }
+
     .btn-delete {
-        border-color: #E74C3C;
+        background: transparent;
         color: #E74C3C;
+        border: 1px solid #E74C3C;
     }
 
     .btn-delete:hover {
@@ -205,12 +224,48 @@ include 'includes/header.php';
     .service-row.hidden-by-cat {
         display: none !important;
     }
+
+    .order-input-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #F8FAFC;
+        border: 1.5px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 3px 8px;
+        transition: all 0.2s ease;
+    }
+    .order-input-box:focus-within {
+        border-color: #111827;
+        background: #FFFFFF;
+        box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.1);
+    }
+    .order-num-input {
+        width: 42px;
+        border: none;
+        background: transparent;
+        font-weight: 800;
+        font-size: 13px;
+        color: #1E293B;
+        text-align: center;
+        outline: none;
+    }
+    .order-save-indicator {
+        font-size: 11px;
+        color: #10B981;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .order-save-indicator.show {
+        opacity: 1;
+    }
 </style>
 
 <div class="table-container">
     <table class="table">
         <thead>
             <tr>
+                <th style="width: 100px; text-align: center;">POSICIÓN</th>
                 <th>SERVICIO</th>
                 <th>CATEGORÍA</th>
                 <th>PRECIO</th>
@@ -225,8 +280,26 @@ include 'includes/header.php';
             <?php if (count($servicios) > 0): ?>
                 <?php foreach ($servicios as $servicio): 
                     $catVal = trim($servicio['categoria'] ?? 'General');
+                    $sOrden = intval($servicio['orden'] ?? 1);
                 ?>
-                    <tr class="service-row" data-category="<?php echo htmlspecialchars($catVal); ?>">
+                    <tr class="service-row" data-category="<?php echo htmlspecialchars($catVal); ?>" id="row-service-<?php echo $servicio['id']; ?>">
+                        <td style="text-align: center;">
+                            <?php if (!$isReadOnly): ?>
+                                <div class="order-input-box" title="Cambia el número para reordenar en la web">
+                                    <span style="font-size: 11px; color: #94A3B8; font-weight: 800;">#</span>
+                                    <input type="number" 
+                                           class="order-num-input" 
+                                           value="<?php echo $sOrden; ?>" 
+                                           min="1" 
+                                           step="1"
+                                           onchange="actualizarOrdenServicio(<?php echo $servicio['id']; ?>, this.value, this)"
+                                           onkeydown="if(event.key==='Enter') this.blur()">
+                                    <span class="order-save-indicator" id="saved-<?php echo $servicio['id']; ?>">✓</span>
+                                </div>
+                            <?php else: ?>
+                                <span style="font-weight: 800; color: #64748B; font-size: 13px;">#<?php echo $sOrden; ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <div>
                                 <strong>
@@ -302,7 +375,7 @@ include 'includes/header.php';
                 <?php endforeach; ?>
             <?php else: ?>
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
                         No hay servicios registrados
                     </td>
                 </tr>
@@ -318,7 +391,7 @@ include 'includes/header.php';
             document.getElementById('pill-all')?.classList.add('active');
             document.querySelectorAll('.service-row').forEach(row => row.classList.remove('hidden-by-cat'));
         } else {
-            event.target.classList.add('active');
+            event.target.closest('.cat-filter-pill')?.classList.add('active');
             document.querySelectorAll('.service-row').forEach(row => {
                 if (row.getAttribute('data-category') === cat) {
                     row.classList.remove('hidden-by-cat');
@@ -327,6 +400,39 @@ include 'includes/header.php';
                 }
             });
         }
+    }
+
+    function actualizarOrdenServicio(id, nuevoOrden, inputElement) {
+        const ordenVal = parseInt(nuevoOrden, 10);
+        if (isNaN(ordenVal) || ordenVal < 1) return;
+
+        const formData = new FormData();
+        formData.append('action', 'update_order');
+        formData.append('id', id);
+        formData.append('orden', ordenVal);
+
+        fetch('api/servicios_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const ind = document.getElementById('saved-' + id);
+                if (ind) {
+                    ind.classList.add('show');
+                    setTimeout(() => ind.classList.remove('show'), 1500);
+                }
+            } else {
+                alert('Error al guardar orden: ' + (data.message || 'Ocurrió un error'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+        });
     }
 
     function confirmarEliminar(id, nombre) {

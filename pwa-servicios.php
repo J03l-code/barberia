@@ -15,7 +15,7 @@ try {
     $stmt = $pdo->query("SELECT s.* FROM servicios s 
                          LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre 
                          WHERE s.activo = 1 
-                         ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, s.id ASC");
+                         ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC");
     $todos_servicios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (!empty($todos_servicios)) {

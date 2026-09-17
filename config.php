@@ -362,6 +362,12 @@ function asegurarTablaCategorias($pdo = null)
             if (!in_array('categoria', $colsServicios)) {
                 $pdo->exec("ALTER TABLE servicios ADD COLUMN categoria VARCHAR(50) NOT NULL DEFAULT 'General'");
             }
+            if (!in_array('orden', $colsServicios)) {
+                $pdo->exec("ALTER TABLE servicios ADD COLUMN orden INT NOT NULL DEFAULT 0 AFTER categoria");
+                try {
+                    $pdo->exec("ALTER TABLE servicios ADD INDEX idx_servicio_categoria_orden (categoria, orden)");
+                } catch (Throwable $eIdx) {}
+            }
             if (!in_array('que_incluye', $colsServicios)) {
                 $pdo->exec("ALTER TABLE servicios ADD COLUMN que_incluye TEXT DEFAULT NULL AFTER descripcion");
             }
