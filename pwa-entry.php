@@ -13,7 +13,7 @@ if (isClienteLoggedIn()) {
     if ($u['rol'] === 'barbero') {
         header('Location: barber-dashboard.php');
     } else {
-        header('Location: admin-agenda.php');
+        header('Location: pwa-admin.php');
     }
     exit;
 } else {
