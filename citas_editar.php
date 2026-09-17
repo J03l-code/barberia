@@ -25,16 +25,32 @@ if (isset($_GET['id'])) {
     }
 }
 
-// Obtener datos para los selects
+// Obtener datos para los selects de manera segura y robusta
 try {
-    $clientes = query("SELECT id, nombre, telefono, email, puntos_fidelidad FROM clientes ORDER BY nombre ASC");
+    $clientes = query("SELECT id, nombre, telefono, email, COALESCE(puntos, 0) as puntos FROM clientes ORDER BY nombre ASC");
+} catch (PDOException $e) {
+    try {
+        $clientes = query("SELECT id, nombre, telefono, email FROM clientes ORDER BY nombre ASC");
+    } catch (PDOException $e2) {
+        $clientes = [];
+    }
+}
+
+try {
     $servicios = query("SELECT id, nombre, duracion_minutos FROM servicios WHERE activo = 1 ORDER BY nombre ASC");
+} catch (PDOException $e) {
+    $servicios = [];
+}
+
+try {
     $barberos = query("SELECT id, nombre FROM usuarios WHERE rol = 'barbero' ORDER BY nombre ASC");
+} catch (PDOException $e) {
+    $barberos = [];
+}
+
+try {
     $sucursales = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
 } catch (PDOException $e) {
-    $clientes = [];
-    $servicios = [];
-    $barberos = [];
     $sucursales = [];
 }
 
@@ -740,7 +756,8 @@ function renderClientResults(clientsToRender, query = '') {
         const nameHtml = highlightMatch(c.nombre, query);
         const phoneHtml = c.telefono ? `<span style="display:inline-flex; align-items:center; gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg> ${highlightMatch(c.telefono, query)}</span>` : '';
         const emailHtml = c.email ? `<span style="display:inline-flex; align-items:center; gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${highlightMatch(c.email, query)}</span>` : '';
-        const ptsHtml = (c.puntos_fidelidad > 0) ? `<span style="background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10.5px; display:inline-flex; align-items:center; gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> ${c.puntos_fidelidad} pts</span>` : '';
+        const pts = parseInt(c.puntos || c.puntos_fidelidad || 0);
+        const ptsHtml = (pts > 0) ? `<span style="background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10.5px; display:inline-flex; align-items:center; gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> ${pts} pts</span>` : '';
 
         item.innerHTML = `
             <div class="client-avatar-badge">${initials}</div>
@@ -757,18 +774,19 @@ function renderClientResults(clientsToRender, query = '') {
     });
 }
 
+let searchTimer = null;
 function filterClients(query) {
     const q = query.trim().toLowerCase();
     if (!q) {
         renderClientResults(allClients.slice(0, 25), '');
         if (btnDropdownCreateClient) {
-            btnDropdownCreateClient.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span>+ Registrar nuevo cliente</span>';
+            btnDropdownCreateClient.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span>Registrar nuevo cliente</span>';
         }
         return;
     }
 
     if (btnDropdownCreateClient) {
-        btnDropdownCreateClient.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span>+ Crear nuevo cliente "<strong>${escapeHtml(query.trim())}</strong>"</span>`;
+        btnDropdownCreateClient.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span>Crear nuevo cliente "<strong>${escapeHtml(query.trim())}</strong>"</span>`;
     }
 
     const filtered = allClients.filter(c => {
@@ -794,6 +812,31 @@ function filterClients(query) {
     });
 
     renderClientResults(filtered.slice(0, 30), query);
+
+    // Fallback AJAX search if query is 2+ chars
+    if (q.length >= 2) {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch('api/clientes_action.php?action=search&ajax=1&q=' + encodeURIComponent(q));
+                const data = await resp.json();
+                if (data.success && Array.isArray(data.clientes) && data.clientes.length > 0) {
+                    // Merge any newly found clients into allClients cache
+                    data.clientes.forEach(serverClient => {
+                        if (!allClients.some(ac => ac.id == serverClient.id)) {
+                            allClients.push(serverClient);
+                        }
+                    });
+                    // Re-render if search input is still matching
+                    if (searchInput && searchInput.value.trim().toLowerCase() === q) {
+                        renderClientResults(data.clientes.slice(0, 30), q);
+                    }
+                }
+            } catch (err) {
+                console.error('Error buscando clientes en servidor:', err);
+            }
+        }, 200);
+    }
 }
 
 function selectClient(client) {

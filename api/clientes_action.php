@@ -18,11 +18,11 @@ try {
             $limit = min(50, max(5, intval($_GET['limit'] ?? 20)));
             
             if ($q === '') {
-                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, puntos_fidelidad, notas FROM clientes ORDER BY nombre ASC LIMIT ?");
+                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, notas FROM clientes ORDER BY nombre ASC LIMIT ?");
                 $stmt->bindValue(1, $limit, PDO::PARAM_INT);
                 $stmt->execute();
             } else {
-                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, puntos_fidelidad, notas 
+                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, notas 
                                        FROM clientes 
                                        WHERE nombre LIKE ? OR telefono LIKE ? OR email LIKE ? 
                                        ORDER BY 
@@ -101,7 +101,7 @@ try {
                         'nombre' => $nombre,
                         'telefono' => $telefono,
                         'email' => $email,
-                        'puntos_fidelidad' => 0,
+                        'puntos' => 0,
                         'notas' => $notas
                     ]
                 ]);
