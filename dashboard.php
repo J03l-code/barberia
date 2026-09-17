@@ -902,12 +902,8 @@ if ($currentUser['rol'] === 'admin_local') {
     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $calMonth, $calYear);
     $firstDayOfMonth = date('N', strtotime("$calYear-$calMonth-01")); // 1 (Mon) to 7 (Sun)
 
-    // Obtener días con citas
-    if ($sucursal_id) {
-        $bookings = query("SELECT DATE(fecha_hora) as d, COUNT(*) as c FROM citas WHERE sucursal_id = ? AND MONTH(fecha_hora) = ? AND YEAR(fecha_hora) = ? GROUP BY d", [$sucursal_id, $calMonth, $calYear]);
-    } else {
-        $bookings = query("SELECT DATE(fecha_hora) as d, COUNT(*) as c FROM citas WHERE MONTH(fecha_hora) = ? AND YEAR(fecha_hora) = ? GROUP BY d", [$calMonth, $calYear]);
-    }
+    // Obtener días con citas (delimitado a sucursales asignadas)
+    $bookings = query("SELECT DATE(fecha_hora) as d, COUNT(*) as c FROM citas WHERE MONTH(fecha_hora) = ? AND YEAR(fecha_hora) = ? $whereCitasDirect GROUP BY d", [$calMonth, $calYear]);
 
     // Mapear citas por día
     $bookingsMap = [];
@@ -1059,8 +1055,7 @@ if ($currentUser['rol'] === 'admin_local') {
             const month = "<?php echo str_pad($calMonth, 2, '0', STR_PAD_LEFT); ?>";
             const dayStr = String(day).padStart(2, '0');
             const fullDate = `${year}-${month}-${dayStr}`;
-            // Ensure we handle the PHP null/empty value correctly for JS
-            const branchId = "<?php echo $sucursal_id ?: ''; ?>";
+            const branchId = "<?php echo $filterSucursalId > 0 ? $filterSucursalId : ''; ?>";
 
             const container = document.getElementById('day-details-container');
             const content = document.getElementById('day-details-content');
@@ -1069,7 +1064,7 @@ if ($currentUser['rol'] === 'admin_local') {
 
             // Show container with loading state
             container.style.display = 'block';
-            title.innerHTML = `Detalles del <span style="color:var(--primary-gold)">${dayStr}/${month}/${year}</span>`;
+            title.innerHTML = `Detalles del <span style="color: #111111; font-weight: 800;">${dayStr}/${month}/${year}</span>`;
             content.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">Cargando citas...</p>';
             summary.innerHTML = '';
 
@@ -1086,39 +1081,47 @@ if ($currentUser['rol'] === 'admin_local') {
                     if (data.success) {
                         if (data.citas && data.citas.length > 0) {
                             let html = `
-                            <div class="table-container">
-                                <table class="table">
+                            <div class="table-container" style="margin: 0; overflow-x: auto;">
+                                <table class="table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                                     <thead>
-                                        <tr>
-                                            <th>Hora</th>
-                                            <th>Cliente</th>
-                                            <th>Servicio</th>
-                                            <th>Barbero</th>
-                                            <th>Precio</th>
-                                            <th>Estado</th>
+                                        <tr style="background: #F8FAFC; border-bottom: 1.5px solid #E2E8F0; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748B;">
+                                            <th style="padding: 10px 14px;">Hora</th>
+                                            <th style="padding: 10px 14px;">Cliente</th>
+                                            <th style="padding: 10px 14px;">Servicio</th>
+                                            <th style="padding: 10px 14px;">Barbero</th>
+                                            <th style="padding: 10px 14px;">Sucursal</th>
+                                            <th style="padding: 10px 14px;">Precio</th>
+                                            <th style="padding: 10px 14px;">Estado</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                        `;
+                            `;
 
                             data.citas.forEach(cita => {
-                                // Extract time HH:MM
-                                const timePart = cita.fecha_hora.split(' ')[1].substring(0, 5);
+                                const timePart = cita.fecha_hora ? cita.fecha_hora.split(' ')[1].substring(0, 5) : '--:--';
+                                let badgeBg = '#E5E7EB';
+                                let badgeColor = '#374151';
+                                if (cita.estado === 'completada') { badgeBg = '#DCFCE7'; badgeColor = '#166534'; }
+                                else if (cita.estado === 'confirmada') { badgeBg = '#DBEAFE'; badgeColor = '#1E40AF'; }
+                                else if (cita.estado === 'pendiente') { badgeBg = '#FEF3C7'; badgeColor = '#92400E'; }
+                                else if (cita.estado === 'cancelada') { badgeBg = '#FEE2E2'; badgeColor = '#991B1B'; }
+
                                 html += `
-                                <tr>
-                                    <td style="font-weight:bold; color:white;">${timePart}</td>
-                                    <td>${cita.cliente}</td>
-                                    <td>${cita.servicio}</td>
-                                    <td>${cita.barbero}</td>
-                                    <td style="color:var(--primary-gold);">$${parseFloat(cita.precio_final).toFixed(2)}</td>
-                                    <td><span class="badge badge-${cita.estado}">${cita.estado.charAt(0).toUpperCase() + cita.estado.slice(1)}</span></td>
+                                <tr style="border-bottom: 1px solid #F1F5F9;">
+                                    <td style="padding: 10px 14px; font-weight: 800; color: #111111;">${timePart}</td>
+                                    <td style="padding: 10px 14px; font-weight: 600; color: #111111;">${cita.cliente}</td>
+                                    <td style="padding: 10px 14px; color: #4B5563;">${cita.servicio}</td>
+                                    <td style="padding: 10px 14px; color: #4B5563;">${cita.barbero}</td>
+                                    <td style="padding: 10px 14px; font-size: 11px; font-weight: 700; color: #6B7280;">📍 ${cita.sucursal_nombre || ''}</td>
+                                    <td style="padding: 10px 14px; font-weight: 800; color: #10B981;">$${parseFloat(cita.precio_final).toFixed(2)}</td>
+                                    <td style="padding: 10px 14px;"><span style="background: ${badgeBg}; color: ${badgeColor}; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; text-transform: uppercase;">${cita.estado}</span></td>
                                 </tr>
-                            `;
+                                `;
                             });
 
                             html += `</tbody></table></div>`;
                             content.innerHTML = html;
-                            summary.innerHTML = `Recaudación Total: $${parseFloat(data.total_recaudado).toFixed(2)}`;
+                            summary.innerHTML = `<span style="color: #64748B; font-size: 0.95rem; font-weight: 700; margin-right: 12px;">${data.total_citas} citas</span> Recaudación: <span style="color: #10B981; font-weight: 900;">$${parseFloat(data.total_recaudado).toFixed(2)}</span>`;
                         } else {
                             content.innerHTML = '<p style="text-align:center; padding: 20px; color: #888;">No hubo citas registradas este día.</p>';
                             summary.innerHTML = 'Recaudación: $0.00';

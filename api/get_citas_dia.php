@@ -10,8 +10,8 @@ if (!isLoggedIn()) {
 
 $currentUser = getCurrentUser();
 $fecha = $_GET['fecha'] ?? date('Y-m-d');
-// Prioritize passed sucursal_id, else fallback to user's sucursal (if admin_local/barber), else global if admin
-$sucursal_id = isset($_GET['sucursal_id']) ? intval($_GET['sucursal_id']) : ($currentUser['sucursal_id'] ?? null);
+$reqSucursal = isset($_GET['sucursal_id']) && $_GET['sucursal_id'] !== '' ? intval($_GET['sucursal_id']) : 0;
+$userSucursalesIds = getUsuarioSucursalesIds($currentUser['id']);
 
 try {
     $pdo = getConnection();
@@ -19,18 +19,37 @@ try {
     $sql = "SELECT c.id, c.fecha_hora, c.estado, c.precio_final, 
                    u.nombre as barbero, 
                    s.nombre as servicio, 
-                   cli.nombre as cliente
+                   cli.nombre as cliente,
+                   suc.nombre as sucursal_nombre
             FROM citas c
             JOIN usuarios u ON c.barbero_id = u.id
             JOIN servicios s ON c.servicio_id = s.id
             JOIN clientes cli ON c.cliente_id = cli.id
+            JOIN sucursales suc ON c.sucursal_id = suc.id
             WHERE DATE(c.fecha_hora) = ?";
 
     $params = [$fecha];
 
-    if ($sucursal_id) {
-        $sql .= " AND c.sucursal_id = ?";
-        $params[] = $sucursal_id;
+    if (isAdminTecnico()) {
+        if ($reqSucursal > 0) {
+            $sql .= " AND c.sucursal_id = ?";
+            $params[] = $reqSucursal;
+        }
+    } elseif ($currentUser['rol'] === 'admin_local') {
+        if ($reqSucursal > 0 && in_array($reqSucursal, $userSucursalesIds)) {
+            $sql .= " AND c.sucursal_id = ?";
+            $params[] = $reqSucursal;
+        } else {
+            if (!empty($userSucursalesIds)) {
+                $inList = implode(',', array_map('intval', $userSucursalesIds));
+                $sql .= " AND c.sucursal_id IN ($inList)";
+            } else {
+                $sql .= " AND 1=0";
+            }
+        }
+    } elseif ($currentUser['rol'] === 'barbero') {
+        $sql .= " AND c.barbero_id = ?";
+        $params[] = $currentUser['id'];
     }
 
     $sql .= " ORDER BY c.fecha_hora ASC";
