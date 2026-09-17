@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kortzen-v100';
+const CACHE_NAME = 'kortzen-v101';
 const ASSETS_TO_CACHE = [
   '/assets/icons/favicon.png',
   '/manifest.json'
