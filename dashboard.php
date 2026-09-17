@@ -248,6 +248,80 @@ if ($currentUser['rol'] === 'admin_local') {
     $citasCompletadasMes = intval($citasMesRow['completadas'] ?? 0);
     $totalPropinasMes = floatval($citasMesRow['propinas_mes'] ?? 0);
 
+    // GANANCIAS NETAS REALES DEL NEGOCIO (Descontando comisiones de barberos)
+    // 1. Servicios Mes Neto Negocio
+    $netaServiciosMesRow = query("
+        SELECT SUM(
+            IFNULL(c.precio_final, 0) * (
+                100.0 - CASE 
+                    WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                        CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                        ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                    )
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as total_neto_servicios
+        FROM citas c
+        LEFT JOIN usuarios u ON c.barbero_id = u.id
+        WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ?$whereCitas
+    ", [$mesInicio, $mesFin])[0] ?? [];
+
+    // 2. Ventas Productos Mes Neto Negocio
+    $netaProdMesRow = query("
+        SELECT SUM(
+            (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+                100.0 - CASE 
+                    WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as total_neto_productos
+        FROM ventas_productos vp
+        LEFT JOIN usuarios u ON vp.usuario_id = u.id
+        WHERE DATE(vp.fecha) BETWEEN ? AND ?$whereProd
+    ", [$mesInicio, $mesFin])[0] ?? [];
+
+    $gananciaNetaMesServicios = floatval($netaServiciosMesRow['total_neto_servicios'] ?? 0);
+    $gananciaNetaMesProd = floatval($netaProdMesRow['total_neto_productos'] ?? 0);
+    $gananciaNetaMesTotal = $gananciaNetaMesServicios + $gananciaNetaMesProd;
+
+    // 3. Ganancias Netas Hoy (Negocio)
+    $netaServiciosHoyRow = query("
+        SELECT SUM(
+            IFNULL(c.precio_final, 0) * (
+                100.0 - CASE 
+                    WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                        CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                        ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                    )
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as total_neto_servicios
+        FROM citas c
+        LEFT JOIN usuarios u ON c.barbero_id = u.id
+        WHERE c.estado = 'completada' AND DATE(c.fecha_hora) = ?$whereCitas
+    ", [$hoy])[0] ?? [];
+
+    $netaProdHoyRow = query("
+        SELECT SUM(
+            (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+                100.0 - CASE 
+                    WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as total_neto_productos
+        FROM ventas_productos vp
+        LEFT JOIN usuarios u ON vp.usuario_id = u.id
+        WHERE DATE(vp.fecha) = ?$whereProd
+    ", [$hoy])[0] ?? [];
+
+    $gananciaNetaHoyServicios = floatval($netaServiciosHoyRow['total_neto_servicios'] ?? 0);
+    $gananciaNetaHoyProd = floatval($netaProdHoyRow['total_neto_productos'] ?? 0);
+    $gananciaNetaHoyTotal = $gananciaNetaHoyServicios + $gananciaNetaHoyProd;
+
     // Ticket Promedio del Mes
     $ticketPromedioMes = $citasCompletadasMes > 0 ? ($vCitasMes / $citasCompletadasMes) : 0;
 
@@ -392,10 +466,23 @@ if ($currentUser['rol'] === 'admin_local') {
 
         <!-- Recaudación Mensual (Citas + Productos) -->
         <div class="earnings-card">
-            <div class="earnings-title">Recaudación (Mes)</div>
+            <div class="earnings-title">Recaudación Total (Mes)</div>
             <div class="earnings-amount">$<?php echo number_format($recaudacionMesTotal, 2); ?></div>
             <div class="trend-indicator trend-up">
                 <span><?php echo $mesActual; ?> (<?php echo $citasCompletadasMes; ?> citas)</span>
+            </div>
+        </div>
+
+        <!-- GANANCIAS NETAS DEL NEGOCIO (Descontando comisiones de barberos) -->
+        <div class="earnings-card" style="border: 1.5px solid #10B981 !important; background: #F0FDF4 !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.08);">
+            <div class="earnings-title" style="color: #047857 !important; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
+                <span>Ganancias Netas (Mes)</span>
+                <span style="background: #10B981; color: #FFFFFF; font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; font-weight: 900; letter-spacing: 0.5px;">NEGOCIO</span>
+            </div>
+            <div class="earnings-amount" style="color: #065F46 !important; font-weight: 900; font-size: 1.85rem;">$<?php echo number_format($gananciaNetaMesTotal, 2); ?></div>
+            <div class="trend-indicator" style="color: #047857; font-weight: 700; display: flex; flex-direction: column; gap: 3px;">
+                <span style="font-size: 0.78rem;">Cortes: $<?php echo number_format($gananciaNetaMesServicios, 2); ?> • Ventas: $<?php echo number_format($gananciaNetaMesProd, 2); ?></span>
+                <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">Hoy neto negocio: +$<?php echo number_format($gananciaNetaHoyTotal, 2); ?></span>
             </div>
         </div>
 
