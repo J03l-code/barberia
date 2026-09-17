@@ -164,42 +164,31 @@ try {
             }
         }
 
-        // 2. Despachar Notificación Push al Sistema Operativo (Google FCM / Apple APNs) - Funciona con la App CERRADA
+        // 2. Despachar Notificación Push al Sistema Operativo (Google FCM / Apple APNs) - Solo al cliente de la cita
         $countDispositivos = 0;
         try {
-            $stmtPush = $pdo->prepare("SELECT * FROM push_subscriptions WHERE cliente_id = ? OR cliente_id IS NULL OR cliente_id = 0");
-            $stmtPush->execute([$clienteId]);
-            $subscriptions = $stmtPush->fetchAll(PDO::FETCH_ASSOC);
+            if ($clienteId > 0) {
+                $stmtPush = $pdo->prepare("SELECT * FROM push_subscriptions WHERE cliente_id = ?");
+                $stmtPush->execute([$clienteId]);
+                $subscriptions = $stmtPush->fetchAll(PDO::FETCH_ASSOC);
 
-            // Si no hay suscripción asignada explícitamente a este cliente, tomar las suscripciones registradas o auto-registrar
-            if (empty($subscriptions)) {
-                $stmtPushAll = $pdo->query("SELECT * FROM push_subscriptions ORDER BY id DESC LIMIT 5");
-                $subscriptions = $stmtPushAll->fetchAll(PDO::FETCH_ASSOC);
                 if (!empty($subscriptions)) {
-                    $stmtUpdSub = $pdo->prepare("UPDATE push_subscriptions SET cliente_id = ? WHERE cliente_id IS NULL OR cliente_id = 0");
-                    $stmtUpdSub->execute([$clienteId]);
-                } else {
-                    $epAuto = 'pwa_device_auto_cli_' . $clienteId;
-                    $stmtInsAuto = $pdo->prepare("INSERT INTO push_subscriptions (cliente_id, endpoint, p256dh, auth) VALUES (?, ?, 'granted', 'granted')");
-                    $stmtInsAuto->execute([$clienteId, $epAuto]);
-                    $subscriptions = [['id' => $pdo->lastInsertId(), 'cliente_id' => $clienteId, 'endpoint' => $epAuto]];
-                }
-            }
+                    $payloadPush = json_encode([
+                        'title' => "✂️ Confirmar Asistencia: Tu cita es en 2 horas",
+                        'body' => "¡Hola {$cita['cliente_nombre']}! Recuerda que a las {$horaFormateada} tienes tu cita con {$cita['barbero_nombre']}. Toca aquí para confirmar.",
+                        'icon' => '/assets/icons/favicon.png',
+                        'url' => "/cliente-dashboard.php?confirmar_cita={$citaId}"
+                    ]);
 
-            $payloadPush = json_encode([
-                'title' => "✂️ Confirmar Asistencia: Tu cita es en 2 horas",
-                'body' => "¡Hola {$cita['cliente_nombre']}! Recuerda que a las {$horaFormateada} tienes tu cita con {$cita['barbero_nombre']}. Toca aquí para confirmar.",
-                'icon' => '/assets/icons/favicon.png',
-                'url' => "/cliente-dashboard.php?confirmar_cita={$citaId}"
-            ]);
+                    require_once __DIR__ . '/../includes/webpush_helper.php';
 
-            require_once __DIR__ . '/../includes/webpush_helper.php';
-
-            foreach ($subscriptions as $sub) {
-                if (!empty($sub['endpoint'])) {
-                    enviarWebPushVapid($sub, $payloadPush);
-                    $enviadosPush++;
-                    $countDispositivos++;
+                    foreach ($subscriptions as $sub) {
+                        if (!empty($sub['endpoint'])) {
+                            enviarWebPushVapid($sub, $payloadPush);
+                            $enviadosPush++;
+                            $countDispositivos++;
+                        }
+                    }
                 }
             }
         } catch (Exception $eSub) {}

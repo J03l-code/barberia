@@ -1337,6 +1337,14 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                             </div>
                         </div>
 
+                        <!-- Botón Llamativo: Agendar Otra Cita (Hijos / Acompañantes / Familiar) -->
+                        <div style="max-width:380px; margin:0 auto 12px auto;">
+                            <a href="reservar.php" style="display:flex; align-items:center; justify-content:center; gap:10px; background:linear-gradient(135deg, #C0A062 0%, #D4AF37 50%, #B38F4D 100%); color:#000000; font-weight:900; font-size:0.92rem; padding:15px 18px; border-radius:12px; text-decoration:none; text-transform:uppercase; letter-spacing:0.6px; box-sizing:border-box; box-shadow:0 8px 25px rgba(192, 160, 98, 0.4); transition:transform 0.15s ease, box-shadow 0.15s ease; cursor:pointer;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                                <span>+ Agendar Otra Cita / Acompañante</span>
+                            </a>
+                        </div>
+
                         <!-- Botón Añadir a Google Calendar -->
                         <div style="max-width:380px; margin:0 auto 20px auto;">
                             <a href="${gCalUrl}" target="_blank" style="display:flex; align-items:center; justify-content:center; gap:10px; background:#4285F4; color:#FFFFFF; font-weight:800; font-size:0.88rem; padding:14px; border-radius:12px; text-decoration:none; text-transform:uppercase; letter-spacing:0.5px; box-sizing:border-box;">
