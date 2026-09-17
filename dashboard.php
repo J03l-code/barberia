@@ -68,6 +68,23 @@ if ($currentUser['rol'] === 'admin_local') {
     <?php endif; ?>
 </div>
 
+<!-- Acceso Rápido a la App Móvil de Agenda & Disponibilidad -->
+<div style="background: linear-gradient(135deg, #111111 0%, #222222 100%); border: 1.5px solid #C0A062; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);">
+    <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(192, 160, 98, 0.15); border: 1px solid #C0A062; display: flex; align-items: center; justify-content: center; color: #C0A062; font-size: 1.2rem;">
+            <i class="fas fa-calendar-alt"></i>
+        </div>
+        <div>
+            <div style="color: #FFFFFF; font-weight: 800; font-size: 1.05rem;">Agenda Gráfica & Disponibilidad en Tiempo Real</div>
+            <div style="color: #AAAAAA; font-size: 0.82rem; margin-top: 2px;">Consulta turnos libres por barbero y gestiona citas desde la nueva vista de aplicación móvil / PWA.</div>
+        </div>
+    </div>
+    <a href="admin-agenda.php" style="background: #C0A062; color: #111111; font-weight: 800; font-size: 0.88rem; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 10px rgba(192,160,98,0.3);">
+        <span>Abrir Agenda & Disponibilidad</span>
+        <i class="fas fa-arrow-right"></i>
+    </a>
+</div>
+
 <!-- Estilos Específicos para Dashboard Mejorado -->
 <style>
     .dashboard-grid {

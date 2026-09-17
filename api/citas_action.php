@@ -98,6 +98,69 @@ try {
             header('Location: ../cliente-dashboard.php?success=' . urlencode('Tu cita ha sido cancelada exitosamente.'));
             exit;
 
+        case 'crear_manual':
+            if (!in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local', 'administrador', 'superadmin'])) {
+                throw new Exception('Permisos insuficientes.');
+            }
+
+            $cliNombre = trim($_POST['cliente_nombre'] ?? '');
+            $cliTel = trim($_POST['cliente_telefono'] ?? '');
+            $barbero_id = intval($_POST['barbero_id'] ?? 0);
+            $servicio_id = intval($_POST['servicio_id'] ?? 0);
+            $fecha = trim($_POST['fecha'] ?? '');
+            $hora = trim($_POST['hora'] ?? '');
+
+            if (empty($cliNombre) || !$barbero_id || !$servicio_id || empty($fecha) || empty($hora)) {
+                throw new Exception('Faltan campos obligatorios para agendar la cita.');
+            }
+
+            // Obtener sucursal del barbero
+            $stmtBInfo = $pdo->prepare("SELECT sucursal_id, nombre FROM usuarios WHERE id = ?");
+            $stmtBInfo->execute([$barbero_id]);
+            $bRow = $stmtBInfo->fetch(PDO::FETCH_ASSOC);
+            $sucursal_id = $bRow['sucursal_id'] ?? 1;
+
+            // Obtener o registrar cliente
+            $cliente_id = 0;
+            if (!empty($cliTel)) {
+                $stmtClFind = $pdo->prepare("SELECT id FROM clientes WHERE telefono = ? LIMIT 1");
+                $stmtClFind->execute([$cliTel]);
+                $cliente_id = intval($stmtClFind->fetchColumn() ?? 0);
+            }
+
+            if ($cliente_id <= 0) {
+                // Crear nuevo cliente rápido
+                $fakeEmail = 'cli_' . time() . '_' . rand(100, 999) . '@kortzen.com';
+                $stmtNewCl = $pdo->prepare("INSERT INTO clientes (nombre, telefono, email, activo) VALUES (?, ?, ?, 1)");
+                $stmtNewCl->execute([$cliNombre, $cliTel, $fakeEmail]);
+                $cliente_id = intval($pdo->lastInsertId());
+            }
+
+            // Obtener duración del servicio
+            $stmtServ = $pdo->prepare("SELECT nombre, duracion_minutos, precio FROM servicios WHERE id = ?");
+            $stmtServ->execute([$servicio_id]);
+            $servRow = $stmtServ->fetch(PDO::FETCH_ASSOC);
+            $duracionMin = intval($servRow['duracion_minutos'] ?? 45);
+            $precioServicio = floatval($servRow['precio'] ?? 0.00);
+
+            $fecha_hora = $fecha . ' ' . $hora . ':00';
+            $horaFinStr = date('H:i:s', strtotime($fecha_hora) + ($duracionMin * 60));
+
+            $stmtInsert = $pdo->prepare("
+                INSERT INTO citas (cliente_id, cliente_nombre, cliente_telefono, servicio_id, barbero_id, sucursal_id, fecha_hora, hora_fin, estado, precio_final, notas) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmada', ?, 'Cita manual agendada por administración')
+            ");
+            $stmtInsert->execute([$cliente_id, $cliNombre, $cliTel, $servicio_id, $barbero_id, $sucursal_id, $fecha_hora, $horaFinStr, $precioServicio]);
+            $newCitaId = intval($pdo->lastInsertId());
+
+            registrarLog('CREAR', 'citas', $newCitaId, "Cita manual rápida #$newCitaId creada para '$cliNombre' con barbero #$barbero_id");
+
+            try {
+                notificarBarbero($pdo, $barbero_id, $newCitaId, 'nueva_reserva');
+            } catch (Exception $eN) {}
+
+            responderAccionCita($isAjax, $redirect_url, 'Cita agendada exitosamente.', ['cita_id' => $newCitaId]);
+
         case 'create':
             $cliente_id = intval($_POST['cliente_id'] ?? 0);
             $servicio_id = intval($_POST['servicio_id'] ?? 0);

@@ -9,7 +9,12 @@ if (isClienteLoggedIn()) {
     header('Location: cliente-dashboard.php');
     exit;
 } elseif (isLoggedIn()) {
-    header('Location: dashboard.php');
+    $u = getCurrentUser();
+    if ($u['rol'] === 'barbero') {
+        header('Location: barber-dashboard.php');
+    } else {
+        header('Location: admin-agenda.php');
+    }
     exit;
 } else {
     // If not authenticated, redirect to client login screen by default

@@ -670,6 +670,124 @@ include 'includes/header.php';
     </div>
 </div>
 
+<!-- ========================================================================= -->
+<!-- CUADRO DE DISPONIBILIDAD DE HORARIOS EN TIEMPO REAL -->
+<!-- ========================================================================= -->
+<div style="background: #FFFFFF; border: 1.5px solid #10B981; border-radius: 16px; padding: 22px; margin-bottom: 28px; box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAEAEA; padding-bottom: 14px; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 900; color: #111111; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>Disponibilidad de Horarios en Tiempo Real</span>
+            </h2>
+            <p style="font-size: 0.83rem; color: #666666; margin-top: 4px; margin-bottom: 0;">
+                Consulta al instante qué turnos libres tiene este barbero para responder a clientes que pregunten por disponibilidad.
+            </p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label style="font-size: 0.8rem; font-weight: 800; color: #374151;">Seleccionar Fecha:</label>
+            <input type="date" id="fechaDisponibilidadInput" value="<?php echo date('Y-m-d'); ?>" onchange="cargarDisponibilidadBarbero()" style="padding: 8px 12px; border-radius: 8px; border: 1.5px solid #D1D5DB; font-weight: 700; font-size: 0.88rem; outline: none; cursor: pointer;">
+            <button type="button" onclick="copiarHorariosWhatsApp()" style="background: #25D366; color: #FFFFFF; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 800; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <i class="fab fa-whatsapp"></i> Copiar Horarios para WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <!-- Contenedor Dinámico de Slots -->
+    <div id="slotsDisponiblesContainer" style="min-height: 70px;">
+        <div style="text-align: center; padding: 20px; color: #888888;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando disponibilidad del barbero...
+        </div>
+    </div>
+</div>
+
+<script>
+let slotsLibresActuales = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    cargarDisponibilidadBarbero();
+});
+
+function cargarDisponibilidadBarbero() {
+    const fecha = document.getElementById('fechaDisponibilidadInput').value;
+    const barberoId = <?php echo $barbero_id; ?>;
+    const container = document.getElementById('slotsDisponiblesContainer');
+
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #888888;"><i class="fas fa-spinner fa-spin"></i> Consultando turnos libres...</div>';
+
+    fetch(`api/get_agenda_admin.php?start_date=${fecha}&end_date=${fecha}&barbero_id=${barberoId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.disponibilidad && data.disponibilidad[fecha]) {
+                const bData = data.disponibilidad[fecha].barberos && data.disponibilidad[fecha].barberos[0];
+                if (bData) {
+                    slotsLibresActuales = bData.slots_libres || [];
+                    if (!bData.labora) {
+                        container.innerHTML = `
+                            <div style="background: #FEE2E2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 14px; color: #991B1B; font-weight: 700; font-size: 0.88rem;">
+                                <i class="fas fa-calendar-times"></i> El barbero no labora el día seleccionado (${bData.motivo_no_labora || 'Día libre o descanso'}).
+                            </div>
+                        `;
+                    } else if (slotsLibresActuales.length === 0) {
+                        container.innerHTML = `
+                            <div style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 10px; padding: 14px; color: #92400E; font-weight: 700; font-size: 0.88rem;">
+                                <i class="fas fa-info-circle"></i> No hay horarios disponibles para la fecha seleccionada (Todos los turnos están ocupados o pasados).
+                            </div>
+                        `;
+                    } else {
+                        let pills = slotsLibresActuales.map(s => `
+                            <a href="citas.php?action=crear&barbero_id=${barberoId}&fecha=${fecha}&hora=${s.hora_inicio}" style="background: #ECFDF5; border: 1.5px solid #10B981; color: #065F46; padding: 8px 14px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;" title="Clic para agendar cita en este turno">
+                                <i class="fas fa-clock" style="color: #10B981;"></i>
+                                <span>${s.label}</span>
+                            </a>
+                        `).join('');
+
+                        container.innerHTML = `
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.85rem; font-weight: 800; color: #065F46;">
+                                    <span>${slotsLibresActuales.length} Horarios Libres Encontrados:</span>
+                                    <span style="font-size: 0.75rem; color: #6B7280; font-weight: 600;">(Turnos calculados de 30 min)</span>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    ${pills}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            } else {
+                container.innerHTML = '<div style="color: #EF4444; font-weight: 700;">No se pudo obtener la disponibilidad.</div>';
+            }
+        })
+        .catch(err => {
+            container.innerHTML = '<div style="color: #EF4444; font-weight: 700;">Error al cargar disponibilidad.</div>';
+        });
+}
+
+function copiarHorariosWhatsApp() {
+    const fecha = document.getElementById('fechaDisponibilidadInput').value;
+    const barberoNombre = "<?php echo addslashes($barbero['nombre']); ?>";
+
+    if (slotsLibresActuales.length === 0) {
+        alert('No hay horarios libres para copiar en esta fecha.');
+        return;
+    }
+
+    const slotsListText = slotsLibresActuales.map(s => `• ${s.label}`).join('\n');
+    const texto = `👋 ¡Hola! Estos son los horarios disponibles para *${barberoNombre}* para el día *${fecha}*:\n\n${slotsListText}\n\n¿Cuál horario te gustaría reservar?`;
+
+    navigator.clipboard.writeText(texto).then(() => {
+        alert('¡Horarios copiados al portapapeles! Puedes pegarlos directamente en WhatsApp.');
+    }).catch(err => {
+        prompt('Copia estos horarios:', texto);
+    });
+}
+</script>
+
 <!-- GRID DOS COLUMNAS: DATOS DE USUARIO & HORARIOS -->
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px;">
     
