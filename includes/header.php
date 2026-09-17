@@ -19,20 +19,15 @@
     <div class="dashboard-container">
         <!-- Mobile Header (Visible only on mobile) -->
         <div class="mobile-header">
-            <button class="mobile-menu-toggle" id="sidebarToggle" aria-label="Abrir Menú">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="mobile-logo">KORTZEN</div>
+            <button class="mobile-menu-toggle" id="sidebarToggle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="3" y1="12" x2="21" y2="12"></line>
                     <line x1="3" y1="6" x2="21" y2="6"></line>
                     <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
             </button>
-            <div class="mobile-logo" onclick="window.location.href='dashboard.php'" style="cursor: pointer;">KORTZEN</div>
-            <div class="mobile-user-avatar" onclick="window.location.href='usuarios.php'" style="cursor: pointer;">
-                <?php 
-                $cUser = getCurrentUser();
-                echo strtoupper(substr($cUser['nombre'] ?? 'AD', 0, 2));
-                ?>
-            </div>
         </div>
 
         <!-- Sidebar Overlay -->
@@ -53,16 +48,6 @@
                         <rect x="3" y="14" width="7" height="7"></rect>
                     </svg>
                     <span>Overview</span>
-                </a>
-
-                <a href="admin-agenda.php"
-                    class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'admin-agenda.php' ? 'active' : ''; ?>">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span>Agenda & Disponibilidad</span>
                 </a>
 
                 <?php if (canViewUsers()): ?>
@@ -236,38 +221,25 @@
             </div>
         </aside>
 
-        <!-- Bottom Nav Bar for Mobile PWA (Solo en móviles) -->
-        <nav class="pwa-bottom-nav">
+        <!-- Bottom Nav Bar for Mobile PWA -->
+        <nav class="pwa-bottom-nav" style="display: none;">
             <a href="dashboard.php" class="pwa-bottom-nav__item <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                 <span>Overview</span>
             </a>
-            <a href="admin-agenda.php" class="pwa-bottom-nav__item <?php echo basename($_SERVER['PHP_SELF']) == 'admin-agenda.php' ? 'active' : ''; ?>">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                <span>Agenda</span>
-            </a>
             <a href="citas.php" class="pwa-bottom-nav__item <?php echo basename($_SERVER['PHP_SELF']) == 'citas.php' ? 'active' : ''; ?>">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 <span>Citas</span>
             </a>
-            <a href="usuarios.php" class="pwa-bottom-nav__item <?php echo basename($_SERVER['PHP_SELF']) == 'usuarios.php' ? 'active' : ''; ?>">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <span>Equipo</span>
+            <a href="horarios.php" class="pwa-bottom-nav__item <?php echo basename($_SERVER['PHP_SELF']) == 'horarios.php' ? 'active' : ''; ?>">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span>Horarios</span>
             </a>
-            <a href="javascript:void(0)" onclick="toggleSidebarMenu()" class="pwa-bottom-nav__item">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                <span>Menú</span>
+            <a href="logout.php" class="pwa-bottom-nav__item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <span>Salir</span>
             </a>
         </nav>
-
-        <script>
-            function toggleSidebarMenu() {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebarOverlay');
-                if (sidebar) sidebar.classList.toggle('active');
-                if (overlay) overlay.classList.toggle('active');
-            }
-        </script>
 
         <!-- Main Content -->
         <main class="main-content">
