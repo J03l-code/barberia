@@ -33,7 +33,7 @@ body.pwa-app-mode {
 .pwa-container {
     max-width: 500px;
     margin: 0 auto;
-    padding: calc(env(safe-area-inset-top, 24px) + 16px) 1rem 2rem 1rem;
+    padding: calc(env(safe-area-inset-top, 12px) + 6px) 1rem 2rem 1rem;
 }
 
 /* --- Native Top Bar --- */
@@ -41,12 +41,12 @@ body.pwa-app-mode {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: calc(1.4rem + env(safe-area-inset-top, 25px)) 0 1rem 0 !important;
+    padding: 0.25rem 0 0.65rem 0 !important;
     position: sticky;
     top: 0;
     background: var(--pwa-bg);
     z-index: 100;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
 .pwa-header__btn {

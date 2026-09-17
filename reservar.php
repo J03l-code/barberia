@@ -29,7 +29,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Reservar Cita - KORTZEN</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/pwa-native.css?v=50">
+    <link rel="stylesheet" href="/css/pwa-native.css?v=53">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
     <!-- Favicon & Touch Icons -->

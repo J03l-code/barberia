@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     <link rel="stylesheet" href="/css/variables.css?v=23">
     <link rel="stylesheet" href="/css/reset.css?v=23">
-    <link rel="stylesheet" href="/css/pwa-native.css?v=50">
+    <link rel="stylesheet" href="/css/pwa-native.css?v=53">
 
     <!-- Favicon & Touch Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon.png?v=10">

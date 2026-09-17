@@ -354,7 +354,7 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
 
     <link rel="stylesheet" href="/css/variables.css?v=24">
     <link rel="stylesheet" href="/css/reset.css?v=24">
-    <link rel="stylesheet" href="/css/pwa-native.css?v=52">
+    <link rel="stylesheet" href="/css/pwa-native.css?v=53">
 
     <!-- Favicon & Touch Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon.png?v=10">
