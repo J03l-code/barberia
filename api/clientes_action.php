@@ -15,34 +15,54 @@ try {
     switch ($action) {
         case 'search':
             $q = trim($_GET['q'] ?? ($_POST['q'] ?? ''));
-            $limit = min(50, max(5, intval($_GET['limit'] ?? 20)));
+            $limit = min(50, max(5, intval($_GET['limit'] ?? 25)));
             
-            if ($q === '') {
-                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, notas FROM clientes ORDER BY nombre ASC LIMIT ?");
-                $stmt->bindValue(1, $limit, PDO::PARAM_INT);
-                $stmt->execute();
-            } else {
-                $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, notas 
-                                       FROM clientes 
-                                       WHERE nombre LIKE ? OR telefono LIKE ? OR email LIKE ? 
-                                       ORDER BY 
-                                         CASE 
-                                           WHEN nombre LIKE ? THEN 1 
-                                           WHEN telefono LIKE ? THEN 2 
-                                           ELSE 3 
-                                         END, nombre ASC 
-                                       LIMIT ?");
-                $paramLike = "%$q%";
-                $paramStart = "$q%";
-                $stmt->bindValue(1, $paramLike, PDO::PARAM_STR);
-                $stmt->bindValue(2, $paramLike, PDO::PARAM_STR);
-                $stmt->bindValue(3, $paramLike, PDO::PARAM_STR);
-                $stmt->bindValue(4, $paramStart, PDO::PARAM_STR);
-                $stmt->bindValue(5, $paramStart, PDO::PARAM_STR);
-                $stmt->bindValue(6, $limit, PDO::PARAM_INT);
-                $stmt->execute();
+            try {
+                if ($q === '') {
+                    $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, foto_perfil, notas FROM clientes ORDER BY nombre ASC LIMIT ?");
+                    $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+                    $stmt->execute();
+                } else {
+                    $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, foto_perfil, notas 
+                                           FROM clientes 
+                                           WHERE nombre LIKE ? OR telefono LIKE ? OR email LIKE ? 
+                                           ORDER BY 
+                                             CASE 
+                                               WHEN nombre LIKE ? THEN 1 
+                                               WHEN telefono LIKE ? THEN 2 
+                                               ELSE 3 
+                                             END, nombre ASC 
+                                           LIMIT ?");
+                    $paramLike = "%$q%";
+                    $paramStart = "$q%";
+                    $stmt->bindValue(1, $paramLike, PDO::PARAM_STR);
+                    $stmt->bindValue(2, $paramLike, PDO::PARAM_STR);
+                    $stmt->bindValue(3, $paramLike, PDO::PARAM_STR);
+                    $stmt->bindValue(4, $paramStart, PDO::PARAM_STR);
+                    $stmt->bindValue(5, $paramStart, PDO::PARAM_STR);
+                    $stmt->bindValue(6, $limit, PDO::PARAM_INT);
+                    $stmt->execute();
+                }
+                $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                if ($q === '') {
+                    $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, notas FROM clientes ORDER BY nombre ASC LIMIT ?");
+                    $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+                    $stmt->execute();
+                } else {
+                    $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, COALESCE(puntos, 0) as puntos, notas 
+                                           FROM clientes 
+                                           WHERE nombre LIKE ? OR telefono LIKE ? OR email LIKE ? 
+                                           ORDER BY nombre ASC LIMIT ?");
+                    $paramLike = "%$q%";
+                    $stmt->bindValue(1, $paramLike, PDO::PARAM_STR);
+                    $stmt->bindValue(2, $paramLike, PDO::PARAM_STR);
+                    $stmt->bindValue(3, $paramLike, PDO::PARAM_STR);
+                    $stmt->bindValue(4, $limit, PDO::PARAM_INT);
+                    $stmt->execute();
+                }
+                $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
-            $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'clientes' => $resultados]);

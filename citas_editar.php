@@ -27,12 +27,16 @@ if (isset($_GET['id'])) {
 
 // Obtener datos para los selects de manera segura y robusta
 try {
-    $clientes = query("SELECT id, nombre, telefono, email, COALESCE(puntos, 0) as puntos FROM clientes ORDER BY nombre ASC");
+    $clientes = query("SELECT id, nombre, telefono, email, COALESCE(puntos, 0) as puntos, foto_perfil FROM clientes ORDER BY nombre ASC");
 } catch (PDOException $e) {
     try {
-        $clientes = query("SELECT id, nombre, telefono, email FROM clientes ORDER BY nombre ASC");
+        $clientes = query("SELECT id, nombre, telefono, email, COALESCE(puntos, 0) as puntos FROM clientes ORDER BY nombre ASC");
     } catch (PDOException $e2) {
-        $clientes = [];
+        try {
+            $clientes = query("SELECT id, nombre, telefono, email FROM clientes ORDER BY nombre ASC");
+        } catch (PDOException $e3) {
+            $clientes = [];
+        }
     }
 }
 
@@ -277,46 +281,62 @@ include 'includes/header.php';
     display: block;
 }
 
-.client-item-option {
+.client-result-item {
     padding: 10px 14px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     cursor: pointer;
     border-bottom: 1px solid #F3F4F6;
     transition: background 0.15s ease;
 }
 
-.client-item-option:last-child {
+.client-result-item:last-child {
     border-bottom: none;
 }
 
-.client-item-option:hover,
-.client-item-option.highlighted {
+.client-result-item:hover,
+.client-result-item.highlighted {
     background: #F9FAFB;
 }
 
 .client-avatar-badge {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
     border-radius: 50%;
     background: #111827;
     color: #FFFFFF;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 800;
+    font-weight: 700;
     font-size: 13px;
     flex-shrink: 0;
+    overflow: hidden;
+    border: 1.5px solid #E5E7EB;
 }
 
-.client-info-col {
+.client-avatar-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.client-avatar-badge svg {
+    color: #9CA3AF;
+}
+
+.client-result-info {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
-.client-info-name {
+.client-result-name {
     font-weight: 700;
     font-size: 14px;
     color: #111827;
@@ -325,25 +345,21 @@ include 'includes/header.php';
     text-overflow: ellipsis;
 }
 
-.client-info-meta {
+.client-result-meta {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     font-size: 12px;
     color: #6B7280;
-    margin-top: 2px;
     flex-wrap: wrap;
 }
 
-.client-phone-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-weight: 600;
-    color: #047857;
-    background: #ECFDF5;
-    padding: 1px 6px;
-    border-radius: 4px;
+.client-match-highlight {
+    background-color: #FEF08A;
+    color: #111827;
+    font-weight: 800;
+    border-radius: 2px;
+    padding: 0 1px;
 }
 
 .client-create-btn-option {
@@ -520,11 +536,16 @@ include 'includes/header.php';
                 <!-- Estado Cliente Seleccionado -->
                 <div class="selected-client-card <?php echo $selectedClient ? 'active' : ''; ?>" id="selectedClientCard">
                     <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-                        <div class="client-avatar-badge" id="selectedClientAvatar" style="background: #047857;">
+                        <div class="client-avatar-badge" id="selectedClientAvatar" style="background: #047857; border-color: #059669;">
                             <?php 
                             if ($selectedClient) {
                                 $words = explode(' ', trim($selectedClient['nombre']));
-                                echo strtoupper(substr($words[0], 0, 1) . (isset($words[1]) ? substr($words[1], 0, 1) : ''));
+                                $initials = strtoupper(substr($words[0], 0, 1) . (isset($words[1]) ? substr($words[1], 0, 1) : ''));
+                                if (!empty($selectedClient['foto_perfil'])) {
+                                    echo '<img src="' . htmlspecialchars($selectedClient['foto_perfil']) . '" alt="" onerror="this.outerHTML=\'<span>' . htmlspecialchars($initials) . '</span>\'">';
+                                } else {
+                                    echo '<span>' . htmlspecialchars($initials) . '</span>';
+                                }
                             } else {
                                 echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
                             }
@@ -712,6 +733,14 @@ function getInitials(name) {
     return parts[0].substring(0, 2).toUpperCase();
 }
 
+function renderAvatarHtml(client) {
+    const initials = getInitials(client.nombre);
+    if (client.foto_perfil && client.foto_perfil.trim() !== '') {
+        return `<img src="${escapeHtml(client.foto_perfil)}" alt="" onerror="this.outerHTML='<span>${escapeHtml(initials)}</span>'">`;
+    }
+    return `<span>${escapeHtml(initials)}</span>`;
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     return text.toString()
@@ -752,7 +781,7 @@ function renderClientResults(clientsToRender, query = '') {
         item.className = 'client-result-item';
         item.onclick = () => selectClient(c);
 
-        const initials = getInitials(c.nombre);
+        const avatarHtml = renderAvatarHtml(c);
         const nameHtml = highlightMatch(c.nombre, query);
         const phoneHtml = c.telefono ? `<span style="display:inline-flex; align-items:center; gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg> ${highlightMatch(c.telefono, query)}</span>` : '';
         const emailHtml = c.email ? `<span style="display:inline-flex; align-items:center; gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${highlightMatch(c.email, query)}</span>` : '';
@@ -760,7 +789,7 @@ function renderClientResults(clientsToRender, query = '') {
         const ptsHtml = (pts > 0) ? `<span style="background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10.5px; display:inline-flex; align-items:center; gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> ${pts} pts</span>` : '';
 
         item.innerHTML = `
-            <div class="client-avatar-badge">${initials}</div>
+            <div class="client-avatar-badge">${avatarHtml}</div>
             <div class="client-result-info">
                 <div class="client-result-name">${nameHtml}</div>
                 <div class="client-result-meta">
@@ -843,7 +872,7 @@ function selectClient(client) {
     hiddenClienteId.value = client.id;
     selectedClient = client;
 
-    selectedClientAvatar.innerHTML = getInitials(client.nombre);
+    selectedClientAvatar.innerHTML = renderAvatarHtml(client);
     selectedClientName.textContent = client.nombre;
     selectedClientPhone.innerHTML = client.telefono ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg> ${escapeHtml(client.telefono)}` : '';
     selectedClientEmail.innerHTML = client.email ? `• ${escapeHtml(client.email)}` : '';
