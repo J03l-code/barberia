@@ -317,8 +317,14 @@ if ($cliente_id) {
             
             <!-- Calendar buttons -->
             <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
-                <button type="button" class="pwa-btn-secondary" style="flex: 1; text-align: center; font-size: 0.75rem;" onclick="KortzenCalendar.addToGoogleCalendar('Cita en KORTZEN: <?php echo htmlspecialchars($proxima_cita['servicio_nombre'] ?? 'Corte'); ?>', 'Cita agendada con <?php echo htmlspecialchars($proxima_cita['barbero_nombre'] ?? 'Barbero'); ?>', 'KORTZEN Llano Chico, Quito', '<?php echo $proxima_cita['fecha_hora']; ?>')">📅 GOOGLE CALENDAR</button>
-                <button type="button" class="pwa-btn-secondary" style="flex: 1; text-align: center; font-size: 0.75rem;" onclick="KortzenCalendar.downloadIcs('Cita en KORTZEN: <?php echo htmlspecialchars($proxima_cita['servicio_nombre'] ?? 'Corte'); ?>', 'Cita agendada con <?php echo htmlspecialchars($proxima_cita['barbero_nombre'] ?? 'Barbero'); ?>', 'KORTZEN Llano Chico, Quito', '<?php echo $proxima_cita['fecha_hora']; ?>')">🍏 APPLE / ICS</button>
+                <button type="button" class="pwa-btn-secondary" style="flex: 1; text-align: center; font-size: 0.75rem; display:inline-flex; align-items:center; justify-content:center; gap:5px;" onclick="KortzenCalendar.addToGoogleCalendar('Cita en KORTZEN: <?php echo htmlspecialchars($proxima_cita['servicio_nombre'] ?? 'Corte'); ?>', 'Cita agendada con <?php echo htmlspecialchars($proxima_cita['barbero_nombre'] ?? 'Barbero'); ?>', 'KORTZEN Llano Chico, Quito', '<?php echo $proxima_cita['fecha_hora']; ?>')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span>GOOGLE CALENDAR</span>
+                </button>
+                <button type="button" class="pwa-btn-secondary" style="flex: 1; text-align: center; font-size: 0.75rem; display:inline-flex; align-items:center; justify-content:center; gap:5px;" onclick="KortzenCalendar.downloadIcs('Cita en KORTZEN: <?php echo htmlspecialchars($proxima_cita['servicio_nombre'] ?? 'Corte'); ?>', 'Cita agendada con <?php echo htmlspecialchars($proxima_cita['barbero_nombre'] ?? 'Barbero'); ?>', 'KORTZEN Llano Chico, Quito', '<?php echo $proxima_cita['fecha_hora']; ?>')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+                    <span>APPLE / ICS</span>
+                </button>
             </div>
 
             <?php 
@@ -352,8 +358,9 @@ if ($cliente_id) {
                         <button type="submit" class="pwa-btn-secondary" style="width: 100%; color: #dc3545; border-color: #dc3545; background: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 800; padding: 10px;">CANCELAR</button>
                     </form>
                 <?php else: ?>
-                    <div style="width: 100%; text-align: center; font-size: 0.75rem; color: #777777; font-weight: 700; background: #f5f5f5; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                        🔒 No se puede cancelar ni reagendar (faltan menos de 2 horas). Por favor contacta a la barbería.
+                    <div style="width: 100%; text-align: center; font-size: 0.75rem; color: #777777; font-weight: 700; background: #f5f5f5; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; display:flex; align-items:center; justify-content:center; gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        <span>No se puede cancelar ni reagendar (faltan menos de 2 horas). Por favor contacta a la barbería.</span>
                     </div>
                 <?php endif; ?>
             </div>
@@ -371,8 +378,9 @@ if ($cliente_id) {
                         <div>
                             <div style="font-weight: 800; font-size: 0.9rem; color: #111111;"><?php echo htmlspecialchars($cRes['servicio_nombre'] ?? 'Corte'); ?></div>
                             <div style="font-size: 0.78rem; color: #666666;">con <?php echo htmlspecialchars($cRes['barbero_nombre'] ?? 'Barbero'); ?></div>
-                            <div style="font-size: 0.78rem; color: #111111; font-weight: 700; margin-top: 3px;">
-                                📅 <?php echo date('d/m/Y H:i', $tsCR); ?>
+                            <div style="font-size: 0.78rem; color: #111111; font-weight: 700; margin-top: 3px; display:flex; align-items:center; gap:4px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                <span><?php echo date('d/m/Y H:i', $tsCR); ?></span>
                             </div>
                         </div>
                         <div>

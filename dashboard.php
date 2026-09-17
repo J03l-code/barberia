@@ -818,7 +818,10 @@ if ($currentUser['rol'] === 'admin_local') {
     <!-- AGENDA GENERAL DE HOY (VISTA DE ANCHO COMPLETO Y CONTROL INTERACTIVO) -->
     <div class="card" style="margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <div class="card-title" style="margin: 0; font-size: 1.1rem; font-weight: 800;">📅 Agenda General de Hoy (<?php echo date('d/m/Y'); ?>)</div>
+            <div class="card-title" style="margin: 0; font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span>Agenda General de Hoy (<?php echo date('d/m/Y'); ?>)</span>
+            </div>
             <a href="citas.php" style="font-size: 11px; color: var(--primary-gold); text-decoration: none; font-weight: 700;">Ver Todas las Citas →</a>
         </div>
         <div class="table-container">
@@ -1359,7 +1362,7 @@ if ($currentUser['rol'] === 'admin_local') {
             <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Venta Total:
                 $<?php echo number_format($earningsTodayTotal, 2); ?></div>
             <div class="trend-indicator trend-up">
-                <span>📅 <?php echo date('d M'); ?></span>
+                <span style="display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> <?php echo date('d M'); ?></span>
             </div>
         </div>
         <div class="earnings-card" style="border-color: rgba(255, 255, 255, 0.1);">
@@ -1407,8 +1410,9 @@ if ($currentUser['rol'] === 'admin_local') {
                     </div>
                 </div>
             <?php else: ?>
-                <div class="alert alert-success" style="margin-bottom: 24px;">
-                    🎉 ¡Todo listo! No tienes más clientes pendientes por hoy.
+                <div class="alert alert-success" style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    <span>¡Todo listo! No tienes más clientes pendientes por hoy.</span>
                 </div>
             <?php endif; ?>
 
@@ -1416,11 +1420,15 @@ if ($currentUser['rol'] === 'admin_local') {
             <h3 class="card-title">Acciones Rápidas</h3>
             <div class="action-buttons-grid">
                 <div class="quick-action-btn" onclick="crearCitaRapida()">
-                    <span style="font-size: 24px;">📅</span>
+                    <span style="display: flex; justify-content: center; align-items: center; height: 28px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </span>
                     <span>Agendar Cita</span>
                 </div>
                 <div class="quick-action-btn" onclick="bloquearHora()">
-                    <span style="font-size: 24px;">☕</span>
+                    <span style="display: flex; justify-content: center; align-items: center; height: 28px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                    </span>
                     <span>Bloqueo 1h</span>
                 </div>
             </div>

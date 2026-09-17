@@ -456,7 +456,8 @@ include 'includes/header.php';
 
 <div class="form-modal">
     <h1 class="form-title">
-        <span>📅</span> <?php echo $isEdit ? 'Editar Cita' : 'Nueva Cita'; ?>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #111827; flex-shrink: 0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span><?php echo $isEdit ? 'Editar Cita' : 'Nueva Cita'; ?></span>
     </h1>
     
     <form method="POST" action="api/citas_action.php" id="formCita">
@@ -470,7 +471,8 @@ include 'includes/header.php';
             <div class="form-label">
                 <span>Cliente *</span>
                 <button type="button" onclick="abrirModalNuevoCliente()" style="background: none; border: none; color: #059669; font-weight: 800; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0; text-transform: uppercase;">
-                    + Nuevo Cliente
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Nuevo Cliente
                 </button>
             </div>
 
@@ -479,7 +481,9 @@ include 'includes/header.php';
             <div class="client-picker-wrapper" id="clientPickerWrapper">
                 <!-- Estado Buscador -->
                 <div class="client-search-box" id="clientSearchBox" style="<?php echo $selectedClient ? 'display: none;' : ''; ?>">
-                    <span class="client-search-icon">🔍</span>
+                    <span class="client-search-icon" style="display:flex; align-items:center;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </span>
                     <input type="text" 
                            id="clientSearchInput" 
                            class="client-search-input" 
@@ -490,7 +494,8 @@ include 'includes/header.php';
                     <!-- Menú Desplegable con Resultados -->
                     <div class="client-dropdown-results" id="clientDropdownResults">
                         <div class="client-create-btn-option" id="btnDropdownCreateClient" onclick="abrirModalNuevoClienteConQuery()">
-                            <span>✨</span> <span>+ Registrar nuevo cliente</span>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>+ Registrar nuevo cliente</span>
                         </div>
                         <div id="clientResultsList"></div>
                     </div>
@@ -505,7 +510,7 @@ include 'includes/header.php';
                                 $words = explode(' ', trim($selectedClient['nombre']));
                                 echo strtoupper(substr($words[0], 0, 1) . (isset($words[1]) ? substr($words[1], 0, 1) : ''));
                             } else {
-                                echo '👤';
+                                echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
                             }
                             ?>
                         </div>
@@ -514,12 +519,13 @@ include 'includes/header.php';
                                 <?php echo $selectedClient ? htmlspecialchars($selectedClient['nombre']) : ''; ?>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #047857; margin-top: 2px; flex-wrap: wrap;">
-                                <span id="selectedClientPhone">
+                                <span id="selectedClientPhone" style="display: inline-flex; align-items: center; gap: 4px;">
                                     <?php if ($selectedClient && !empty($selectedClient['telefono'])): ?>
-                                        📱 <?php echo htmlspecialchars($selectedClient['telefono']); ?>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                                        <?php echo htmlspecialchars($selectedClient['telefono']); ?>
                                     <?php endif; ?>
                                 </span>
-                                <span id="selectedClientEmail" style="color: #6B7280;">
+                                <span id="selectedClientEmail" style="color: #6B7280; display: inline-flex; align-items: center; gap: 4px;">
                                     <?php if ($selectedClient && !empty($selectedClient['email'])): ?>
                                         • <?php echo htmlspecialchars($selectedClient['email']); ?>
                                     <?php endif; ?>
@@ -528,7 +534,8 @@ include 'includes/header.php';
                         </div>
                     </div>
                     <button type="button" class="btn-change-client" onclick="deseleccionarCliente()">
-                        🔄 Cambiar
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                        Cambiar
                     </button>
                 </div>
             </div>
@@ -629,8 +636,9 @@ include 'includes/header.php';
 <div id="modalNuevoClienteRapido" class="modal-quick-client-overlay" onclick="if(event.target === this) cerrarModalNuevoCliente()">
     <div class="modal-quick-client-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-            <h3 style="margin:0; font-size:1.2rem; font-weight:800; color:#111827; display:flex; align-items:center; gap:8px;">
-                <span>👤</span> Registrar Nuevo Cliente
+            <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#111827; display:flex; align-items:center; gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                Registrar Nuevo Cliente
             </h3>
             <button type="button" onclick="cerrarModalNuevoCliente()" style="background:#F3F4F6; border:none; width:32px; height:32px; border-radius:50%; font-size:1.2rem; cursor:pointer; color:#4B5563; display:flex; align-items:center; justify-content:center;">&times;</button>
         </div>
@@ -680,7 +688,7 @@ const btnDropdownCreateClient = document.getElementById('btnDropdownCreateClient
 const toastEl = document.getElementById('toastCliente');
 
 function getInitials(name) {
-    if (!name) return '👤';
+    if (!name) return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -710,8 +718,10 @@ function renderClientResults(clientsToRender, query = '') {
     
     if (clientsToRender.length === 0) {
         resultsList.innerHTML = `
-            <div class="client-no-results">
-                <div style="font-size:24px; margin-bottom:6px;">🔎</div>
+            <div class="client-no-results" style="padding: 24px 16px; text-align: center;">
+                <div style="display:flex; justify-content:center; margin-bottom:8px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
                 <div style="font-weight:700; color:#374151;">No se encontraron clientes</div>
                 <div style="font-size:12px; color:#6B7280; margin-top:2px;">
                     ${query ? `No hay coincidencias para "<strong>${escapeHtml(query)}</strong>"` : 'Escribe para buscar'}
@@ -728,9 +738,9 @@ function renderClientResults(clientsToRender, query = '') {
 
         const initials = getInitials(c.nombre);
         const nameHtml = highlightMatch(c.nombre, query);
-        const phoneHtml = c.telefono ? `<span>📱 ${highlightMatch(c.telefono, query)}</span>` : '';
-        const emailHtml = c.email ? `<span>✉️ ${highlightMatch(c.email, query)}</span>` : '';
-        const ptsHtml = (c.puntos_fidelidad > 0) ? `<span style="background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10.5px;">⭐ ${c.puntos_fidelidad} pts</span>` : '';
+        const phoneHtml = c.telefono ? `<span style="display:inline-flex; align-items:center; gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg> ${highlightMatch(c.telefono, query)}</span>` : '';
+        const emailHtml = c.email ? `<span style="display:inline-flex; align-items:center; gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${highlightMatch(c.email, query)}</span>` : '';
+        const ptsHtml = (c.puntos_fidelidad > 0) ? `<span style="background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10.5px; display:inline-flex; align-items:center; gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> ${c.puntos_fidelidad} pts</span>` : '';
 
         item.innerHTML = `
             <div class="client-avatar-badge">${initials}</div>
@@ -752,13 +762,13 @@ function filterClients(query) {
     if (!q) {
         renderClientResults(allClients.slice(0, 25), '');
         if (btnDropdownCreateClient) {
-            btnDropdownCreateClient.innerHTML = '<span>✨</span> <span>+ Registrar nuevo cliente</span>';
+            btnDropdownCreateClient.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span>+ Registrar nuevo cliente</span>';
         }
         return;
     }
 
     if (btnDropdownCreateClient) {
-        btnDropdownCreateClient.innerHTML = `<span>✨</span> <span>+ Crear nuevo cliente "<strong>${escapeHtml(query.trim())}</strong>"</span>`;
+        btnDropdownCreateClient.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span>+ Crear nuevo cliente "<strong>${escapeHtml(query.trim())}</strong>"</span>`;
     }
 
     const filtered = allClients.filter(c => {
@@ -790,9 +800,9 @@ function selectClient(client) {
     hiddenClienteId.value = client.id;
     selectedClient = client;
 
-    selectedClientAvatar.textContent = getInitials(client.nombre);
+    selectedClientAvatar.innerHTML = getInitials(client.nombre);
     selectedClientName.textContent = client.nombre;
-    selectedClientPhone.innerHTML = client.telefono ? `📱 ${escapeHtml(client.telefono)}` : '';
+    selectedClientPhone.innerHTML = client.telefono ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg> ${escapeHtml(client.telefono)}` : '';
     selectedClientEmail.innerHTML = client.email ? `• ${escapeHtml(client.email)}` : '';
 
     dropdownResults.classList.remove('active');
@@ -881,7 +891,7 @@ function cerrarModalNuevoCliente() {
 
 function mostrarToast(msg) {
     if (!toastEl) return;
-    toastEl.innerHTML = `<span>✅</span> <span>${escapeHtml(msg)}</span>`;
+    toastEl.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>${escapeHtml(msg)}</span>`;
     toastEl.style.display = 'flex';
     setTimeout(() => {
         toastEl.style.display = 'none';
