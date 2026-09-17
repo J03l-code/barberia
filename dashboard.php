@@ -598,7 +598,59 @@ if ($currentUser['rol'] === 'admin_local') {
             gap: 18px;
             margin-bottom: 24px;
         }
+        .modal-overlay.active {
+            display: flex !important;
+        }
+        .btn-ver-todos-meses {
+            background: #10B981;
+            color: #FFFFFF !important;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+        .btn-ver-todos-meses:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+        }
     </style>
+
+    <script>
+        // Función global accesible inmediatamente para abrir el modal de ganancias netas
+        window.abrirModalMetricasNetas = function(e) {
+            if (e) {
+                if (typeof e.stopPropagation === 'function') e.stopPropagation();
+                if (typeof e.preventDefault === 'function') e.preventDefault();
+            }
+            const modal = document.getElementById('modalMetricasNetasHistoricas');
+            if (modal) {
+                modal.style.setProperty('display', 'flex', 'important');
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+
+        window.cerrarModalMetricasNetas = function(e) {
+            if (e && e.target && e.target.id !== 'modalMetricasNetasHistoricas' && !e.target.closest('.btn-cerrar-modal-netas')) {
+                return;
+            }
+            const modal = document.getElementById('modalMetricasNetasHistoricas');
+            if (modal) {
+                modal.style.setProperty('display', 'none', 'important');
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        };
+    </script>
 
     <div class="dashboard-grid">
         <!-- Venta Día (Citas + Productos) -->
@@ -620,17 +672,19 @@ if ($currentUser['rol'] === 'admin_local') {
         </div>
 
         <!-- GANANCIAS NETAS DEL NEGOCIO (Descontando comisiones de barberos) -->
-        <div class="earnings-card" onclick="abrirModalMetricasNetas()" style="border: 1.5px solid #10B981 !important; background: #F0FDF4 !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.08); cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease;" title="Haz clic para ver el desglose histórico de todos los meses">
+        <div id="cardGananciasNetas" class="earnings-card" onclick="window.abrirModalMetricasNetas(event)" style="border: 1.5px solid #10B981 !important; background: #F0FDF4 !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.08); cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease;" title="Haz clic para ver el desglose histórico de todos los meses">
             <div class="earnings-title" style="color: #047857 !important; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
                 <span>Ganancias Netas (Mes)</span>
                 <span style="background: #10B981; color: #FFFFFF; font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; font-weight: 900; letter-spacing: 0.5px;">NEGOCIO</span>
             </div>
             <div class="earnings-amount" style="color: #065F46 !important; font-weight: 900; font-size: 1.85rem;">$<?php echo number_format($gananciaNetaMesTotal, 2); ?></div>
-            <div class="trend-indicator" style="color: #047857; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
+            <div class="trend-indicator" style="color: #047857; font-weight: 700; display: flex; flex-direction: column; gap: 6px;">
                 <span style="font-size: 0.78rem;">Cortes: $<?php echo number_format($gananciaNetaMesServicios, 2); ?> • Ventas: $<?php echo number_format($gananciaNetaMesProd, 2); ?></span>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; border-top: 1px dashed rgba(16, 185, 129, 0.3); padding-top: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; border-top: 1px dashed rgba(16, 185, 129, 0.3); padding-top: 6px;">
                     <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">Hoy neto: +$<?php echo number_format($gananciaNetaHoyTotal, 2); ?></span>
-                    <span style="font-size: 0.72rem; color: #047857; font-weight: 800; text-decoration: underline;">📊 Ver Todos los Meses →</span>
+                    <button type="button" id="btnVerTodosMeses" class="btn-ver-todos-meses" onclick="event.stopPropagation(); window.abrirModalMetricasNetas(event);">
+                        📊 Ver Todos los Meses →
+                    </button>
                 </div>
             </div>
         </div>
@@ -1563,11 +1617,11 @@ if ($currentUser['rol'] === 'admin_local') {
     </div>
 
     <!-- MODAL GENERAL: MÉTRICAS HISTÓRICAS Y GANANCIAS NETAS DE TODOS LOS MESES -->
-    <div id="modalMetricasNetasHistoricas" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 99999; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;" onclick="cerrarModalMetricasNetas(event)">
+    <div id="modalMetricasNetasHistoricas" class="modal-overlay" style="display: none; position: fixed; inset: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 999999; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;" onclick="if(event.target === this) window.cerrarModalMetricasNetas(event)">
         <div class="modal-content" style="background: #FFFFFF; width: 100%; max-width: 960px; max-height: 90vh; overflow-y: auto; padding: 28px; border-radius: 18px; box-shadow: 0 25px 50px rgba(0,0,0,0.35); color: #111; position: relative;" onclick="event.stopPropagation()">
             
             <!-- Botón Cerrar Superior -->
-            <button type="button" onclick="cerrarModalMetricasNetas()" style="position: absolute; top: 20px; right: 20px; background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.4rem; color: #4B5563; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+            <button type="button" class="btn-cerrar-modal-netas" onclick="window.cerrarModalMetricasNetas(event)" style="position: absolute; top: 20px; right: 20px; background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.4rem; color: #4B5563; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                 &times;
             </button>
 
@@ -1683,7 +1737,7 @@ if ($currentUser['rol'] === 'admin_local') {
 
             <!-- Botón de Cerrar Modal -->
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" onclick="cerrarModalMetricasNetas()" style="padding: 10px 24px; background: #111111; color: #FFFFFF; border: none; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-transform: uppercase;">
+                <button type="button" class="btn-cerrar-modal-netas" onclick="window.cerrarModalMetricasNetas(event)" style="padding: 10px 24px; background: #111111; color: #FFFFFF; border: none; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-transform: uppercase;">
                     Cerrar Reporte
                 </button>
             </div>
@@ -1691,23 +1745,14 @@ if ($currentUser['rol'] === 'admin_local') {
     </div>
 
     <script>
-        function abrirModalMetricasNetas() {
-            const modal = document.getElementById('modalMetricasNetasHistoricas');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            }
-        }
-
-        function cerrarModalMetricasNetas(e) {
-            if (!e || e.target.id === 'modalMetricasNetasHistoricas' || e.target.closest('button')) {
-                const modal = document.getElementById('modalMetricasNetasHistoricas');
-                if (modal) {
-                    modal.style.display = 'none';
-                    document.body.style.overflow = '';
+        // Cerrar modal con tecla ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (typeof window.cerrarModalMetricasNetas === 'function') {
+                    window.cerrarModalMetricasNetas();
                 }
             }
-        }
+        });
     </script>
 
 <?php endif; ?>
