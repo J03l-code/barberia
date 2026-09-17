@@ -292,9 +292,13 @@ try {
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `referidos` (
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `cliente_origen_id` INT UNSIGNED NOT NULL,
-            `cliente_referido_id` INT UNSIGNED NOT NULL,
-            `estado` ENUM('pendiente', 'completado') DEFAULT 'pendiente',
+            `referente_id` INT UNSIGNED NULL,
+            `referido_id` INT UNSIGNED NULL,
+            `codigo_usado` VARCHAR(50) NULL,
+            `cita_id` INT UNSIGNED NULL,
+            `descuento_aplicado` DECIMAL(10,2) DEFAULT 0.00,
+            `puntos_otorgados` INT DEFAULT 0,
+            `estado` ENUM('pendiente', 'completado', 'cancelado') DEFAULT 'pendiente',
             `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -10,6 +10,58 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 try {
     $pdo = getConnection();
 
+    // Auto-asegurar esquema de tabla referidos para compatibilidad
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `referidos` (
+                `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `referente_id` INT UNSIGNED NULL,
+                `referido_id` INT UNSIGNED NULL,
+                `codigo_usado` VARCHAR(50) NULL,
+                `cita_id` INT UNSIGNED NULL,
+                `descuento_aplicado` DECIMAL(10,2) DEFAULT 0.00,
+                `puntos_otorgados` INT DEFAULT 0,
+                `estado` ENUM('pendiente', 'completado', 'cancelado') DEFAULT 'pendiente',
+                `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        $colsRef = $pdo->query("SHOW COLUMNS FROM `referidos`")->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!in_array('referido_id', $colsRef)) {
+            if (in_array('cliente_referido_id', $colsRef)) {
+                $pdo->exec("ALTER TABLE `referidos` CHANGE COLUMN `cliente_referido_id` `referido_id` INT UNSIGNED NULL");
+            } else {
+                $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `referido_id` INT UNSIGNED NULL");
+            }
+        }
+
+        if (!in_array('referente_id', $colsRef)) {
+            if (in_array('cliente_origen_id', $colsRef)) {
+                $pdo->exec("ALTER TABLE `referidos` CHANGE COLUMN `cliente_origen_id` `referente_id` INT UNSIGNED NULL");
+            } else {
+                $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `referente_id` INT UNSIGNED NULL");
+            }
+        }
+
+        if (!in_array('codigo_usado', $colsRef)) {
+            $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `codigo_usado` VARCHAR(50) NULL");
+        }
+        if (!in_array('cita_id', $colsRef)) {
+            $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `cita_id` INT UNSIGNED NULL");
+        }
+        if (!in_array('descuento_aplicado', $colsRef)) {
+            $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `descuento_aplicado` DECIMAL(10,2) DEFAULT 0.00");
+        }
+        if (!in_array('puntos_otorgados', $colsRef)) {
+            $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `puntos_otorgados` INT DEFAULT 0");
+        }
+        if (!in_array('estado', $colsRef)) {
+            $pdo->exec("ALTER TABLE `referidos` ADD COLUMN `estado` ENUM('pendiente', 'completado', 'cancelado') DEFAULT 'pendiente'");
+        }
+    } catch (Exception $exRefSchema) {}
+
     // 1. Validar Código de Referido
     if ($action === 'validar') {
         $codigo = strtoupper(trim($_POST['codigo'] ?? ''));
