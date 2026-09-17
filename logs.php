@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 requireLogin();
+requirePermission(canViewLogs());
 $currentUser = getCurrentUser();
 
 // Filtros

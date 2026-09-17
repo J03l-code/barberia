@@ -1,17 +1,16 @@
 <?php
 require_once '../config.php';
 
-// Asegurar que el usuario esté logueado y tenga permisos
-$userRol = $_SESSION['user_rol'] ?? '';
-$isAllowed = isLoggedIn() && (isAdminTecnico() || canManageBranches() || in_array($userRol, ['admin', 'superadmin', 'administrador', 'admin_local']));
+// Asegurar que el usuario esté logueado y tenga permisos de Administrador Técnico
+$isAllowed = isLoggedIn() && (isAdminTecnico() || canManageBranches());
 
 if (!$isAllowed) {
     if (isset($_GET['ajax']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Acceso denegado. Se requieren permisos de administrador.']);
+        echo json_encode(['success' => false, 'message' => 'Acceso denegado. Se requieren permisos de Administrador Técnico.']);
         exit;
     }
-    header('Location: ../sucursales.php?error=' . urlencode('Acceso denegado. Se requieren permisos de administrador.'));
+    header('Location: ../sucursales.php?error=' . urlencode('Acceso denegado. Se requieren permisos de Administrador Técnico.'));
     exit;
 }
 

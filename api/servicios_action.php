@@ -1,15 +1,15 @@
 <?php
 require_once '../config.php';
 
-// Validar permisos (Admin Técnico, Admin Local, o Administrador)
-if (!isLoggedIn() || (!isAdminTecnico() && !isAdminLocal() && !in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local', 'administrador', 'superadmin']))) {
+// Validar permisos (Solo Admin Técnico)
+if (!isLoggedIn() || (!isAdminTecnico() && !canManageServices())) {
     $isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
               (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
     if ($isJson) {
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Acceso no autorizado.']);
+        echo json_encode(['success' => false, 'message' => 'Acceso no autorizado. Se requieren permisos de Administrador Técnico.']);
     } else {
-        header('Location: ../servicios.php?error=' . urlencode('Acceso no autorizado.'));
+        header('Location: ../servicios.php?error=' . urlencode('Acceso no autorizado. Se requieren permisos de Administrador Técnico.'));
     }
     exit;
 }

@@ -5,12 +5,7 @@
  */
 require_once 'config.php';
 requireLogin();
-
-// Solo Administradores
-if (!in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local'])) {
-    header('Location: dashboard.php');
-    exit;
-}
+requirePermission(canManageSettings());
 
 $pdo = getConnection();
 

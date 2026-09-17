@@ -30,19 +30,26 @@ try {
 
 $currentUser = getCurrentUser();
 
-// Obtener todos los barberos o usuarios del personal
+// Obtener sucursales permitidas para este usuario
+$userSucursalesIds = getUsuarioSucursalesIds($currentUser['id']);
 $barberos = [];
+$sucursales = [];
+
 try {
-    $barberos = query("SELECT id, nombre, email, sucursal_id, rol FROM usuarios WHERE rol IN ('barbero', 'admin_local', 'admin') ORDER BY nombre ASC");
+    if (isAdminTecnico()) {
+        $barberos = query("SELECT id, nombre, email, sucursal_id, rol FROM usuarios WHERE rol IN ('barbero', 'admin_local', 'admin') ORDER BY nombre ASC");
+        $sucursales = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
+    } else {
+        $sucursales = getUsuarioSucursales($currentUser['id']);
+        if (!empty($userSucursalesIds)) {
+            $inList = implode(',', array_map('intval', $userSucursalesIds));
+            $barberos = query("SELECT id, nombre, email, sucursal_id, rol FROM usuarios WHERE rol IN ('barbero', 'admin_local') AND (sucursal_id IN ($inList) OR id = ?) ORDER BY nombre ASC", [$currentUser['id']]);
+        } else {
+            $barberos = query("SELECT id, nombre, email, sucursal_id, rol FROM usuarios WHERE id = ?", [$currentUser['id']]);
+        }
+    }
 } catch (Exception $e) {
     $barberos = [];
-}
-
-// Obtener sucursales para filtro
-$sucursales = [];
-try {
-    $sucursales = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
-} catch (Exception $e) {
     $sucursales = [];
 }
 

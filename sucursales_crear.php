@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 requireLogin();
+requirePermission(canManageBranches());
 $currentUser = getCurrentUser();
 
 $sucursal = null;

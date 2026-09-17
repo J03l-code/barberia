@@ -235,6 +235,20 @@ function getConnection()
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                     ");
                 } catch (Throwable $e_psub) {}
+
+                try {
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS usuarios_sucursales (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            usuario_id INT NOT NULL,
+                            sucursal_id INT NOT NULL,
+                            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE KEY uk_usuario_sucursal (usuario_id, sucursal_id),
+                            INDEX idx_usuario (usuario_id),
+                            INDEX idx_sucursal (sucursal_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                    ");
+                } catch (Throwable $e_usuc) {}
             }
 
 
@@ -826,6 +840,74 @@ function isBarbero()
 }
 
 /**
+ * Obtener los IDs de sucursales a las que tiene acceso el usuario actual
+ * Si es admin técnico, retorna todas las sucursales
+ * Si es admin_local, retorna array con los IDs de sucursales asignadas
+ * Si es barbero, retorna array con su sucursal_id
+ * @param int|null $userId
+ * @return array<int>
+ */
+function getUsuarioSucursalesIds($userId = null)
+{
+    if ($userId === null) {
+        if (!isLoggedIn()) return [];
+        $userId = $_SESSION['user_id'] ?? 0;
+    }
+
+    $userId = intval($userId);
+    if ($userId <= 0) return [];
+
+    $pdo = getConnection();
+
+    try {
+        $stmtU = $pdo->prepare("SELECT id, rol, sucursal_id FROM usuarios WHERE id = ?");
+        $stmtU->execute([$userId]);
+        $u = $stmtU->fetch(PDO::FETCH_ASSOC);
+
+        if (!$u) return [];
+
+        // Admin técnico tiene acceso global a todas las sucursales
+        if ($u['rol'] === 'admin') {
+            $all = $pdo->query("SELECT id FROM sucursales WHERE activo = 1 ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
+            return array_map('intval', $all);
+        }
+
+        // Buscar en tabla usuarios_sucursales (Multi-sucursales)
+        $stmtSuc = $pdo->prepare("SELECT sucursal_id FROM usuarios_sucursales WHERE usuario_id = ?");
+        $stmtSuc->execute([$userId]);
+        $assigned = $stmtSuc->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($assigned)) {
+            return array_values(array_unique(array_map('intval', $assigned)));
+        }
+
+        // Fallback a sucursal_id directo
+        if (!empty($u['sucursal_id'])) {
+            return [intval($u['sucursal_id'])];
+        }
+    } catch (Exception $e) {}
+
+    return [];
+}
+
+/**
+ * Obtener las sucursales completas a las que tiene acceso el usuario
+ * @param int|null $userId
+ * @return array
+ */
+function getUsuarioSucursales($userId = null)
+{
+    $sucIds = getUsuarioSucursalesIds($userId);
+    if (empty($sucIds)) return [];
+
+    $pdo = getConnection();
+    $inPlaceholders = implode(',', array_fill(0, count($sucIds), '?'));
+    $stmt = $pdo->prepare("SELECT * FROM sucursales WHERE id IN ($inPlaceholders) AND activo = 1 ORDER BY nombre ASC");
+    $stmt->execute($sucIds);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
  * Verificar si puede gestionar usuarios (crear/editar/eliminar)
  * Solo Admin Técnico
  * @return bool
@@ -871,6 +953,46 @@ function canManageInventory()
  * @return bool
  */
 function canManageBranches()
+{
+    return isAdminTecnico();
+}
+
+/**
+ * Verificar si puede gestionar servicios
+ * Solo Admin Técnico
+ * @return bool
+ */
+function canManageServices()
+{
+    return isAdminTecnico();
+}
+
+/**
+ * Verificar si puede gestionar galería
+ * Solo Admin Técnico
+ * @return bool
+ */
+function canManageGallery()
+{
+    return isAdminTecnico();
+}
+
+/**
+ * Verificar si puede gestionar reseñas
+ * Solo Admin Técnico
+ * @return bool
+ */
+function canManageReviews()
+{
+    return isAdminTecnico();
+}
+
+/**
+ * Verificar si puede gestionar configuración
+ * Solo Admin Técnico
+ * @return bool
+ */
+function canManageSettings()
 {
     return isAdminTecnico();
 }

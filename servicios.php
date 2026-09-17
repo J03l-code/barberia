@@ -1,11 +1,8 @@
 <?php
 require_once 'config.php';
 requireLogin();
+requirePermission(canManageServices());
 $currentUser = getCurrentUser();
-
-// Si es barbero, redirigir al dashboard (no tiene acceso a gestión de servicios)
-// Si es barbero, tiene acceso pero solo lectura
-$isReadOnly = isBarbero();
 
 // Obtener categorías y servicios
 try {

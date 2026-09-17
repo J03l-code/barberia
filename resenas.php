@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 requireLogin();
+requirePermission(canManageReviews());
 
 $currentUser = getCurrentUser();
 $pageTitle = 'Moderación de Reseñas';

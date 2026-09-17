@@ -9,7 +9,7 @@ if (!isLoggedIn()) {
     exit;
 }
 
-if (isBarbero()) {
+if (!isAdminTecnico() && !canManageServices()) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Permisos insuficientes']);
     exit;

@@ -22,12 +22,28 @@ try {
     // Silencioso
 }
 
-// Obtener lista de sucursales y barberos para los filtros
+// Obtener sucursales permitidas para este usuario
+$userSucursalesIds = getUsuarioSucursalesIds($currentUser['id']);
 $sucursales_lista = [];
 $barberos_lista = [];
+
 try {
-    $sucursales_lista = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
-    $barberos_lista = query("SELECT id, nombre FROM usuarios WHERE rol IN ('barbero', 'admin_local', 'administrador') AND activo = 1 ORDER BY nombre ASC");
+    if (isAdminTecnico()) {
+        $sucursales_lista = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
+        $barberos_lista = query("SELECT id, nombre FROM usuarios WHERE rol IN ('barbero', 'admin_local', 'admin') AND activo = 1 ORDER BY nombre ASC");
+    } elseif ($currentUser['rol'] === 'admin_local') {
+        $sucursales_lista = getUsuarioSucursales($currentUser['id']);
+        if (!empty($userSucursalesIds)) {
+            $inSucList = implode(',', array_map('intval', $userSucursalesIds));
+            $barberos_lista = query("SELECT id, nombre FROM usuarios WHERE rol IN ('barbero', 'admin_local') AND activo = 1 AND (sucursal_id IN ($inSucList) OR id = ?) ORDER BY nombre ASC", [$currentUser['id']]);
+        } else {
+            $barberos_lista = query("SELECT id, nombre FROM usuarios WHERE id = ? AND activo = 1", [$currentUser['id']]);
+        }
+    } else {
+        // Barbero
+        $sucursales_lista = getUsuarioSucursales($currentUser['id']);
+        $barberos_lista = query("SELECT id, nombre FROM usuarios WHERE id = ?", [$currentUser['id']]);
+    }
 } catch (Exception $e) {
     // Silencioso
 }
@@ -53,7 +69,21 @@ try {
     if ($currentUser['rol'] === 'barbero') {
         $sql .= " AND c.barbero_id = ?";
         $params[] = $currentUser['id'];
+    } elseif ($currentUser['rol'] === 'admin_local') {
+        // Admin Local: Solo ver citas de sus sucursales asignadas
+        if (!empty($sucursal_id) && in_array(intval($sucursal_id), $userSucursalesIds)) {
+            $sql .= " AND c.sucursal_id = ?";
+            $params[] = intval($sucursal_id);
+        } else {
+            $inSucList = !empty($userSucursalesIds) ? implode(',', array_map('intval', $userSucursalesIds)) : '0';
+            $sql .= " AND c.sucursal_id IN ($inSucList)";
+        }
+        if (!empty($barbero_id)) {
+            $sql .= " AND c.barbero_id = ?";
+            $params[] = $barbero_id;
+        }
     } else {
+        // Admin Técnico
         if (!empty($barbero_id)) {
             $sql .= " AND c.barbero_id = ?";
             $params[] = $barbero_id;

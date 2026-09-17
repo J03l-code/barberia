@@ -7,13 +7,21 @@ $currentUser = getCurrentUser();
 $isBarber = ($currentUser['rol'] === 'barbero');
 
 // Obtener inventario
+$userSucursalesIds = getUsuarioSucursalesIds($currentUser['id']);
 try {
-    // Si es barbero, mostramos items de su sucursal o globales
-    // Por simplicidad en este paso, mostramos todo.
-    $inventario = query("SELECT i.*, s.nombre as sucursal_nombre 
-                        FROM inventario i 
-                        LEFT JOIN sucursales s ON i.sucursal_id = s.id 
-                        ORDER BY i.fecha_creacion DESC");
+    if (isAdminTecnico()) {
+        $inventario = query("SELECT i.*, s.nombre as sucursal_nombre 
+                            FROM inventario i 
+                            LEFT JOIN sucursales s ON i.sucursal_id = s.id 
+                            ORDER BY i.fecha_creacion DESC");
+    } else {
+        $inList = !empty($userSucursalesIds) ? implode(',', array_map('intval', $userSucursalesIds)) : '0';
+        $inventario = query("SELECT i.*, s.nombre as sucursal_nombre 
+                            FROM inventario i 
+                            LEFT JOIN sucursales s ON i.sucursal_id = s.id 
+                            WHERE i.sucursal_id IN ($inList) OR i.sucursal_id IS NULL
+                            ORDER BY i.fecha_creacion DESC");
+    }
 } catch (PDOException $e) {
     error_log("Error al obtener inventario: " . $e->getMessage());
     $inventario = [];

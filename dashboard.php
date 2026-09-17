@@ -15,11 +15,30 @@ $pageTitle = 'Overview Completo';
 include 'includes/header.php';
 ?>
 <?php
-$filterSucursalId = 0;
+$userSucursalesIds = getUsuarioSucursalesIds($currentUser['id']);
+$userSucursalesList = [];
+$filterSucursalId = intval($_GET['sucursal_id'] ?? 0);
+
 if ($currentUser['rol'] === 'admin_local') {
-    $filterSucursalId = intval($currentUser['sucursal_id']);
+    $userSucursalesList = getUsuarioSucursales($currentUser['id']);
+    if ($filterSucursalId > 0 && in_array($filterSucursalId, $userSucursalesIds)) {
+        $scopedBranchIds = [$filterSucursalId];
+    } else {
+        $scopedBranchIds = !empty($userSucursalesIds) ? $userSucursalesIds : [-1];
+        $filterSucursalId = 0;
+    }
 } else {
-    $filterSucursalId = intval($_GET['sucursal_id'] ?? 0);
+    // Admin técnico
+    try {
+        $userSucursalesList = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
+    } catch (Exception $e) {
+        $userSucursalesList = [];
+    }
+    if ($filterSucursalId > 0) {
+        $scopedBranchIds = [$filterSucursalId];
+    } else {
+        $scopedBranchIds = [];
+    }
 }
 ?>
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
@@ -27,19 +46,23 @@ if ($currentUser['rol'] === 'admin_local') {
         <h1 class="page-title" style="margin: 0;">Bienvenido, <?php echo htmlspecialchars($currentUser['nombre']); ?></h1>
         <p class="page-subtitle" style="margin-top: 4px;">Overview y Métricas en Tiempo Real</p>
     </div>
-    <?php if ($currentUser['rol'] === 'admin'): 
-        $sucursalesList = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
-    ?>
+    <?php if (count($userSucursalesList) > 1 || $currentUser['rol'] === 'admin'): ?>
     <div>
         <form method="GET" action="dashboard.php" style="margin: 0; display: flex; align-items: center; gap: 8px;">
             <label style="font-size: 11px; font-weight: 700; color: #888888; text-transform: uppercase; letter-spacing: 0.5px;">Filtro Sucursal:</label>
             <select name="sucursal_id" onchange="this.form.submit()" style="padding: 8px 14px; border-radius: 8px; border: 1.5px solid #EAEAEA; background: #FFFFFF; font-weight: 800; font-size: 0.85rem; cursor: pointer; color: #111111; outline: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-                <option value="0" <?php echo ($filterSucursalId == 0) ? 'selected' : ''; ?>>🏢 Todas las Sucursales (Global)</option>
-                <?php foreach ($sucursalesList as $s): ?>
+                <option value="0" <?php echo ($filterSucursalId == 0) ? 'selected' : ''; ?>>
+                    <?php echo $currentUser['rol'] === 'admin_local' ? '🏢 Mis Sucursales Asignadas' : '🏢 Todas las Sucursales (Global)'; ?>
+                </option>
+                <?php foreach ($userSucursalesList as $s): ?>
                     <option value="<?php echo $s['id']; ?>" <?php echo ($filterSucursalId == $s['id']) ? 'selected' : ''; ?>>📍 <?php echo htmlspecialchars($s['nombre']); ?></option>
                 <?php endforeach; ?>
             </select>
         </form>
+    </div>
+    <?php elseif (count($userSucursalesList) === 1): ?>
+    <div style="background: #111111; color: #FFFFFF; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 700;">
+        📍 Sucursal: <?php echo htmlspecialchars($userSucursalesList[0]['nombre']); ?>
     </div>
     <?php endif; ?>
 </div>
@@ -211,8 +234,14 @@ if ($currentUser['rol'] === 'admin_local') {
     $mesInicio = date('Y-m-01');
     $mesFin = date('Y-m-t');
 
-    $whereCitas = $filterSucursalId > 0 ? " AND sucursal_id = $filterSucursalId" : "";
-    $whereProd = $filterSucursalId > 0 ? " AND sucursal_id = $filterSucursalId" : "";
+    if (!empty($scopedBranchIds)) {
+        $idsStr = implode(',', array_map('intval', $scopedBranchIds));
+        $whereCitas = " AND sucursal_id IN ($idsStr)";
+        $whereProd = " AND sucursal_id IN ($idsStr)";
+    } else {
+        $whereCitas = "";
+        $whereProd = "";
+    }
 
     // 1. KPI: Ventas Citas + Productos Hoy
     $citasHoyRow = query("SELECT 

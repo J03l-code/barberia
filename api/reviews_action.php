@@ -1,7 +1,7 @@
 <?php
 require_once '../config.php';
 
-if (!isLoggedIn()) {
+if (!isLoggedIn() || (!isAdminTecnico() && !canManageReviews())) {
     header('Location: ../login.php');
     exit;
 }

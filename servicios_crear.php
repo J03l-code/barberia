@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 requireLogin();
+requirePermission(canManageServices());
 $currentUser = getCurrentUser();
 
 $servicio = null;

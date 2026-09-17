@@ -33,6 +33,18 @@ try {
     $sucursales = [];
 }
 
+// Obtener sucursales asignadas al usuario (para multi-sucursal admin_local)
+$assignedBranchIds = [];
+if ($isEdit && $usuario) {
+    try {
+        $assignedRows = query("SELECT sucursal_id FROM usuarios_sucursales WHERE usuario_id = ?", [$usuario['id']]);
+        $assignedBranchIds = array_map('intval', array_column($assignedRows, 'sucursal_id'));
+    } catch (Exception $e) {}
+    if (empty($assignedBranchIds) && !empty($usuario['sucursal_id'])) {
+        $assignedBranchIds = [intval($usuario['sucursal_id'])];
+    }
+}
+
 $pageTitle = $isEdit ? 'Editar Usuario' : 'Nuevo Usuario';
 include 'includes/header.php';
 ?>
@@ -214,12 +226,10 @@ include 'includes/header.php';
 
         <div class="form-group">
             <label class="form-label">Rol</label>
-            <select name="rol" class="form-select" required>
-                <option value="barbero" <?php echo ($isEdit && $usuario['rol'] == 'barbero') ? 'selected' : ''; ?>>Barbero
-                </option>
-                <option value="admin_local" <?php echo ($isEdit && $usuario['rol'] == 'admin_local') ? 'selected' : ''; ?>>Admin Locales</option>
-                <option value="admin" <?php echo ($isEdit && $usuario['rol'] == 'admin') ? 'selected' : ''; ?>>Admin
-                    Técnico</option>
+            <select name="rol" id="rolSelect" class="form-select" required onchange="toggleSucursalSelector()">
+                <option value="barbero" <?php echo ($isEdit && $usuario['rol'] == 'barbero') ? 'selected' : ''; ?>>Barbero</option>
+                <option value="admin_local" <?php echo ($isEdit && $usuario['rol'] == 'admin_local') ? 'selected' : ''; ?>>Admin Locales (Administrador de Local)</option>
+                <option value="admin" <?php echo ($isEdit && $usuario['rol'] == 'admin') ? 'selected' : ''; ?>>Admin Técnico (Acceso Total)</option>
             </select>
         </div>
 
@@ -292,8 +302,9 @@ include 'includes/header.php';
             </div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">Sucursal</label>
+        <!-- SELECTOR DE SUCURSAL PARA BARBERO (INDIVIDUAL) -->
+        <div class="form-group" id="sucursalSingleContainer">
+            <label class="form-label">Sucursal Asignada</label>
             <select name="sucursal_id" class="form-select">
                 <option value="">Todas las sucursales</option>
                 <?php foreach ($sucursales as $suc): ?>
@@ -304,11 +315,79 @@ include 'includes/header.php';
             </select>
         </div>
 
+        <!-- SELECTOR MULTI-SUCURSAL PARA ADMIN DE LOCAL -->
+        <div class="form-group" id="sucursalesMultiContainer" style="display: none; background: #F9F9F9; border: 1.5px solid #E5E5E5; border-radius: 10px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label class="form-label" style="margin: 0; color: #111111; font-weight: 800;">
+                    🏢 Sucursales que Administra
+                </label>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" onclick="seleccionarTodasSucursales(true)" style="background: #EAEAEA; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Todas</button>
+                    <button type="button" onclick="seleccionarTodasSucursales(false)" style="background: #EAEAEA; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Ninguna</button>
+                </div>
+            </div>
+            <p style="font-size: 12px; color: #666666; margin: 0 0 14px 0; line-height: 1.4;">
+                Marque las sucursales sobre las que este administrador tendrá control (overview, citas, inventario y usuarios). Puede seleccionar una, dos o más sucursales, o modificarlas en cualquier momento.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <?php foreach ($sucursales as $suc): ?>
+                    <?php $isChecked = in_array(intval($suc['id']), $assignedBranchIds); ?>
+                    <label style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 1px solid #E0E0E0; padding: 10px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-size: 14px; font-weight: 600; color: #111111;">
+                        <input type="checkbox" name="sucursales_ids[]" value="<?php echo $suc['id']; ?>" class="sucursal-checkbox" <?php echo $isChecked ? 'checked' : ''; ?> style="width: 18px; height: 18px; accent-color: #111111; cursor: pointer;">
+                        <span>📍 <?php echo htmlspecialchars($suc['nombre']); ?></span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- INFO ADMIN TECNICO -->
+        <div class="form-group" id="sucursalAdminInfo" style="display: none; background: #111111; color: #FFFFFF; border-radius: 10px; padding: 16px;">
+            <div style="font-weight: 800; font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                👑 Acceso Global Ilimitado
+            </div>
+            <p style="font-size: 12px; color: #CCCCCC; margin: 0; line-height: 1.4;">
+                El Administrador Técnico tiene acceso automático y total a todas las sucursales, configuraciones y módulos del sistema.
+            </p>
+        </div>
+
         <div class="form-actions">
             <a href="usuarios.php" class="btn-cancel">Cancelar</a>
             <button type="submit" class="btn-confirm">Confirmar</button>
         </div>
     </form>
 </div>
+
+<script>
+function toggleSucursalSelector() {
+    const rol = document.getElementById('rolSelect').value;
+    const singleCont = document.getElementById('sucursalSingleContainer');
+    const multiCont = document.getElementById('sucursalesMultiContainer');
+    const adminInfo = document.getElementById('sucursalAdminInfo');
+
+    if (rol === 'admin_local') {
+        singleCont.style.display = 'none';
+        multiCont.style.display = 'block';
+        adminInfo.style.display = 'none';
+    } else if (rol === 'admin') {
+        singleCont.style.display = 'none';
+        multiCont.style.display = 'none';
+        adminInfo.style.display = 'block';
+    } else {
+        // barbero
+        singleCont.style.display = 'block';
+        multiCont.style.display = 'none';
+        adminInfo.style.display = 'none';
+    }
+}
+
+function seleccionarTodasSucursales(marcar) {
+    const checkboxes = document.querySelectorAll('.sucursal-checkbox');
+    checkboxes.forEach(cb => cb.checked = marcar);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleSucursalSelector();
+});
+</script>
 
 <?php include 'includes/footer.php'; ?>

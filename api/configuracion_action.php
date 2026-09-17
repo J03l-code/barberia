@@ -5,8 +5,8 @@
 require_once '../config.php';
 requireLogin();
 
-if (!in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local'])) {
-    header('Location: ../dashboard.php');
+if (!isAdminTecnico() && !canManageSettings()) {
+    header('Location: ../dashboard.php?error=' . urlencode('Acceso no autorizado'));
     exit;
 }
 

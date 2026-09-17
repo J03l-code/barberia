@@ -103,6 +103,26 @@ try {
             $rol = $_POST['rol'] ?? 'barbero';
             $sucursal_id = !empty($_POST['sucursal_id']) ? intval($_POST['sucursal_id']) : null;
 
+            $sucursales_ids = [];
+            if (isset($_POST['sucursales_ids'])) {
+                if (is_array($_POST['sucursales_ids'])) {
+                    $sucursales_ids = array_map('intval', $_POST['sucursales_ids']);
+                } else {
+                    $sucursales_ids = [intval($_POST['sucursales_ids'])];
+                }
+            }
+            $sucursales_ids = array_values(array_filter($sucursales_ids, function($v) { return $v > 0; }));
+
+            if ($rol === 'admin_local') {
+                if (empty($sucursales_ids) && !empty($sucursal_id)) {
+                    $sucursales_ids = [$sucursal_id];
+                }
+                $sucursal_id = !empty($sucursales_ids) ? $sucursales_ids[0] : null;
+            } elseif ($rol === 'admin') {
+                $sucursal_id = null;
+                $sucursales_ids = [];
+            }
+
             $biografia = trim($_POST['biografia'] ?? ($_POST['bio'] ?? ''));
             $especialidades = trim($_POST['especialidades'] ?? '');
             $telefono = trim($_POST['telefono'] ?? '');
@@ -167,6 +187,16 @@ try {
             $stmt->execute(array_values($dataToInsert));
             $newUserId = $pdo->lastInsertId();
 
+            // Sincronizar multi-sucursales para admin_local
+            if ($newUserId && $rol === 'admin_local' && !empty($sucursales_ids)) {
+                try {
+                    $stmtInsSuc = $pdo->prepare("INSERT IGNORE INTO usuarios_sucursales (usuario_id, sucursal_id) VALUES (?, ?)");
+                    foreach ($sucursales_ids as $sId) {
+                        $stmtInsSuc->execute([$newUserId, $sId]);
+                    }
+                } catch (Exception $e_us) {}
+            }
+
             // Si es un barbero, inicializar horarios semanales (Lun a Dom de 10:00 a 20:00)
             if ($rol === 'barbero' && $newUserId) {
                 try {
@@ -202,6 +232,26 @@ try {
             $password = $_POST['password'] ?? '';
             $rol = $_POST['rol'] ?? 'barbero';
             $sucursal_id = !empty($_POST['sucursal_id']) ? intval($_POST['sucursal_id']) : null;
+
+            $sucursales_ids = [];
+            if (isset($_POST['sucursales_ids'])) {
+                if (is_array($_POST['sucursales_ids'])) {
+                    $sucursales_ids = array_map('intval', $_POST['sucursales_ids']);
+                } else {
+                    $sucursales_ids = [intval($_POST['sucursales_ids'])];
+                }
+            }
+            $sucursales_ids = array_values(array_filter($sucursales_ids, function($v) { return $v > 0; }));
+
+            if ($rol === 'admin_local') {
+                if (empty($sucursales_ids) && !empty($sucursal_id)) {
+                    $sucursales_ids = [$sucursal_id];
+                }
+                $sucursal_id = !empty($sucursales_ids) ? $sucursales_ids[0] : null;
+            } elseif ($rol === 'admin') {
+                $sucursal_id = null;
+                $sucursales_ids = [];
+            }
 
             $biografia = trim($_POST['biografia'] ?? ($_POST['bio'] ?? ''));
             $especialidades = trim($_POST['especialidades'] ?? '');
@@ -281,6 +331,17 @@ try {
             $stmt = $pdo->prepare($updateSql);
             $stmt->execute($updateValues);
 
+            // Sincronizar tabla usuarios_sucursales
+            try {
+                $pdo->prepare("DELETE FROM usuarios_sucursales WHERE usuario_id = ?")->execute([$id]);
+                if ($rol === 'admin_local' && !empty($sucursales_ids)) {
+                    $stmtInsSuc = $pdo->prepare("INSERT IGNORE INTO usuarios_sucursales (usuario_id, sucursal_id) VALUES (?, ?)");
+                    foreach ($sucursales_ids as $sId) {
+                        $stmtInsSuc->execute([$id, $sId]);
+                    }
+                }
+            } catch (Exception $e_us) {}
+
             registrarLog('EDITAR', 'usuarios', $id, "Usuario '$nombre' (#$id) actualizado exitosamente");
             header('Location: ../usuarios.php?success=' . urlencode("Usuario '$nombre' actualizado exitosamente"));
             exit;
@@ -296,6 +357,11 @@ try {
             if ($id == $_SESSION['user_id']) {
                 throw new Exception('No puedes eliminar tu propia cuenta de usuario en sesión.');
             }
+
+            // Eliminar registros asociados en usuarios_sucursales
+            try {
+                $pdo->prepare("DELETE FROM usuarios_sucursales WHERE usuario_id = ?")->execute([$id]);
+            } catch (Exception $e_del_us) {}
 
             // Obtener nombre del usuario antes de eliminarlo
             $stmtU = $pdo->prepare("SELECT nombre, rol FROM usuarios WHERE id = ?");

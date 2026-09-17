@@ -64,15 +64,17 @@
                     </a>
                 <?php endif; ?>
 
-                <a href="sucursales.php"
-                    class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'sucursales.php' ? 'active' : ''; ?>">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                    </svg>
-                    <span>Sucursales</span>
-                </a>
+                <?php if (canManageBranches()): ?>
+                    <a href="sucursales.php"
+                        class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'sucursales.php' ? 'active' : ''; ?>">
+                        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        <span>Sucursales</span>
+                    </a>
+                <?php endif; ?>
 
                 <?php if (canManageInventory()): ?>
                     <a href="inventario.php"
@@ -87,18 +89,20 @@
                     </a>
                 <?php endif; ?>
 
-                <a href="servicios.php"
-                    class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'servicios.php' ? 'active' : ''; ?>">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor">
-                        <path
-                            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
-                        </path>
-                    </svg>
-                    <span>Servicios</span>
-                </a>
+                <?php if (canManageServices()): ?>
+                    <a href="servicios.php"
+                        class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'servicios.php' ? 'active' : ''; ?>">
+                        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor">
+                            <path
+                                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
+                            </path>
+                        </svg>
+                        <span>Servicios</span>
+                    </a>
+                <?php endif; ?>
 
-                <?php if (isAdminTecnico()): ?>
+                <?php if (canManageGallery()): ?>
                     <a href="galeria_admin.php"
                         class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'galeria_admin.php' ? 'active' : ''; ?>">
                         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -111,7 +115,7 @@
                     </a>
                 <?php endif; ?>
 
-                <?php if (isAdminTecnico() || $currentUser['rol'] === 'admin_local'): 
+                <?php if (canManageReviews()): 
                     $pendingCountBadge = 0;
                     try {
                         $pendingCountBadge = intval(query("SELECT COUNT(*) as total FROM resenas WHERE visible = 0")[0]['total'] ?? 0);
@@ -168,7 +172,9 @@
                         </svg>
                         <span>Clientes</span>
                     </a>
-                    
+                <?php endif; ?>
+                
+                <?php if (canManageSettings()): ?>
                     <a href="configuracion.php"
                         class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'configuracion.php' ? 'active' : ''; ?>">
                         <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"

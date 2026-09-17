@@ -1,12 +1,8 @@
 <?php
 require_once 'config.php';
 requireLogin();
+requirePermission(canManageServices());
 $currentUser = getCurrentUser();
-
-if (isBarbero()) {
-    header('Location: servicios.php?error=' . urlencode('No tienes permisos para gestionar categorías.'));
-    exit;
-}
 
 $pdo = getConnection();
 asegurarTablaCategorias($pdo);

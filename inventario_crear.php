@@ -27,7 +27,11 @@ if (isset($_GET['id'])) {
 
 // Obtener sucursales
 try {
-    $sucursales = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
+    if (isAdminTecnico()) {
+        $sucursales = query("SELECT id, nombre FROM sucursales ORDER BY nombre ASC");
+    } else {
+        $sucursales = getUsuarioSucursales($currentUser['id']);
+    }
 } catch (PDOException $e) {
     $sucursales = [];
 }

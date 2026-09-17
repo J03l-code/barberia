@@ -1,12 +1,7 @@
 <?php
 require_once 'config.php';
 requireLogin();
-
-// Permitir acceso a Administradores (Técnico y Locales)
-if (!isAdminTecnico() && !isAdminLocal() && !in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local', 'administrador', 'superadmin'])) {
-    header('Location: dashboard.php?error=' . urlencode('Acceso denegado a la gestión de galería.'));
-    exit;
-}
+requirePermission(canManageGallery());
 
 $error = '';
 $success = '';

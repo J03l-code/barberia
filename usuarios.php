@@ -7,13 +7,27 @@ $currentUser = getCurrentUser();
 // Filtros
 $sucursal_id = isset($_GET['sucursal_id']) && $_GET['sucursal_id'] !== '' ? intval($_GET['sucursal_id']) : '';
 
-// Obtener lista de sucursales para el filtro
+// Obtener sucursales permitidas para este usuario
+$userSucursalesIds = getUsuarioSucursalesIds($currentUser['id']);
 $sucursales_lista = [];
 try {
-    $sucursales_lista = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
+    if (isAdminTecnico()) {
+        $sucursales_lista = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
+    } else {
+        $sucursales_lista = getUsuarioSucursales($currentUser['id']);
+    }
 } catch (Exception $e) {
     $sucursales_lista = [];
 }
+
+// Mapa de sucursales por usuario (para admin_local multi-sucursal)
+$userBranchesMap = [];
+try {
+    $rowsB = query("SELECT us.usuario_id, s.nombre FROM usuarios_sucursales us JOIN sucursales s ON us.sucursal_id = s.id ORDER BY s.nombre ASC");
+    foreach ($rowsB as $r) {
+        $userBranchesMap[$r['usuario_id']][] = $r['nombre'];
+    }
+} catch (Exception $e) {}
 
 // Obtener usuarios con filtro
 try {
@@ -23,9 +37,27 @@ try {
             WHERE 1=1";
     $params = [];
 
-    if ($sucursal_id !== '') {
-        $sql .= " AND u.sucursal_id = ?";
-        $params[] = $sucursal_id;
+    if (!isAdminTecnico()) {
+        // Scoping para Admin Local: Solo ver usuarios de sus sucursales asignadas o su propio usuario
+        if (!empty($userSucursalesIds)) {
+            $inList = implode(',', array_map('intval', $userSucursalesIds));
+            if ($sucursal_id !== '' && in_array($sucursal_id, $userSucursalesIds)) {
+                $sql .= " AND (u.sucursal_id = ? OR u.id = ?)";
+                $params[] = $sucursal_id;
+                $params[] = $currentUser['id'];
+            } else {
+                $sql .= " AND (u.sucursal_id IN ($inList) OR u.id = ?)";
+                $params[] = $currentUser['id'];
+            }
+        } else {
+            $sql .= " AND u.id = ?";
+            $params[] = $currentUser['id'];
+        }
+    } else {
+        if ($sucursal_id !== '') {
+            $sql .= " AND u.sucursal_id = ?";
+            $params[] = $sucursal_id;
+        }
     }
 
     $sql .= " ORDER BY u.fecha_creacion DESC";
@@ -227,7 +259,27 @@ include 'includes/header.php';
                         <td>
                             <span class="role-badge"><?php echo $rol_texto; ?></span>
                         </td>
-                        <td><?php echo $usuario['sucursal_nombre'] ? htmlspecialchars($usuario['sucursal_nombre']) : 'Todas'; ?>
+                        <td>
+                            <?php 
+                            if ($usuario['rol'] === 'admin') {
+                                echo '<span style="color: #666666; font-size: 0.85rem; font-weight: 700;">Global (Todas)</span>';
+                            } elseif ($usuario['rol'] === 'admin_local') {
+                                $assignedNames = $userBranchesMap[$usuario['id']] ?? [];
+                                if (!empty($assignedNames)) {
+                                    echo '<div style="display: flex; flex-wrap: wrap; gap: 4px;">';
+                                    foreach ($assignedNames as $bName) {
+                                        echo '<span style="background: #111111; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">📍 ' . htmlspecialchars($bName) . '</span>';
+                                    }
+                                    echo '</div>';
+                                } elseif (!empty($usuario['sucursal_nombre'])) {
+                                    echo '<span style="background: #111111; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">📍 ' . htmlspecialchars($usuario['sucursal_nombre']) . '</span>';
+                                } else {
+                                    echo '<span style="color: #999999; font-size: 0.85rem;">Ninguna</span>';
+                                }
+                            } else {
+                                echo !empty($usuario['sucursal_nombre']) ? '📍 ' . htmlspecialchars($usuario['sucursal_nombre']) : '<span style="color: #999999; font-size: 0.85rem;">Sin asignar</span>';
+                            }
+                            ?>
                         </td>
                         <td>
                             <div class="actions-cell">
