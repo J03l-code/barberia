@@ -94,90 +94,6 @@ try {
 $mensaje = '';
 $tipoMensaje = '';
 
-// Marcar cita como completada y acreditar puntos automáticamente
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'completar_cita') {
-        $citaId = intval($_POST['cita_id'] ?? 0);
-        if ($citaId > 0) {
-            try {
-                $pdo = getConnection();
-                
-                // 1. Actualizar estado de la cita
-                $stmt = $pdo->prepare("UPDATE citas SET estado = 'completada' WHERE id = ? AND barbero_id = ? AND estado != 'completada'");
-                $stmt->execute([$citaId, $barbero_id]);
-
-                if ($stmt->rowCount() > 0) {
-                    // 2. Obtener cliente_id de la cita
-                    $stmtCitaInfo = $pdo->prepare("SELECT cliente_id FROM citas WHERE id = ?");
-                    $stmtCitaInfo->execute([$citaId]);
-                    $citaRow = $stmtCitaInfo->fetch(PDO::FETCH_ASSOC);
-                    $clienteId = intval($citaRow['cliente_id'] ?? 0);
-
-                    if ($clienteId > 0) {
-                        // Cargar valores de configuración de puntos
-                        $puntosPorCorte = 100;
-                        $puntosPorReferido = 200;
-                        try {
-                            $stmtCfg = $pdo->query("SELECT clave, valor FROM configuracion");
-                            $cfgs = $stmtCfg->fetchAll(PDO::FETCH_KEY_PAIR);
-                            $puntosPorCorte = intval($cfgs['puntos_por_corte'] ?? 100);
-                            $puntosPorReferido = intval($cfgs['puntos_por_referido'] ?? 200);
-                        } catch (Throwable $exCfg) {}
-
-                        // Acreditar puntos al cliente por su corte
-                        try {
-                            $stmtPtsCliente = $pdo->prepare("UPDATE clientes SET puntos = IFNULL(puntos, 0) + ? WHERE id = ?");
-                            $stmtPtsCliente->execute([$puntosPorCorte, $clienteId]);
-                        } catch (Throwable $exPts) {}
-
-                        // Acreditar puntos por referido
-                        try {
-                            $stmtRefCheck = $pdo->prepare("
-                                SELECT id, referente_id, referido_id, estado 
-                                FROM referidos 
-                                WHERE (cita_id = ? OR referido_id = ?) AND estado = 'pendiente'
-                                LIMIT 1
-                            ");
-                            $stmtRefCheck->execute([$citaId, $clienteId]);
-                            $refData = $stmtRefCheck->fetch(PDO::FETCH_ASSOC);
-
-                            if ($refData) {
-                                $referidosTableId = $refData['id'];
-                                $referenteId = intval($refData['referente_id']);
-
-                                $stmtUpdRef = $pdo->prepare("UPDATE referidos SET estado = 'completado', cita_id = ? WHERE id = ?");
-                                $stmtUpdRef->execute([$citaId, $referidosTableId]);
-
-                                if ($referenteId > 0) {
-                                    $stmtPtsRef = $pdo->prepare("UPDATE clientes SET puntos = IFNULL(puntos, 0) + ? WHERE id = ?");
-                                    $stmtPtsRef->execute([$puntosPorReferido, $referenteId]);
-                                }
-
-                                $stmtPtsReferido = $pdo->prepare("UPDATE clientes SET puntos = IFNULL(puntos, 0) + ? WHERE id = ?");
-                                $stmtPtsReferido->execute([$puntosPorReferido, $clienteId]);
-
-                                $mensaje = "¡Corte completado! +$puntosPorCorte pts al cliente y +$puntosPorReferido pts acreditados por referido.";
-                            } else {
-                                $mensaje = "¡Corte completado! +$puntosPorCorte pts acreditados a la cuenta del cliente.";
-                            }
-                        } catch (Throwable $exRef) {
-                            $mensaje = "Cita marcada como COMPLETADA.";
-                        }
-                    } else {
-                        $mensaje = 'Cita marcada como COMPLETADA. Ganancias actualizadas.';
-                    }
-                } else {
-                    $mensaje = 'La cita ya fue marcada como completada anteriormente.';
-                }
-                $tipoMensaje = 'success';
-            } catch (Throwable $e) {
-                $mensaje = 'Error al actualizar cita: ' . $e->getMessage();
-                $tipoMensaje = 'error';
-            }
-        }
-    }
-}
-
 // 1. Ganancias por Servicios + Comisión por Ventas de Productos
 $com_diaria = floatval($currentUser['comision_porcentaje'] ?? 50);
 $com_finde = floatval($currentUser['comision_fin_semana'] ?? 50);
@@ -391,6 +307,19 @@ foreach ($citasAgenda as $c) {
     $fKey = date('Y-m-d', strtotime($c['fecha_hora']));
     $citasAgrupadasPorFecha[$fKey][] = $c;
 }
+
+// Reordenar dentro de cada día: no-completadas primero (por hora ASC), completadas abajo de todos
+foreach ($citasAgrupadasPorFecha as $fKey => &$citasDelDia) {
+    usort($citasDelDia, function($a, $b) {
+        $aDone = (($a['estado'] ?? '') === 'completada') ? 1 : 0;
+        $bDone = (($b['estado'] ?? '') === 'completada') ? 1 : 0;
+        if ($aDone !== $bDone) {
+            return $aDone - $bDone; // 0 (pendientes/confirmadas) arriba, 1 (completadas) al final
+        }
+        return strtotime($a['fecha_hora']) - strtotime($b['fecha_hora']);
+    });
+}
+unset($citasDelDia);
 
 if (!function_exists('formatearFechaEspanolAgenda')) {
     function formatearFechaEspanolAgenda($fechaStr) {
@@ -706,6 +635,25 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
         .barber-appointment-card:active {
             transform: scale(0.99);
         }
+        /* Tarjeta de cita FINALIZADA (En verde y abajo de todos) */
+        .barber-appointment-card.is-completed {
+            background: #ECFDF5 !important;
+            border: 1px solid #A7F3D0 !important;
+            border-left: 4.5px solid #10B981 !important;
+        }
+        .barber-appointment-card.is-completed:hover {
+            background: #D1FAE5 !important;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.18) !important;
+        }
+        .barber-appointment-card.is-completed .bac-client-name {
+            color: #064E3B !important;
+        }
+        .barber-appointment-card.is-completed .bac-service-name {
+            color: #047857 !important;
+        }
+        .barber-appointment-card.is-completed .bac-time-range {
+            color: #065F46 !important;
+        }
         .bac-row-top {
             display: flex;
             align-items: baseline;
@@ -876,8 +824,10 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                     $horaFin = date('g:iA', $tsFin);
                                     $horaRango = $horaInicio . ' - ' . $horaFin;
                                     $fechaLegibleCita = formatearFechaEspanolAgenda($fechaYMD);
+                                    $isCompletada = (($c['estado'] ?? '') === 'completada');
+                                    $cardClass = $isCompletada ? 'barber-appointment-card is-completed' : 'barber-appointment-card';
                                 ?>
-                                <div class="barber-appointment-card"
+                                <div class="<?php echo $cardClass; ?>"
                                      onclick="abrirPerfilClienteModal(this)"
                                      data-cliente-id="<?php echo htmlspecialchars($c['cliente_id_bd'] ?? $c['cliente_id'] ?? ''); ?>"
                                      data-cliente-nombre="<?php echo htmlspecialchars($c['cliente'] ?? 'Cliente'); ?>"
@@ -902,10 +852,10 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                     </div>
                                     <div class="bac-row-bottom">
                                         <span class="bac-time-range"><?php echo $horaRango; ?></span>
-                                        <?php if (!empty($c['asistencia_confirmada'])): ?>
+                                        <?php if ($isCompletada): ?>
+                                            <span class="bac-badge-completed" style="background: #10B981; color: #FFFFFF; font-weight: 800; padding: 2px 8px; border-radius: 6px;">✓ Corte Finalizado</span>
+                                        <?php elseif (!empty($c['asistencia_confirmada'])): ?>
                                             <span class="bac-badge-confirmed">✓ Confirmado</span>
-                                        <?php elseif ($c['estado'] === 'completada'): ?>
-                                            <span class="bac-badge-completed">✓ Completada</span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1122,19 +1072,11 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                     </button>
                 </form>
 
-                <!-- Botones de Acción -->
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <a id="modalVerFichaCompletaBtn" href="#" class="btn-action-black" style="flex: 1; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 0.82rem;">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        <span>Ver Perfil Completo</span>
-                    </a>
-                    <form id="modalFinalizarCitaForm" method="POST" style="flex: 1; margin: 0; display: none;">
-                        <input type="hidden" name="action" value="completar_cita">
-                        <input type="hidden" name="cita_id" id="modalFinalizarCitaId" value="">
-                        <button type="submit" style="width: 100%; background: #059669; color: #FFFFFF; border: none; padding: 11px; border-radius: 10px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <span>✓ Finalizar Corte</span>
-                        </button>
-                    </form>
+                <!-- Botón Cerrar Modal -->
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="cerrarPerfilClienteModal()" style="width: 100%; background: #111111; color: #FFFFFF; border: none; padding: 11px; border-radius: 10px; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-transform: uppercase;">
+                        Cerrar
+                    </button>
                 </div>
             </div>
         </div>
@@ -1204,24 +1146,6 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             // Formulario de notas del barbero
             document.getElementById('modalFormClienteId').value = d.clienteId || '';
             document.getElementById('modalNotasBarberoInput').value = d.notas || '';
-
-            // Enlace a la Ficha Completa del Cliente
-            const btnFicha = document.getElementById('modalVerFichaCompletaBtn');
-            if (d.clienteId) {
-                btnFicha.href = `cliente_detalle.php?id=${d.clienteId}`;
-                btnFicha.style.display = 'inline-flex';
-            } else {
-                btnFicha.style.display = 'none';
-            }
-
-            // Botón de finalizar cita
-            const formFinalizar = document.getElementById('modalFinalizarCitaForm');
-            if (d.citaId && (d.estado === 'pendiente' || d.estado === 'confirmada')) {
-                document.getElementById('modalFinalizarCitaId').value = d.citaId;
-                formFinalizar.style.display = 'block';
-            } else {
-                formFinalizar.style.display = 'none';
-            }
 
             // Mostrar modal
             modal.style.display = 'flex';

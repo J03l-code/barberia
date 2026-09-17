@@ -2,7 +2,11 @@
 require_once 'config.php';
 requireLogin();
 
-// Solo para Barberos (y admins si quieren ver lo suyo, pero principalmente barberos)
+if (isBarbero()) {
+    header('Location: barber-dashboard.php');
+    exit;
+}
+
 $barbero_id = $_SESSION['user_id'];
 $pageTitle = 'Mis Clientes';
 

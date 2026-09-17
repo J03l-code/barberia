@@ -6,6 +6,11 @@
 require_once 'config.php';
 requireLogin();
 
+if (isBarbero()) {
+    header('Location: barber-dashboard.php?error=' . urlencode('Solo el administrador puede ver el perfil completo del cliente.'));
+    exit;
+}
+
 $cliente_id = intval($_GET['id'] ?? 0);
 
 if ($cliente_id <= 0) {
