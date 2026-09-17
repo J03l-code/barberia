@@ -236,6 +236,62 @@ try {
 
 $diasNombres = [0 => 'Domingo', 1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado'];
 
+// 5. CÁLCULO DE CORTES DE HOY Y LIQUIDACIÓN DIARIA
+$citasHoy = [];
+$totalFacturadoHoy = 0.00;
+$totalComisionServiciosHoy = 0.00;
+$totalPropinasHoy = 0.00;
+$totalCortesCompletadosHoy = 0;
+$totalCortesAgendadosHoy = 0;
+$esFindeHoy = in_array(intval(date('w')), [0, 6]); // 0=Domingo, 6=Sábado
+$comisionHoyPct = $esFindeHoy ? $com_finde : $com_diaria;
+
+try {
+    $stmtCitasHoy = $pdo->prepare("
+        SELECT c.*, cl.nombre as cliente_nombre, cl.telefono as cliente_telefono, s.nombre as servicio_nombre, suc.nombre as sucursal_nombre
+        FROM citas c
+        INNER JOIN clientes cl ON c.cliente_id = cl.id
+        INNER JOIN servicios s ON c.servicio_id = s.id
+        LEFT JOIN sucursales suc ON c.sucursal_id = suc.id
+        WHERE c.barbero_id = ? AND DATE(c.fecha_hora) = CURDATE()
+        ORDER BY c.fecha_hora ASC
+    ");
+    $stmtCitasHoy->execute([$barbero_id]);
+    $citasHoy = $stmtCitasHoy->fetchAll(PDO::FETCH_ASSOC);
+    $totalCortesAgendadosHoy = count($citasHoy);
+
+    foreach ($citasHoy as $ch) {
+        if (($ch['estado'] ?? '') === 'completada') {
+            $totalCortesCompletadosHoy++;
+            $p = floatval($ch['precio_final'] ?? 0);
+            $prop = floatval($ch['propina'] ?? 0);
+            $totalFacturadoHoy += $p;
+            $totalComisionServiciosHoy += ($p * $comisionHoyPct / 100);
+            $totalPropinasHoy += $prop;
+        }
+    }
+} catch (Exception $e) {
+    $citasHoy = [];
+}
+
+// Ventas de productos realizadas hoy por el barbero
+$ventasProdHoy = 0.00;
+$comisionProdHoy = 0.00;
+try {
+    $stmtVP = $pdo->prepare("
+        SELECT SUM(IFNULL(cantidad * precio_unitario, 0)) as facturado,
+               SUM((IFNULL(cantidad * precio_unitario, 0) * ? / 100)) as comision
+        FROM ventas_productos 
+        WHERE usuario_id = ? AND DATE(fecha) = CURDATE()
+    ");
+    $stmtVP->execute([$com_productos, $barbero_id]);
+    $rowVP = $stmtVP->fetch(PDO::FETCH_ASSOC);
+    $ventasProdHoy = floatval($rowVP['facturado'] ?? 0);
+    $comisionProdHoy = floatval($rowVP['comision'] ?? 0);
+} catch (Exception $e) {}
+
+$totalACobrarHoy = $totalComisionServiciosHoy + $totalPropinasHoy + $comisionProdHoy;
+
 $pageTitle = 'Perfil del Barbero: ' . htmlspecialchars($barbero['nombre']);
 include 'includes/header.php';
 ?>
@@ -262,19 +318,21 @@ include 'includes/header.php';
 </div>
 
 <?php if (isset($_GET['success'])): ?>
-    <div class="alert alert-success" style="padding: 12px 16px; background: #E8F8F0; color: #1E7E45; border: 1px solid #C2EBCF; border-radius: 8px; margin-bottom: 20px; font-weight: 700;">
-        ✅ <?php echo htmlspecialchars($_GET['success']); ?>
+    <div class="alert alert-success" style="padding: 12px 16px; background: #E8F8F0; color: #1E7E45; border: 1px solid #C2EBCF; border-radius: 8px; margin-bottom: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span><?php echo htmlspecialchars($_GET['success']); ?></span>
     </div>
 <?php endif; ?>
 
 <?php if (isset($_GET['error'])): ?>
-    <div class="alert alert-error" style="padding: 12px 16px; background: #FDF2F2; color: #9B1C1C; border: 1px solid #F8B4B4; border-radius: 8px; margin-bottom: 20px; font-weight: 700;">
-        ❌ <?php echo htmlspecialchars($_GET['error']); ?>
+    <div class="alert alert-error" style="padding: 12px 16px; background: #FDF2F2; color: #9B1C1C; border: 1px solid #F8B4B4; border-radius: 8px; margin-bottom: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+        <span><?php echo htmlspecialchars($_GET['error']); ?></span>
     </div>
 <?php endif; ?>
 
 <!-- Tarjetas KPI Principales -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
     <div style="background: #111111; border-radius: 12px; padding: 18px; color: #FFFFFF; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
         <div style="font-size: 0.75rem; font-weight: 800; color: #AAAAAA; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
             Ganancias Mes (Servicios + Ventas)
@@ -335,6 +393,199 @@ include 'includes/header.php';
         </div>
         <div style="font-size: 0.78rem; color: #777777; margin-top: 4px;">
             Productos/herramientas bajo su custodia
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- CUADRO DESTACADO: CORTES DE HOY & LIQUIDACIÓN A COBRAR DEL DÍA -->
+<!-- ========================================================================= -->
+<div style="background: #FFFFFF; border: 2px solid #111111; border-radius: 16px; padding: 24px; margin-bottom: 28px; box-shadow: 0 8px 30px rgba(0,0,0,0.06);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EAEAEA; padding-bottom: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: #111111; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="6" cy="6" r="3"></circle>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+                        <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+                        <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+                    </svg>
+                    Cortes de Hoy & Liquidación del Día
+                </h2>
+                <span style="background: #10B981; color: #FFFFFF; font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">
+                    HOY: <?php echo date('d/m/Y'); ?>
+                </span>
+            </div>
+            <p style="font-size: 0.83rem; color: #666666; margin-top: 4px; margin-bottom: 0;">
+                Resumen financiero en tiempo real y detalle de cada servicio completado hoy por el barbero.
+            </p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; background: #F3F4F6; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: #374151;">
+            <span>Comisión Aplicable Hoy:</span>
+            <strong style="color: #10B981; font-size: 0.95rem;"><?php echo number_format($comisionHoyPct, 1); ?>%</strong>
+            <span style="font-size: 0.72rem; color: #6B7280;">(<?php echo $esFindeHoy ? 'Fin de semana' : 'Día de semana'; ?>)</span>
+        </div>
+    </div>
+
+    <!-- Mini KPI Cards de Hoy + Gran Total a Cobrar -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 22px;">
+        <div style="background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #6B7280; text-transform: uppercase;">Cortes Hoy</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #111111; margin-top: 2px;">
+                <?php echo $totalCortesCompletadosHoy; ?>
+                <span style="font-size: 0.8rem; font-weight: 600; color: #9CA3AF;">/ <?php echo $totalCortesAgendadosHoy; ?> agendados</span>
+            </div>
+        </div>
+
+        <div style="background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #6B7280; text-transform: uppercase;">Facturado Servicios Hoy</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #111111; margin-top: 2px;">
+                $<?php echo number_format($totalFacturadoHoy, 2); ?>
+            </div>
+        </div>
+
+        <div style="background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #6B7280; text-transform: uppercase;">Comisión Servicios (<?php echo (int)$comisionHoyPct; ?>%)</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #10B981; margin-top: 2px;">
+                $<?php echo number_format($totalComisionServiciosHoy, 2); ?>
+            </div>
+        </div>
+
+        <div style="background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #6B7280; text-transform: uppercase;">Propinas Hoy</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #047857; margin-top: 2px;">
+                +$<?php echo number_format($totalPropinasHoy, 2); ?>
+            </div>
+        </div>
+
+        <?php if ($comisionProdHoy > 0): ?>
+        <div style="background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #6B7280; text-transform: uppercase;">Comisión Productos</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #3B82F6; margin-top: 2px;">
+                +$<?php echo number_format($comisionProdHoy, 2); ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Gran Total a Cobrar Hoy -->
+        <div style="background: #111111; border: 2px solid var(--color-gold, #C0A062); border-radius: 10px; padding: 14px; color: #FFFFFF; grid-column: span 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 800; color: var(--color-gold, #C0A062); text-transform: uppercase; letter-spacing: 0.5px;">
+                    TOTAL QUE DEBE COBRAR EL BARBERO HOY
+                </div>
+                <div style="font-size: 0.78rem; color: #9CA3AF; margin-top: 2px;">
+                    Comisiones de servicios completados + 100% propinas directas <?php echo $comisionProdHoy > 0 ? '+ comisiones de venta' : ''; ?>
+                </div>
+            </div>
+            <div style="font-size: 1.9rem; font-weight: 900; color: #10B981; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);">
+                $<?php echo number_format($totalACobrarHoy, 2); ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla Detallada de Cortes de Hoy -->
+    <div style="margin-top: 10px;">
+        <h3 style="font-size: 0.95rem; font-weight: 800; color: #111111; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>Detalle de Cortes y Citas de Hoy</span>
+            <span style="font-size: 0.75rem; font-weight: 600; color: #6B7280;">(<?php echo count($citasHoy); ?> registradas)</span>
+        </h3>
+
+        <div class="table-container" style="border: 1px solid #E5E7EB; border-radius: 8px;">
+            <table class="table" style="margin: 0;">
+                <thead>
+                    <tr style="background: #F9FAFB;">
+                        <th>HORA</th>
+                        <th>CLIENTE</th>
+                        <th>SERVICIO</th>
+                        <th>PRECIO</th>
+                        <th>% COMISIÓN</th>
+                        <th>COMISIÓN BARBERO</th>
+                        <th>PROPINA</th>
+                        <th>TOTAL A COBRAR</th>
+                        <th>ESTADO</th>
+                        <th>CONTACTO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($citasHoy)): ?>
+                        <tr>
+                            <td colspan="10" style="text-align: center; padding: 25px; color: #888888; font-weight: 500;">
+                                Este barbero no tiene citas ni cortes agendados para el día de hoy.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($citasHoy as $c): 
+                            $isDone = (($c['estado'] ?? '') === 'completada');
+                            $prec = floatval($c['precio_final'] ?? 0);
+                            $comVal = $isDone ? ($prec * $comisionHoyPct / 100) : 0;
+                            $propVal = floatval($c['propina'] ?? 0);
+                            $totItem = $comVal + ($isDone ? $propVal : 0);
+                        ?>
+                            <tr style="<?php echo $isDone ? 'background: #FFFFFF;' : 'background: #FAFAFA; opacity: 0.9;'; ?>">
+                                <td>
+                                    <strong style="font-size: 0.95rem; color: #111111;"><?php echo date('H:i', strtotime($c['fecha_hora'])); ?></strong>
+                                </td>
+                                <td style="font-weight: 700; color: #111111;">
+                                    <?php echo htmlspecialchars($c['cliente_nombre']); ?>
+                                </td>
+                                <td style="font-weight: 600; color: #374151;">
+                                    <?php echo htmlspecialchars($c['servicio_nombre']); ?>
+                                </td>
+                                <td style="font-weight: 700; color: #111111;">
+                                    $<?php echo number_format($prec, 2); ?>
+                                </td>
+                                <td style="font-weight: 600; color: #6B7280;">
+                                    <?php echo (int)$comisionHoyPct; ?>%
+                                </td>
+                                <td style="font-weight: 800; color: <?php echo $isDone ? '#10B981' : '#9CA3AF'; ?>;">
+                                    <?php if ($isDone): ?>
+                                        $<?php echo number_format($comVal, 2); ?>
+                                    <?php else: ?>
+                                        <span style="font-size: 0.8rem; font-weight: 500; color: #9CA3AF;">Pendiente</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="font-weight: 700; color: #047857;">
+                                    <?php echo $propVal > 0 ? '+$' . number_format($propVal, 2) : '-'; ?>
+                                </td>
+                                <td style="font-weight: 900; font-size: 1rem; color: <?php echo $isDone ? '#10B981' : '#6B7280'; ?>;">
+                                    <?php if ($isDone): ?>
+                                        $<?php echo number_format($totItem, 2); ?>
+                                    <?php else: ?>
+                                        <span style="font-size: 0.8rem; font-weight: 500; color: #9CA3AF;">Al completar</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php 
+                                    $stClass = 'status-' . htmlspecialchars($c['estado']);
+                                    ?>
+                                    <span class="status-badge <?php echo $stClass; ?>">
+                                        <?php echo htmlspecialchars($c['estado']); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <?php if (!empty($c['cliente_telefono'])): 
+                                        $wa_phone = formatPhoneForWhatsapp($c['cliente_telefono']);
+                                        $wa_msg = urlencode("Hola " . explode(' ', $c['cliente_nombre'])[0] . ", te escribo de KORTZEN.");
+                                    ?>
+                                        <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
+                                           title="WhatsApp" style="color: #25D366; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.78rem;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                                            </svg>
+                                            WhatsApp
+                                        </a>
+                                    <?php else: ?>
+                                        <span style="color:#9CA3AF; font-size:0.8rem;">-</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

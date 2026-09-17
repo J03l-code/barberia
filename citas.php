@@ -6,6 +6,9 @@ $currentUser = getCurrentUser();
 // Filtros
 $estado = $_GET['estado'] ?? '';
 $fecha = $_GET['fecha'] ?? '';
+$sucursal_id = $_GET['sucursal_id'] ?? '';
+$barbero_id = $_GET['barbero_id'] ?? '';
+$es_hoy = ($fecha === date('Y-m-d'));
 
 // Obtener inventario para el modal de terminar cita (de todas las sucursales)
 $inventario = [];
@@ -15,6 +18,16 @@ try {
                          JOIN sucursales s ON i.sucursal_id = s.id 
                          WHERE i.cantidad > 0 
                          ORDER BY i.producto ASC, s.nombre ASC");
+} catch (Exception $e) {
+    // Silencioso
+}
+
+// Obtener lista de sucursales y barberos para los filtros
+$sucursales_lista = [];
+$barberos_lista = [];
+try {
+    $sucursales_lista = query("SELECT id, nombre FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
+    $barberos_lista = query("SELECT id, nombre FROM usuarios WHERE rol IN ('barbero', 'admin_local', 'administrador') AND activo = 1 ORDER BY nombre ASC");
 } catch (Exception $e) {
     // Silencioso
 }
@@ -40,6 +53,15 @@ try {
     if ($currentUser['rol'] === 'barbero') {
         $sql .= " AND c.barbero_id = ?";
         $params[] = $currentUser['id'];
+    } else {
+        if (!empty($barbero_id)) {
+            $sql .= " AND c.barbero_id = ?";
+            $params[] = $barbero_id;
+        }
+        if (!empty($sucursal_id)) {
+            $sql .= " AND c.sucursal_id = ?";
+            $params[] = $sucursal_id;
+        }
     }
 
     if ($estado) {
@@ -64,12 +86,35 @@ $pageTitle = 'Citas';
 include 'includes/header.php';
 ?>
 
-<div class="page-header">
-    <h1 class="page-title">
+<div class="page-header" style="flex-wrap: wrap; gap: 14px; align-items: center;">
+    <h1 class="page-title" style="margin: 0;">
         <?php echo $currentUser['rol'] === 'barbero' ? 'Mis Citas' : 'Gestión de Citas'; ?>
     </h1>
-    <div style="display: flex; gap: 12px;">
-        <form method="GET" style="display: flex; gap: 8px;">
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <form method="GET" id="filterForm" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <?php if ($currentUser['rol'] !== 'barbero'): ?>
+                <!-- Filtro Sucursal -->
+                <select name="sucursal_id" class="filter-select" onchange="this.form.submit()">
+                    <option value="">Todas las sucursales</option>
+                    <?php foreach ($sucursales_lista as $suc): ?>
+                        <option value="<?php echo $suc['id']; ?>" <?php echo $sucursal_id == $suc['id'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($suc['nombre']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Filtro Barbero -->
+                <select name="barbero_id" class="filter-select" onchange="this.form.submit()">
+                    <option value="">Todos los barberos</option>
+                    <?php foreach ($barberos_lista as $barb): ?>
+                        <option value="<?php echo $barb['id']; ?>" <?php echo $barbero_id == $barb['id'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($barb['nombre']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            <?php endif; ?>
+
+            <!-- Filtro Estado -->
             <select name="estado" class="filter-select" onchange="this.form.submit()">
                 <option value="">Todos los estados</option>
                 <option value="pendiente" <?php echo $estado == 'pendiente' ? 'selected' : ''; ?>>Pendiente</option>
@@ -77,20 +122,85 @@ include 'includes/header.php';
                 <option value="completada" <?php echo $estado == 'completada' ? 'selected' : ''; ?>>Completada</option>
                 <option value="cancelada" <?php echo $estado == 'cancelada' ? 'selected' : ''; ?>>Cancelada</option>
             </select>
-            <input type="date" name="fecha" class="filter-date" value="<?php echo htmlspecialchars($fecha); ?>"
+
+            <!-- Filtro Fecha -->
+            <input type="date" name="fecha" id="filtroFecha" class="filter-date" value="<?php echo htmlspecialchars($fecha); ?>"
                 onchange="this.form.submit()">
-            <?php if ($estado || $fecha): ?>
+
+            <!-- Botón Rápido: Solo Cortes de Hoy -->
+            <button type="button" class="btn <?php echo $es_hoy ? 'btn-today-active' : 'btn-today'; ?>" onclick="toggleFiltroHoy()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <?php echo $es_hoy ? 'Viendo: Hoy' : 'Cortes de Hoy'; ?>
+            </button>
+
+            <?php if ($estado || $fecha || $sucursal_id || $barbero_id): ?>
                 <a href="citas.php" class="btn btn-secondary">Limpiar</a>
             <?php endif; ?>
         </form>
 
         <?php if ($currentUser['rol'] === 'admin'): ?>
-            <button onclick="window.location.href='citas_crear.php'" class="btn btn-primary">+ AÑADIR CITA</button>
+            <button onclick="window.location.href='citas_crear.php'" class="btn btn-primary" style="white-space: nowrap;">+ AÑADIR CITA</button>
         <?php endif; ?>
     </div>
 </div>
 
+<script>
+function toggleFiltroHoy() {
+    const inputFecha = document.getElementById('filtroFecha');
+    const form = document.getElementById('filterForm');
+    const hoyStr = '<?php echo date('Y-m-d'); ?>';
+    
+    if (inputFecha.value === hoyStr) {
+        inputFecha.value = '';
+    } else {
+        inputFecha.value = hoyStr;
+    }
+    form.submit();
+}
+</script>
+
 <style>
+    .btn-today {
+        padding: 9px 14px;
+        background: #FFFFFF;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-radius: 6px;
+        color: #111111;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+    .btn-today:hover {
+        background: #F3F4F6;
+        border-color: #111111;
+    }
+    .btn-today-active {
+        padding: 9px 14px;
+        background: #111111;
+        border: 1px solid #111111;
+        border-radius: 6px;
+        color: #FFFFFF;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+    .btn-today-active:hover {
+        background: #222222;
+    }
+
     /* Estilos existentes + Modal styles */
     .page-header {
         display: flex;
