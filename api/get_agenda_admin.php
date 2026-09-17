@@ -106,7 +106,6 @@ try {
             SELECT 
                 c.id,
                 c.fecha_hora,
-                c.hora_fin,
                 c.estado,
                 c.precio_final,
                 c.propina,
