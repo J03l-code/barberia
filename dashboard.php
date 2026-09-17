@@ -322,6 +322,152 @@ if ($currentUser['rol'] === 'admin_local') {
     $gananciaNetaHoyProd = floatval($netaProdHoyRow['total_neto_productos'] ?? 0);
     $gananciaNetaHoyTotal = $gananciaNetaHoyServicios + $gananciaNetaHoyProd;
 
+    // 4. HISTORIAL MENSUAL COMPLETO DE GANANCIAS NETAS (TODOS LOS MESES)
+    $netaHistServiciosRows = query("
+        SELECT 
+            DATE_FORMAT(c.fecha_hora, '%Y-%m') as mes_key,
+            COUNT(c.id) as total_citas,
+            SUM(IFNULL(c.precio_final, 0)) as bruto_servicios,
+            SUM(
+                IFNULL(c.precio_final, 0) * (
+                    CASE 
+                        WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                            CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                            ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                        )
+                        ELSE 0.0
+                    END
+                ) / 100.0
+            ) as comision_barberos_servicios,
+            SUM(
+                IFNULL(c.precio_final, 0) * (
+                    100.0 - CASE 
+                        WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                            CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                            ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                        )
+                        ELSE 0.0
+                    END
+                ) / 100.0
+            ) as neto_negocio_servicios
+        FROM citas c
+        LEFT JOIN usuarios u ON c.barbero_id = u.id
+        WHERE c.estado = 'completada' $whereCitas
+        GROUP BY DATE_FORMAT(c.fecha_hora, '%Y-%m')
+        ORDER BY mes_key DESC
+    ");
+
+    $netaHistProdRows = query("
+        SELECT 
+            DATE_FORMAT(vp.fecha, '%Y-%m') as mes_key,
+            COUNT(vp.id) as total_ventas,
+            SUM(IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) as bruto_productos,
+            SUM(
+                (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+                    CASE 
+                        WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                        ELSE 0.0
+                    END
+                ) / 100.0
+            ) as comision_barberos_productos,
+            SUM(
+                (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+                    100.0 - CASE 
+                        WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                        ELSE 0.0
+                    END
+                ) / 100.0
+            ) as neto_negocio_productos
+        FROM ventas_productos vp
+        LEFT JOIN usuarios u ON vp.usuario_id = u.id
+        WHERE 1=1 $whereProd
+        GROUP BY DATE_FORMAT(vp.fecha, '%Y-%m')
+        ORDER BY mes_key DESC
+    ");
+
+    $nombresMesesEsp = [
+        '01' => 'Enero', '02' => 'Febrero', '03' => 'Marzo', '04' => 'Abril',
+        '05' => 'Mayo', '06' => 'Junio', '07' => 'Julio', '08' => 'Agosto',
+        '09' => 'Septiembre', '10' => 'Octubre', '11' => 'Noviembre', '12' => 'Diciembre'
+    ];
+
+    $mesesHistoricosMap = [];
+
+    foreach ($netaHistServiciosRows as $sRow) {
+        $mKey = $sRow['mes_key'];
+        if (!isset($mesesHistoricosMap[$mKey])) {
+            $partes = explode('-', $mKey);
+            $anio = $partes[0] ?? date('Y');
+            $mesNum = $partes[1] ?? '01';
+            $mesTxt = ($nombresMesesEsp[$mesNum] ?? $mesNum) . ' ' . $anio;
+            $mesesHistoricosMap[$mKey] = [
+                'mes_key' => $mKey,
+                'mes_nombre' => $mesTxt,
+                'citas_completadas' => 0,
+                'ventas_productos' => 0,
+                'bruto_servicios' => 0.0,
+                'bruto_productos' => 0.0,
+                'comision_servicios' => 0.0,
+                'comision_productos' => 0.0,
+                'neto_servicios' => 0.0,
+                'neto_productos' => 0.0
+            ];
+        }
+        $mesesHistoricosMap[$mKey]['citas_completadas'] = intval($sRow['total_citas']);
+        $mesesHistoricosMap[$mKey]['bruto_servicios'] = floatval($sRow['bruto_servicios']);
+        $mesesHistoricosMap[$mKey]['comision_servicios'] = floatval($sRow['comision_barberos_servicios']);
+        $mesesHistoricosMap[$mKey]['neto_servicios'] = floatval($sRow['neto_negocio_servicios']);
+    }
+
+    foreach ($netaHistProdRows as $pRow) {
+        $mKey = $pRow['mes_key'];
+        if (!isset($mesesHistoricosMap[$mKey])) {
+            $partes = explode('-', $mKey);
+            $anio = $partes[0] ?? date('Y');
+            $mesNum = $partes[1] ?? '01';
+            $mesTxt = ($nombresMesesEsp[$mesNum] ?? $mesNum) . ' ' . $anio;
+            $mesesHistoricosMap[$mKey] = [
+                'mes_key' => $mKey,
+                'mes_nombre' => $mesTxt,
+                'citas_completadas' => 0,
+                'ventas_productos' => 0,
+                'bruto_servicios' => 0.0,
+                'bruto_productos' => 0.0,
+                'comision_servicios' => 0.0,
+                'comision_productos' => 0.0,
+                'neto_servicios' => 0.0,
+                'neto_productos' => 0.0
+            ];
+        }
+        $mesesHistoricosMap[$mKey]['ventas_productos'] = intval($pRow['total_ventas']);
+        $mesesHistoricosMap[$mKey]['bruto_productos'] = floatval($pRow['bruto_productos']);
+        $mesesHistoricosMap[$mKey]['comision_productos'] = floatval($pRow['comision_barberos_productos']);
+        $mesesHistoricosMap[$mKey]['neto_productos'] = floatval($pRow['neto_negocio_productos']);
+    }
+
+    krsort($mesesHistoricosMap);
+
+    // Totales Históricos Acumulados
+    $histTotalBruto = 0.0;
+    $histTotalComisiones = 0.0;
+    $histTotalNetoNegocio = 0.0;
+    $histTotalCitas = 0;
+    $histTotalVentasProd = 0;
+
+    foreach ($mesesHistoricosMap as $mKey => $mData) {
+        $brutoTotal = $mData['bruto_servicios'] + $mData['bruto_productos'];
+        $comisionTotal = $mData['comision_servicios'] + $mData['comision_productos'];
+        $netoTotal = $mData['neto_servicios'] + $mData['neto_productos'];
+
+        $histTotalBruto += $brutoTotal;
+        $histTotalComisiones += $comisionTotal;
+        $histTotalNetoNegocio += $netoTotal;
+        $histTotalCitas += $mData['citas_completadas'];
+        $histTotalVentasProd += $mData['ventas_productos'];
+    }
+
+    $margenHistoricoNegocio = $histTotalBruto > 0 ? (($histTotalNetoNegocio / $histTotalBruto) * 100) : 100;
+
     // Ticket Promedio del Mes
     $ticketPromedioMes = $citasCompletadasMes > 0 ? ($vCitasMes / $citasCompletadasMes) : 0;
 
@@ -474,15 +620,18 @@ if ($currentUser['rol'] === 'admin_local') {
         </div>
 
         <!-- GANANCIAS NETAS DEL NEGOCIO (Descontando comisiones de barberos) -->
-        <div class="earnings-card" style="border: 1.5px solid #10B981 !important; background: #F0FDF4 !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.08);">
+        <div class="earnings-card" onclick="abrirModalMetricasNetas()" style="border: 1.5px solid #10B981 !important; background: #F0FDF4 !important; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.08); cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease;" title="Haz clic para ver el desglose histórico de todos los meses">
             <div class="earnings-title" style="color: #047857 !important; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
                 <span>Ganancias Netas (Mes)</span>
                 <span style="background: #10B981; color: #FFFFFF; font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; font-weight: 900; letter-spacing: 0.5px;">NEGOCIO</span>
             </div>
             <div class="earnings-amount" style="color: #065F46 !important; font-weight: 900; font-size: 1.85rem;">$<?php echo number_format($gananciaNetaMesTotal, 2); ?></div>
-            <div class="trend-indicator" style="color: #047857; font-weight: 700; display: flex; flex-direction: column; gap: 3px;">
+            <div class="trend-indicator" style="color: #047857; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
                 <span style="font-size: 0.78rem;">Cortes: $<?php echo number_format($gananciaNetaMesServicios, 2); ?> • Ventas: $<?php echo number_format($gananciaNetaMesProd, 2); ?></span>
-                <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">Hoy neto negocio: +$<?php echo number_format($gananciaNetaHoyTotal, 2); ?></span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; border-top: 1px dashed rgba(16, 185, 129, 0.3); padding-top: 4px;">
+                    <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">Hoy neto: +$<?php echo number_format($gananciaNetaHoyTotal, 2); ?></span>
+                    <span style="font-size: 0.72rem; color: #047857; font-weight: 800; text-decoration: underline;">📊 Ver Todos los Meses →</span>
+                </div>
             </div>
         </div>
 
@@ -1412,6 +1561,154 @@ if ($currentUser['rol'] === 'admin_local') {
             </div>
         </div>
     </div>
+
+    <!-- MODAL GENERAL: MÉTRICAS HISTÓRICAS Y GANANCIAS NETAS DE TODOS LOS MESES -->
+    <div id="modalMetricasNetasHistoricas" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 99999; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;" onclick="cerrarModalMetricasNetas(event)">
+        <div class="modal-content" style="background: #FFFFFF; width: 100%; max-width: 960px; max-height: 90vh; overflow-y: auto; padding: 28px; border-radius: 18px; box-shadow: 0 25px 50px rgba(0,0,0,0.35); color: #111; position: relative;" onclick="event.stopPropagation()">
+            
+            <!-- Botón Cerrar Superior -->
+            <button type="button" onclick="cerrarModalMetricasNetas()" style="position: absolute; top: 20px; right: 20px; background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.4rem; color: #4B5563; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                &times;
+            </button>
+
+            <!-- Encabezado Modal -->
+            <div style="margin-bottom: 24px; padding-right: 40px;">
+                <div style="display: inline-flex; align-items: center; gap: 6px; background: #ECFDF5; color: #047857; font-weight: 900; font-size: 0.72rem; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                    <i class="fas fa-chart-line"></i> Reporte Financiero Histórico
+                </div>
+                <h2 style="margin: 0; font-size: 1.45rem; font-weight: 900; color: #111111; line-height: 1.2;">
+                    Ganancias Netas del Negocio — Todos los Meses
+                </h2>
+                <p style="margin: 6px 0 0 0; color: #64748B; font-size: 0.88rem;">
+                    Desglose histórico consolidado mes a mes deduciendo automáticamente las comisiones pagadas a barberos en servicios y productos.
+                </p>
+            </div>
+
+            <!-- KPIs Globales Históricos -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 26px;">
+                <div style="background: #111111; color: #FFFFFF; border-radius: 12px; padding: 16px; border: 1.5px solid #111111;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Ganancia Neta Total Histórica</div>
+                    <div style="font-size: 1.6rem; font-weight: 900; color: #10B981; margin: 4px 0;">$<?php echo number_format($histTotalNetoNegocio, 2); ?></div>
+                    <div style="font-size: 0.75rem; color: #CBD5E1;">Ingreso real retenido por el negocio</div>
+                </div>
+
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Facturación Bruta Total</div>
+                    <div style="font-size: 1.6rem; font-weight: 900; color: #0F172A; margin: 4px 0;">$<?php echo number_format($histTotalBruto, 2); ?></div>
+                    <div style="font-size: 0.75rem; color: #64748B;">Total cobrado a clientes</div>
+                </div>
+
+                <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #92400E; text-transform: uppercase; letter-spacing: 0.5px;">Comisiones a Barberos</div>
+                    <div style="font-size: 1.6rem; font-weight: 900; color: #B45309; margin: 4px 0;">-$<?php echo number_format($histTotalComisiones, 2); ?></div>
+                    <div style="font-size: 0.75rem; color: #92400E;">Repartido al personal</div>
+                </div>
+
+                <div style="background: #F0FDF4; border: 1px solid #A7F3D0; border-radius: 12px; padding: 16px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #047857; text-transform: uppercase; letter-spacing: 0.5px;">Margen Neto Negocio</div>
+                    <div style="font-size: 1.6rem; font-weight: 900; color: #047857; margin: 4px 0;"><?php echo number_format($margenHistoricoNegocio, 1); ?>%</div>
+                    <div style="font-size: 0.75rem; color: #065F46;"><?php echo number_format($histTotalCitas); ?> cortes • <?php echo number_format($histTotalVentasProd); ?> prods</div>
+                </div>
+            </div>
+
+            <!-- Tabla Desglose Mes a Mes -->
+            <div style="border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; margin-bottom: 20px;">
+                <div style="background: #F8FAFC; padding: 14px 18px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85rem; font-weight: 900; color: #1E293B; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fas fa-calendar-alt"></i> Historial Desglosado Mes a Mes
+                    </span>
+                    <span style="font-size: 0.78rem; font-weight: 700; color: #64748B;">
+                        <?php echo count($mesesHistoricosMap); ?> meses registrados
+                    </span>
+                </div>
+
+                <div class="table-container" style="max-height: 380px; overflow-y: auto; margin: 0;">
+                    <table class="table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="background: #FFFFFF; border-bottom: 1.5px solid #E2E8F0; font-size: 0.75rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <th style="padding: 12px 16px;">Mes / Año</th>
+                                <th style="padding: 12px 16px; text-align: center;">Cortes & Ventas</th>
+                                <th style="padding: 12px 16px; text-align: right;">Facturación Bruta</th>
+                                <th style="padding: 12px 16px; text-align: right;">Comisiones Barberos</th>
+                                <th style="padding: 12px 16px; text-align: right; background: #F0FDF4; color: #047857;">Ganancia Neta Negocio</th>
+                                <th style="padding: 12px 16px; text-align: center;">Margen %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($mesesHistoricosMap)): ?>
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 40px; color: #94A3B8;">
+                                        No hay registros de citas completadas ni ventas aún.
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($mesesHistoricosMap as $mKey => $mData): 
+                                    $brutoTotal = $mData['bruto_servicios'] + $mData['bruto_productos'];
+                                    $comisionTotal = $mData['comision_servicios'] + $mData['comision_productos'];
+                                    $netoTotal = $mData['neto_servicios'] + $mData['neto_productos'];
+                                    $margenMes = $brutoTotal > 0 ? (($netoTotal / $brutoTotal) * 100) : 100;
+                                    $esMesActual = ($mKey === date('Y-m'));
+                                ?>
+                                    <tr style="border-bottom: 1px solid #F1F5F9; <?php echo $esMesActual ? 'background: #FAFDFB;' : ''; ?>">
+                                        <td style="padding: 14px 16px; font-weight: 800; color: #0F172A;">
+                                            <?php echo htmlspecialchars($mData['mes_nombre']); ?>
+                                            <?php if ($esMesActual): ?>
+                                                <span style="background: #10B981; color: #FFFFFF; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 800;">EN CURSO</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="padding: 14px 16px; text-align: center; font-size: 0.85rem; color: #475569;">
+                                            <strong><?php echo $mData['citas_completadas']; ?></strong> cortes • <strong><?php echo $mData['ventas_productos']; ?></strong> prods
+                                        </td>
+                                        <td style="padding: 14px 16px; text-align: right; font-weight: 700; color: #334155; font-size: 0.95rem;">
+                                            $<?php echo number_format($brutoTotal, 2); ?>
+                                        </td>
+                                        <td style="padding: 14px 16px; text-align: right; font-weight: 700; color: #D97706; font-size: 0.95rem;">
+                                            -$<?php echo number_format($comisionTotal, 2); ?>
+                                        </td>
+                                        <td style="padding: 14px 16px; text-align: right; font-weight: 900; color: #047857; font-size: 1.05rem; background: #F0FDF4;">
+                                            +$<?php echo number_format($netoTotal, 2); ?>
+                                        </td>
+                                        <td style="padding: 14px 16px; text-align: center;">
+                                            <span style="background: #E2E8F0; color: #334155; font-size: 0.75rem; font-weight: 800; padding: 3px 8px; border-radius: 6px;">
+                                                <?php echo number_format($margenMes, 1); ?>%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Botón de Cerrar Modal -->
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="cerrarModalMetricasNetas()" style="padding: 10px 24px; background: #111111; color: #FFFFFF; border: none; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-transform: uppercase;">
+                    Cerrar Reporte
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalMetricasNetas() {
+            const modal = document.getElementById('modalMetricasNetasHistoricas');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function cerrarModalMetricasNetas(e) {
+            if (!e || e.target.id === 'modalMetricasNetasHistoricas' || e.target.closest('button')) {
+                const modal = document.getElementById('modalMetricasNetasHistoricas');
+                if (modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+    </script>
 
 <?php endif; ?>
 
