@@ -455,8 +455,9 @@ function toggleFiltroHoy() {
                             </div>
                             <?php if (!empty($cita['referido_descuento']) && floatval($cita['referido_descuento']) > 0): ?>
                                 <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 2px;">
-                                    <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 4px; width: fit-content;">
-                                        🎁 Reservado con código de referido<?php echo !empty($cita['referido_codigo']) ? ' (' . htmlspecialchars($cita['referido_codigo']) . ')' : ''; ?>
+                                    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 4px; width: fit-content;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                                        Reservado con código de referido<?php echo !empty($cita['referido_codigo']) ? ' (' . htmlspecialchars($cita['referido_codigo']) . ')' : ''; ?>
                                     </span>
                                     <span style="font-size: 11px; color: #059669; font-weight: 600;">
                                         Descuento aplicado por referido: -$<?php echo number_format(floatval($cita['referido_descuento']), 2); ?>
@@ -464,8 +465,9 @@ function toggleFiltroHoy() {
                                 </div>
                             <?php elseif (!empty($cita['referido_codigo'])): ?>
                                 <div style="margin-top: 5px;">
-                                    <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 4px; width: fit-content;">
-                                        🎁 Reservado con código: <?php echo htmlspecialchars($cita['referido_codigo']); ?>
+                                    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 4px; width: fit-content;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                                        Reservado con código: <?php echo htmlspecialchars($cita['referido_codigo']); ?>
                                     </span>
                                 </div>
                             <?php endif; ?>

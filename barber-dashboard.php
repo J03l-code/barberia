@@ -951,8 +951,9 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                         <span class="bac-client-name"><?php echo htmlspecialchars($c['cliente'] ?? 'Cliente'); ?></span>
                                         <span class="bac-service-name"><?php echo htmlspecialchars($c['servicio'] ?? 'CORTE'); ?></span>
                                         <?php if (!empty($c['referido_descuento']) && floatval($c['referido_descuento']) > 0): ?>
-                                            <span style="font-size: 0.68rem; background: #ECFDF5; color: #047857; font-weight: 800; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;">
-                                                🎁 Referido (-$<?php echo number_format(floatval($c['referido_descuento']), 2); ?>)
+                                            <span style="font-size: 0.68rem; background: #ECFDF5; color: #047857; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: 1px solid #A7F3D0; display: inline-flex; align-items: center; gap: 4px;">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                                                Referido (-$<?php echo number_format(floatval($c['referido_descuento']), 2); ?>)
                                             </span>
                                         <?php endif; ?>
                                     </div>
@@ -1158,7 +1159,7 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                 <!-- Preferencias de Estilo & Experiencia -->
                 <div id="modalPreferenciasContainer" style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; display: none;">
                     <div style="font-size: 0.72rem; font-weight: 900; color: #92400E; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
-                        ✨ PREFERENCIAS DEL CLIENTE
+                        PREFERENCIAS DEL CLIENTE
                     </div>
                     <div id="modalEstiloText" style="font-size: 0.82rem; color: #78350F; margin-bottom: 3px;"></div>
                     <div id="modalAmbienteText" style="font-size: 0.82rem; color: #78350F; margin-bottom: 3px;"></div>
@@ -1170,7 +1171,7 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                     <input type="hidden" name="action" value="guardar_notas_barbero">
                     <input type="hidden" name="cliente_id" id="modalFormClienteId" value="">
                     <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #374151; text-transform: uppercase; margin-bottom: 6px;">
-                        📝 Notas Privadas del Barbero sobre este cliente
+                        Notas Privadas del Barbero sobre este cliente
                     </label>
                     <textarea name="notas_barbero" id="modalNotasBarberoInput" rows="2" placeholder="Ej: Degradado bajo #1.5, raya izquierda, tijera arriba..." style="width: 100%; border: 1px solid #D1D5DB; border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; font-family: inherit; resize: vertical; box-sizing: border-box; background: #FAFAFA;"></textarea>
                     <button type="submit" style="margin-top: 6px; background: #111111; color: #FFFFFF; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; cursor: pointer; text-transform: uppercase;">

@@ -283,8 +283,8 @@ try {
 
         // 3. Notificar al Referente si se usó su código de referido
         if ($referenteId && $referenteId > 0) {
-            $tituloRef = "🎉 ¡Nuevo Referido en KORTZEN!";
-            $msgRef = "¡{$finalNombre} ha reservado con tu código de referido! Se te han acreditado +{$puntosPorReferido} Puntos KORTZEN.";
+            $tituloRef = "Nuevo Referido en KORTZEN";
+            $msgRef = "{$finalNombre} ha reservado con tu código de referido. Se han acreditado +{$puntosPorReferido} Puntos KORTZEN a tu cuenta.";
             notificarCliente($pdo, $referenteId, $citaId, $tituloRef, $msgRef, '/cliente-dashboard.php');
         }
     } catch (Exception $exNotif) {}

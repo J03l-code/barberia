@@ -52,17 +52,18 @@ if ($currentUser['rol'] === 'admin_local') {
             <label style="font-size: 11px; font-weight: 700; color: #888888; text-transform: uppercase; letter-spacing: 0.5px;">Filtro Sucursal:</label>
             <select name="sucursal_id" onchange="this.form.submit()" style="padding: 8px 14px; border-radius: 8px; border: 1.5px solid #EAEAEA; background: #FFFFFF; font-weight: 800; font-size: 0.85rem; cursor: pointer; color: #111111; outline: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
                 <option value="0" <?php echo ($filterSucursalId == 0) ? 'selected' : ''; ?>>
-                    <?php echo $currentUser['rol'] === 'admin_local' ? '🏢 Mis Sucursales Asignadas' : '🏢 Todas las Sucursales (Global)'; ?>
+                    <?php echo $currentUser['rol'] === 'admin_local' ? 'Mis Sucursales Asignadas' : 'Todas las Sucursales (Global)'; ?>
                 </option>
                 <?php foreach ($userSucursalesList as $s): ?>
-                    <option value="<?php echo $s['id']; ?>" <?php echo ($filterSucursalId == $s['id']) ? 'selected' : ''; ?>>📍 <?php echo htmlspecialchars($s['nombre']); ?></option>
+                    <option value="<?php echo $s['id']; ?>" <?php echo ($filterSucursalId == $s['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($s['nombre']); ?></option>
                 <?php endforeach; ?>
             </select>
         </form>
     </div>
     <?php elseif (count($userSucursalesList) === 1): ?>
-    <div style="background: #111111; color: #FFFFFF; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 700;">
-        📍 Sucursal: <?php echo htmlspecialchars($userSucursalesList[0]['nombre']); ?>
+    <div style="background: #111111; color: #FFFFFF; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <span>Sucursal: <?php echo htmlspecialchars($userSucursalesList[0]['nombre']); ?></span>
     </div>
     <?php endif; ?>
 </div>
@@ -712,7 +713,8 @@ if ($currentUser['rol'] === 'admin_local') {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; border-top: 1px dashed rgba(16, 185, 129, 0.3); padding-top: 6px;">
                     <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">Hoy neto: +$<?php echo number_format($gananciaNetaHoyTotal, 2); ?></span>
                     <button type="button" id="btnVerTodosMeses" class="btn-ver-todos-meses" onclick="event.stopPropagation(); window.abrirModalMetricasNetas(event);">
-                        📊 Ver Todos los Meses →
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        <span>Ver Todos los Meses →</span>
                     </button>
                 </div>
             </div>
@@ -789,7 +791,10 @@ if ($currentUser['rol'] === 'admin_local') {
         <!-- Ranking Barberos -->
         <div style="flex: 1; min-width: 300px;">
             <div class="card">
-                <div class="card-title">🏆 Top Barberos Global (Mes)</div>
+                <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-gold);"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <span>Top Barberos Global (Mes)</span>
+                </div>
                 <div class="table-container">
                     <table class="table">
                         <thead>
@@ -823,7 +828,10 @@ if ($currentUser['rol'] === 'admin_local') {
         <!-- Inventario Bajo -->
         <div style="flex: 1; min-width: 300px;">
             <div class="card">
-                <div class="card-title">⚠️ Alerta Stock Global</div>
+                <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E74C3C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <span>Alerta Stock Global</span>
+                </div>
                  <div class="table-container">
                     <table class="table">
                         <thead>

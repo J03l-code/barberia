@@ -268,16 +268,16 @@ include 'includes/header.php';
                                 if (!empty($assignedNames)) {
                                     echo '<div style="display: flex; flex-wrap: wrap; gap: 4px;">';
                                     foreach ($assignedNames as $bName) {
-                                        echo '<span style="background: #111111; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">📍 ' . htmlspecialchars($bName) . '</span>';
+                                        echo '<span style="background: #111111; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">' . htmlspecialchars($bName) . '</span>';
                                     }
                                     echo '</div>';
                                 } elseif (!empty($usuario['sucursal_nombre'])) {
-                                    echo '<span style="background: #111111; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">📍 ' . htmlspecialchars($usuario['sucursal_nombre']) . '</span>';
+                                    echo '<span style="background: #111111; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">' . htmlspecialchars($usuario['sucursal_nombre']) . '</span>';
                                 } else {
                                     echo '<span style="color: #999999; font-size: 0.85rem;">Ninguna</span>';
                                 }
                             } else {
-                                echo !empty($usuario['sucursal_nombre']) ? '📍 ' . htmlspecialchars($usuario['sucursal_nombre']) : '<span style="color: #999999; font-size: 0.85rem;">Sin asignar</span>';
+                                echo !empty($usuario['sucursal_nombre']) ? htmlspecialchars($usuario['sucursal_nombre']) : '<span style="color: #999999; font-size: 0.85rem;">Sin asignar</span>';
                             }
                             ?>
                         </td>
