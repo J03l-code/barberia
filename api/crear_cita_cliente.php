@@ -227,11 +227,15 @@ try {
         } catch (Exception $exUp) {}
     }
 
-    // Registrar seguimiento de referido si aplica
+    // Registrar seguimiento de referido si aplica y acreditar puntos
     if ($referenteId && $citaId > 0) {
         try {
-            $stmtInsertRef = $pdo->prepare("INSERT INTO referidos (referente_id, referido_id, codigo_usado, cita_id, descuento_aplicado, puntos_otorgados, estado) VALUES (?, ?, ?, ?, ?, ?, 'pendiente')");
+            $stmtInsertRef = $pdo->prepare("INSERT INTO referidos (referente_id, referido_id, codigo_usado, cita_id, descuento_aplicado, puntos_otorgados, estado) VALUES (?, ?, ?, ?, ?, ?, 'completado')");
             $stmtInsertRef->execute([$referenteId, $clienteId, $codigoReferido, $citaId, $montoDescuento, $puntosPorReferido]);
+
+            // Acreditar puntos al referente
+            $stmtAddRefPts = $pdo->prepare("UPDATE clientes SET puntos = COALESCE(puntos, 0) + ? WHERE id = ?");
+            $stmtAddRefPts->execute([$puntosPorReferido, $referenteId]);
         } catch (Exception $exRef) {}
     }
 
@@ -250,7 +254,7 @@ try {
         }
     }
 
-    // 5.5. Enviar Notificaciones PWA / WebPush al Cliente y al Barbero Asignado
+    // 5.5. Enviar Notificaciones PWA / WebPush al Cliente, al Barbero Asignado y al Referente (si aplica)
     $fechaLegible = date('d/m/Y', strtotime($fecha));
 
     $stmtCInfo = $pdo->prepare("SELECT nombre, email FROM clientes WHERE id = ?");
@@ -276,6 +280,13 @@ try {
             'hora' => $hora,
             'sucursal' => $barberoData['nombre'] ?? ''
         ]);
+
+        // 3. Notificar al Referente si se usó su código de referido
+        if ($referenteId && $referenteId > 0) {
+            $tituloRef = "🎉 ¡Nuevo Referido en KORTZEN!";
+            $msgRef = "¡{$finalNombre} ha reservado con tu código de referido! Se te han acreditado +{$puntosPorReferido} Puntos KORTZEN.";
+            notificarCliente($pdo, $referenteId, $citaId, $tituloRef, $msgRef, '/cliente-dashboard.php');
+        }
     } catch (Exception $exNotif) {}
 
     // 6. Enviar Correo Electrónico de Confirmación

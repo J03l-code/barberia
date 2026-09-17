@@ -561,6 +561,35 @@ if ($currentUser['rol'] === 'admin_local') {
     $maxVal = max(array_column($last7Days, 'val'));
     $maxVal = $maxVal > 0 ? $maxVal : 1;
 
+    // 9. Descuentos por Códigos de Referidos (Mes y Total Histórico)
+    $refMesRow = query("
+        SELECT 
+            COUNT(r.id) as total_referidos,
+            SUM(IFNULL(r.descuento_aplicado, 0)) as total_descuento,
+            SUM(IFNULL(r.puntos_otorgados, 0)) as total_puntos
+        FROM referidos r
+        LEFT JOIN citas c ON r.cita_id = c.id
+        WHERE r.estado != 'cancelado' 
+          AND (
+              (c.fecha_hora IS NOT NULL AND DATE(c.fecha_hora) BETWEEN ? AND ?)
+              OR (c.fecha_hora IS NULL AND DATE(r.fecha_creacion) BETWEEN ? AND ?)
+          ) $whereCitasAliased
+    ", [$mesInicio, $mesFin, $mesInicio, $mesFin])[0] ?? [];
+
+    $totalDescuentosReferidosMes = floatval($refMesRow['total_descuento'] ?? 0);
+    $totalUsosReferidosMes = intval($refMesRow['total_referidos'] ?? 0);
+
+    $refHistRow = query("
+        SELECT 
+            COUNT(r.id) as total_referidos_hist,
+            SUM(IFNULL(r.descuento_aplicado, 0)) as total_descuento_hist
+        FROM referidos r
+        LEFT JOIN citas c ON r.cita_id = c.id
+        WHERE r.estado != 'cancelado' $whereCitasAliased
+    ")[0] ?? [];
+
+    $totalDescuentosReferidosHist = floatval($refHistRow['total_descuento_hist'] ?? 0);
+
     $meses = ['January' => 'Enero', 'February' => 'Febrero', 'March' => 'Marzo', 'April' => 'Abril', 'May' => 'Mayo', 'June' => 'Junio', 'July' => 'Julio', 'August' => 'Agosto', 'September' => 'Septiembre', 'October' => 'Octubre', 'November' => 'Noviembre', 'December' => 'Diciembre'];
     $mesActual = $meses[date('F')] ?? date('F');
     ?>
@@ -713,6 +742,19 @@ if ($currentUser['rol'] === 'admin_local') {
             <div class="earnings-amount">$<?php echo number_format($valorInventario, 2); ?></div>
             <div class="trend-indicator">
                 <span><?php echo $totalItems; ?> unidades stock</span>
+            </div>
+        </div>
+
+        <!-- Descuentos por Referidos (Mes) -->
+        <div class="earnings-card" style="border: 1.5px solid #6366F1 !important; background: #EEF2FF !important; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.08);">
+            <div class="earnings-title" style="color: #4338CA !important; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
+                <span>Descuentos por Referidos</span>
+                <span style="background: #6366F1; color: #FFFFFF; font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; font-weight: 900; letter-spacing: 0.5px;">REFERIDOS</span>
+            </div>
+            <div class="earnings-amount" style="color: #312E81 !important; font-weight: 900; font-size: 1.85rem;">-$<?php echo number_format($totalDescuentosReferidosMes, 2); ?></div>
+            <div class="trend-indicator" style="color: #4338CA; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
+                <span><?php echo $totalUsosReferidosMes; ?> <?php echo $totalUsosReferidosMes === 1 ? 'amigo referido' : 'amigos referidos'; ?> este mes</span>
+                <span style="font-size: 0.72rem; color: #6366F1; font-weight: 600;">Total histórico: -$<?php echo number_format($totalDescuentosReferidosHist, 2); ?></span>
             </div>
         </div>
 

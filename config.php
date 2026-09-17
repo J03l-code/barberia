@@ -249,6 +249,25 @@ function getConnection()
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                     ");
                 } catch (Throwable $e_usuc) {}
+
+                try {
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS referidos (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            referente_id INT UNSIGNED NULL,
+                            referido_id INT UNSIGNED NULL,
+                            codigo_usado VARCHAR(50) NULL,
+                            cita_id INT UNSIGNED NULL,
+                            descuento_aplicado DECIMAL(10,2) DEFAULT 0.00,
+                            puntos_otorgados INT DEFAULT 0,
+                            estado ENUM('pendiente', 'completado', 'cancelado') DEFAULT 'completado',
+                            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            INDEX idx_referente (referente_id),
+                            INDEX idx_referido (referido_id),
+                            INDEX idx_cita (cita_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                    ");
+                } catch (Throwable $e_ref) {}
             }
 
 

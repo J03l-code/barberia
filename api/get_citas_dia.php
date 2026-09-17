@@ -20,12 +20,15 @@ try {
                    u.nombre as barbero, 
                    s.nombre as servicio, 
                    cli.nombre as cliente,
-                   suc.nombre as sucursal_nombre
+                   suc.nombre as sucursal_nombre,
+                   ref.codigo_usado as referido_codigo,
+                   ref.descuento_aplicado as referido_descuento
             FROM citas c
             JOIN usuarios u ON c.barbero_id = u.id
             JOIN servicios s ON c.servicio_id = s.id
             JOIN clientes cli ON c.cliente_id = cli.id
             JOIN sucursales suc ON c.sucursal_id = suc.id
+            LEFT JOIN referidos ref ON c.id = ref.cita_id
             WHERE DATE(c.fecha_hora) = ?";
 
     $params = [$fecha];

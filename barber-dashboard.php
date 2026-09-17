@@ -268,10 +268,13 @@ try {
                s.nombre as servicio, s.duracion_minutos, s.precio as servicio_precio,
                cli.id as cliente_id_bd, cli.nombre as cliente, cli.telefono as cliente_telefono, 
                cli.email as cliente_email, cli.foto_perfil, cli.notas_barbero, 
-               cli.estilo_buscado, cli.ambiente_preferido, cli.bebida_preferida
+               cli.estilo_buscado, cli.ambiente_preferido, cli.bebida_preferida,
+               ref.codigo_usado as referido_codigo,
+               ref.descuento_aplicado as referido_descuento
         FROM citas c
         LEFT JOIN servicios s ON c.servicio_id = s.id
         LEFT JOIN clientes cli ON c.cliente_id = cli.id
+        LEFT JOIN referidos ref ON c.id = ref.cita_id
         WHERE c.barbero_id = ? 
           AND DATE(c.fecha_hora) >= CURDATE()
           AND c.estado != 'cancelada'
@@ -947,6 +950,11 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                     <div class="bac-row-top">
                                         <span class="bac-client-name"><?php echo htmlspecialchars($c['cliente'] ?? 'Cliente'); ?></span>
                                         <span class="bac-service-name"><?php echo htmlspecialchars($c['servicio'] ?? 'CORTE'); ?></span>
+                                        <?php if (!empty($c['referido_descuento']) && floatval($c['referido_descuento']) > 0): ?>
+                                            <span style="font-size: 0.68rem; background: #ECFDF5; color: #047857; font-weight: 800; padding: 1px 6px; border-radius: 4px; border: 1px solid #A7F3D0;">
+                                                🎁 Referido (-$<?php echo number_format(floatval($c['referido_descuento']), 2); ?>)
+                                            </span>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="bac-row-bottom">
                                         <span class="bac-time-range"><?php echo $horaRango; ?></span>

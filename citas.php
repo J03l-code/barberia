@@ -55,12 +55,18 @@ try {
             cl.telefono as cliente_telefono,
             s.nombre as servicio_nombre,
             u.nombre as barbero_nombre,
-            su.nombre as sucursal_nombre
+            su.nombre as sucursal_nombre,
+            ref.codigo_usado as referido_codigo,
+            ref.descuento_aplicado as referido_descuento,
+            ref.referente_id,
+            ref_cli.nombre as referente_nombre
             FROM citas c
             INNER JOIN clientes cl ON c.cliente_id = cl.id
             INNER JOIN servicios s ON c.servicio_id = s.id
             INNER JOIN usuarios u ON c.barbero_id = u.id
             INNER JOIN sucursales su ON c.sucursal_id = su.id
+            LEFT JOIN referidos ref ON c.id = ref.cita_id
+            LEFT JOIN clientes ref_cli ON ref.referente_id = ref_cli.id
             WHERE 1=1";
 
     $params = [];
@@ -443,7 +449,27 @@ function toggleFiltroHoy() {
                                 </div>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($cita['servicio_nombre']); ?></td>
+                        <td>
+                            <div style="font-weight: 700; color: #111111; font-size: 13.5px;">
+                                <?php echo htmlspecialchars($cita['servicio_nombre']); ?>
+                            </div>
+                            <?php if (!empty($cita['referido_descuento']) && floatval($cita['referido_descuento']) > 0): ?>
+                                <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 2px;">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 4px; width: fit-content;">
+                                        🎁 Reservado con código de referido<?php echo !empty($cita['referido_codigo']) ? ' (' . htmlspecialchars($cita['referido_codigo']) . ')' : ''; ?>
+                                    </span>
+                                    <span style="font-size: 11px; color: #059669; font-weight: 600;">
+                                        Descuento aplicado por referido: -$<?php echo number_format(floatval($cita['referido_descuento']), 2); ?>
+                                    </span>
+                                </div>
+                            <?php elseif (!empty($cita['referido_codigo'])): ?>
+                                <div style="margin-top: 5px;">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 4px; width: fit-content;">
+                                        🎁 Reservado con código: <?php echo htmlspecialchars($cita['referido_codigo']); ?>
+                                    </span>
+                                </div>
+                            <?php endif; ?>
+                        </td>
 
                         <?php if ($currentUser['rol'] === 'admin' || $currentUser['rol'] === 'admin_local'): ?>
                             <td><?php echo htmlspecialchars($cita['barbero_nombre']); ?></td>
