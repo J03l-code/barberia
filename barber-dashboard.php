@@ -494,37 +494,70 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             background: #FFFFFF;
             border: 1px solid #EAEAEA;
             border-radius: 16px;
-            padding: 14px 20px;
+            padding: 12px 18px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-top: 10px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            gap: 12px;
+            gap: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
         .barber-header-logo {
-            font-size: 1.25rem;
+            font-size: 1.15rem;
             font-weight: 900;
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
             color: #111111;
             white-space: nowrap;
+        }
+        .barber-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .barber-bell-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: #F4F4F4;
+            border: 1px solid #E5E7EB;
+            color: #4B5563;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+            padding: 0;
+        }
+        .barber-bell-btn:hover {
+            background: #E5E7EB;
+            color: #111111;
+        }
+        .barber-bell-btn.is-active {
+            background: #ECFDF5;
+            border-color: #A7F3D0;
+            color: #047857;
         }
         .barber-logout-btn {
             background: #111111;
             color: #FFFFFF;
             border: none;
-            padding: 8px 14px;
+            padding: 8px 13px;
             border-radius: 10px;
             font-weight: 700;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             text-decoration: none;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 6px;
             white-space: nowrap;
             flex-shrink: 0;
             transition: background 0.15s;
+            box-sizing: border-box;
         }
         .barber-stats-grid {
             display: grid;
@@ -541,21 +574,28 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
 
         @media (max-width: 768px) {
             .pwa-container {
-                padding-top: calc(env(safe-area-inset-top, 28px) + 24px) !important;
+                padding-top: calc(env(safe-area-inset-top, 28px) + 20px) !important;
+                padding-left: 14px !important;
+                padding-right: 14px !important;
             }
             .barber-header-bar {
-                margin-top: 14px;
-                padding: 12px 14px;
+                margin-top: 8px;
+                padding: 10px 14px;
                 border-radius: 14px;
                 margin-bottom: 16px;
             }
             .barber-header-logo {
-                font-size: 1rem;
+                font-size: 1.05rem;
                 letter-spacing: 1px;
+            }
+            .barber-bell-btn {
+                width: 34px;
+                height: 34px;
             }
             .barber-logout-btn {
                 padding: 7px 11px;
                 font-size: 0.76rem;
+                gap: 5px;
             }
             .barber-stats-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -587,6 +627,30 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             }
             .barber-forms-grid .barber-section-card {
                 margin-bottom: 0 !important;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .pwa-container {
+                padding-left: 10px !important;
+                padding-right: 10px !important;
+            }
+            .barber-header-bar {
+                padding: 8px 10px;
+                gap: 6px;
+            }
+            .barber-header-logo {
+                font-size: 0.95rem;
+                letter-spacing: 0.5px;
+            }
+            .barber-bell-btn {
+                width: 32px;
+                height: 32px;
+            }
+            .barber-logout-btn {
+                padding: 6px 9px;
+                font-size: 0.72rem;
+                gap: 4px;
             }
         }
         /* ESTILOS DE AGENDA DE CITAS (EXACTO A LA IMAGEN) */
@@ -783,13 +847,12 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
         <!-- Header Exclusivo de Barbero -->
         <header class="barber-header-bar">
             <div class="barber-header-logo">KORTZEN</div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <button id="pwaPushToggleBtn" onclick="activarNotificacionesBarbero()" title="Notificaciones Push" style="background: #F3F4F6; border: none; color: #111111; padding: 8px 12px; border-radius: 10px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                    <span id="pwaPushStatusText">Notificaciones</span>
+            <div class="barber-header-actions">
+                <button id="pwaPushToggleBtn" onclick="activarNotificacionesBarbero()" title="Avisos y Notificaciones Push" class="barber-bell-btn">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                 </button>
                 <a href="logout.php" class="barber-logout-btn">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                     <span>Cerrar Sesión</span>
                 </a>
             </div>
@@ -1329,15 +1392,21 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
 
         function checkPushBannerVisibility() {
             const card = document.getElementById('pwaPushControlCard');
-            const statusTxt = document.getElementById('pwaPushStatusText');
+            const toggleBtn = document.getElementById('pwaPushToggleBtn');
             const isGranted = ('Notification' in window && Notification.permission === 'granted');
             const isSaved = (localStorage.getItem('kortzen_barber_push_enabled') === 'true');
 
             if (card) {
                 card.style.display = (isGranted || isSaved) ? 'none' : 'flex';
             }
-            if (statusTxt) {
-                statusTxt.innerText = (isGranted || isSaved) ? 'Activas' : 'Notificaciones';
+            if (toggleBtn) {
+                if (isGranted || isSaved) {
+                    toggleBtn.classList.add('is-active');
+                    toggleBtn.title = 'Avisos Push Activos';
+                } else {
+                    toggleBtn.classList.remove('is-active');
+                    toggleBtn.title = 'Activar Avisos Push';
+                }
             }
         }
 
