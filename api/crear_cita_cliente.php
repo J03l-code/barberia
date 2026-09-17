@@ -204,7 +204,7 @@ try {
 
     // 5. Sincronización Automática con Google Calendar (Opción A)
     if (!empty($_SESSION['google_access_token'])) {
-        require_once '../includes/google_calendar_helper.php';
+        require_once __DIR__ . '/../includes/google_calendar_helper.php';
         try {
             agendarEnGoogleCalendar($_SESSION['google_access_token'], [
                 'servicio' => $nombreServicio,
@@ -224,8 +224,8 @@ try {
     $stmtCInfo->execute([$clienteId]);
     $cInfo = $stmtCInfo->fetch(PDO::FETCH_ASSOC);
 
-    $finalEmail = !empty($cInfo['email']) ? $cInfo['email'] : ($_SESSION['cliente_email'] ?? '');
-    $finalNombre = !empty($cInfo['nombre']) ? $cInfo['nombre'] : ($_SESSION['cliente_nombre'] ?? 'Cliente');
+    $finalEmail = !empty($cInfo['email']) ? trim($cInfo['email']) : trim($_SESSION['cliente_email'] ?? '');
+    $finalNombre = !empty($cInfo['nombre']) ? trim($cInfo['nombre']) : trim($_SESSION['cliente_nombre'] ?? 'Cliente');
 
     try {
         $pdo->exec("
@@ -254,7 +254,7 @@ try {
 
         // Intentar Web Push directo si el cliente tiene suscripción push activa
         try {
-            require_once '../includes/webpush_helper.php';
+            require_once __DIR__ . '/../includes/webpush_helper.php';
             $stmtPush = $pdo->prepare("SELECT * FROM push_subscriptions WHERE cliente_id = ?");
             $stmtPush->execute([$clienteId]);
             $subs = $stmtPush->fetchAll(PDO::FETCH_ASSOC);
@@ -274,20 +274,22 @@ try {
         } catch (Exception $exPush) {}
     } catch (Exception $exNotif) {}
 
-    // 6. Enviar Correo (En segundo plano / Asíncrono para respuesta instantánea)
+    // 6. Enviar Correo Electrónico de Confirmación
     try {
-        require_once '../includes/email_helper.php';
+        require_once __DIR__ . '/../includes/email_helper.php';
         if (!empty($finalEmail)) {
-            @enviarCorreoReserva($finalEmail, $finalNombre, [
+            enviarCorreoReserva($finalEmail, $finalNombre, [
                 'servicio' => $nombreServicio,
                 'barbero' => $nombreBarbero,
                 'fecha' => $fechaLegible,
                 'hora' => $hora,
                 'precio' => number_format($precioFinal, 2)
             ]);
+        } else {
+            logEmailActivity("No se envió correo para la cita #{$citaId}: El cliente ID {$clienteId} ({$finalNombre}) no tiene correo electrónico registrado.");
         }
     } catch (Throwable $exMail) {
-        // Silenciar cualquier error de envío de correo para garantizar que la cita quede registrada en la base de datos
+        logEmailActivity("Error al intentar enviar correo en crear_cita_cliente: " . $exMail->getMessage());
     }
 
     echo json_encode(['success' => true]);

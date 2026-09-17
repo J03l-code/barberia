@@ -5,26 +5,50 @@
 
 require_once __DIR__ . '/../config.php';
 
+function logEmailActivity($texto) {
+    $dir = __DIR__ . '/../logs';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    @file_put_contents($dir . '/email_log.txt', date('[Y-m-d H:i:s] ') . $texto . "\n", FILE_APPEND);
+}
+
 /**
- * Enviar correo a través de SMTP Sockets (Sin dependencias externas)
+ * Enviar correo a través de SMTP Sockets con soporte SSL/TLS robusto
  */
 function _trySMTPSocketConnect($toEmail, $subject, $htmlMessage, $host, $port, $username, $password) {
     $fromName = "KORTZEN Barbería";
-    $socketHost = ($port == 465) ? "ssl://{$host}" : $host;
-    $socket = @fsockopen($socketHost, $port, $errno, $errstr, 4);
+    $context = stream_context_create([
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+            'allow_self_signed' => true
+        ]
+    ]);
+
+    $remoteTarget = ($port == 465) ? "ssl://{$host}:{$port}" : "tcp://{$host}:{$port}";
+    $socket = @stream_socket_client($remoteTarget, $errno, $errstr, 6, STREAM_CLIENT_CONNECT, $context);
 
     if (!$socket) {
+        $socketHost = ($port == 465) ? "ssl://{$host}" : $host;
+        $socket = @fsockopen($socketHost, $port, $errno, $errstr, 6);
+    }
+
+    if (!$socket) {
+        logEmailActivity("Fallo de conexión socket a {$host}:{$port} - Error: {$errstr} ({$errno})");
         return false;
     }
-    stream_set_timeout($socket, 4);
+
+    stream_set_timeout($socket, 6);
 
     $read = function($socket) {
         $response = '';
         while ($str = @fgets($socket, 515)) {
             $response .= $str;
-            if (substr($str, 3, 1) == ' ') break;
+            if (strlen($str) >= 4 && $str[3] === ' ') break;
+            if (strlen($str) < 4) break;
         }
-        return $response;
+        return trim($response);
     };
 
     $send = function($socket, $cmd) use ($read) {
@@ -32,32 +56,75 @@ function _trySMTPSocketConnect($toEmail, $subject, $htmlMessage, $host, $port, $
         return $read($socket);
     };
 
-    $read($socket); // banner
-    $send($socket, "EHLO " . gethostname());
+    $banner = $read($socket);
+    $heloHost = !empty($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'kortzen.com';
+    $send($socket, "EHLO " . $heloHost);
 
     if ($port == 587) {
-        $send($socket, "STARTTLS");
-        @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-        $send($socket, "EHLO " . gethostname());
+        $tlsRes = $send($socket, "STARTTLS");
+        if (substr($tlsRes, 0, 3) == '220') {
+            $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_CLIENT;
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
+                $cryptoMethod |= STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+            }
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
+                $cryptoMethod |= STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
+            }
+            @stream_socket_enable_crypto($socket, true, $cryptoMethod);
+            $send($socket, "EHLO " . $heloHost);
+        }
     }
 
     $authRes = $send($socket, "AUTH LOGIN");
-    if (substr($authRes, 0, 3) != '334') { @fclose($socket); return false; }
+    if (substr($authRes, 0, 3) != '334') { 
+        logEmailActivity("Fallo AUTH LOGIN con {$host}: {$authRes}");
+        @fclose($socket); 
+        return false; 
+    }
 
     $send($socket, base64_encode($username));
     $passRes = $send($socket, base64_encode($password));
-    if (substr($passRes, 0, 3) != '235') { @fclose($socket); return false; }
+    if (substr($passRes, 0, 3) != '235') { 
+        logEmailActivity("Fallo autenticación usuario {$username}: {$passRes}");
+        @fclose($socket); 
+        return false; 
+    }
 
-    $send($socket, "MAIL FROM: <{$username}>");
-    $send($socket, "RCPT TO: <{$toEmail}>");
-    $send($socket, "DATA");
+    $mailFromRes = $send($socket, "MAIL FROM:<{$username}>");
+    if (substr($mailFromRes, 0, 3) != '250') {
+        logEmailActivity("Fallo MAIL FROM: {$mailFromRes}");
+        @fclose($socket);
+        return false;
+    }
+
+    $rcptRes = $send($socket, "RCPT TO:<{$toEmail}>");
+    if (substr($rcptRes, 0, 3) != '250' && substr($rcptRes, 0, 3) != '251') {
+        logEmailActivity("Fallo RCPT TO <{$toEmail}>: {$rcptRes}");
+        @fclose($socket);
+        return false;
+    }
+
+    $dataPrompt = $send($socket, "DATA");
+    if (substr($dataPrompt, 0, 3) != '354') {
+        logEmailActivity("Fallo DATA prompt: {$dataPrompt}");
+        @fclose($socket);
+        return false;
+    }
+
+    $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+    $encodedFromName = "=?UTF-8?B?" . base64_encode($fromName) . "?=";
+    $messageId = "<" . time() . "." . bin2hex(random_bytes(6)) . "@kortzen.com>";
 
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: {$fromName} <{$username}>\r\n";
+    $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+    $headers .= "From: {$encodedFromName} <{$username}>\r\n";
+    $headers .= "Reply-To: {$encodedFromName} <{$username}>\r\n";
     $headers .= "To: <{$toEmail}>\r\n";
-    $headers .= "Subject: {$subject}\r\n";
+    $headers .= "Subject: {$encodedSubject}\r\n";
     $headers .= "Date: " . date('r') . "\r\n";
+    $headers .= "Message-ID: {$messageId}\r\n";
+    $headers .= "X-Mailer: KORTZEN-Mailer/2.0\r\n";
 
     $messageData = $headers . "\r\n" . $htmlMessage . "\r\n.";
     $dataRes = $send($socket, $messageData);
@@ -65,7 +132,11 @@ function _trySMTPSocketConnect($toEmail, $subject, $htmlMessage, $host, $port, $
     $send($socket, "QUIT");
     @fclose($socket);
 
-    return (substr($dataRes, 0, 3) == '250');
+    $isOk = (substr($dataRes, 0, 3) == '250');
+    if (!$isOk) {
+        logEmailActivity("Fallo envío de cuerpo DATA a {$toEmail}: {$dataRes}");
+    }
+    return $isOk;
 }
 
 /**
@@ -171,19 +242,25 @@ function enviarCorreoReserva($toEmail, $clienteNombre, $datosCita)
         }
 
         $smtpOk = enviarCorreoSMTPDirecto($toEmail, $subject, $message, $cfgs);
-        @file_put_contents(__DIR__ . '/../logs/email_log.txt', date('[Y-m-d H:i:s] ') . "SMTP RESERVA: Para: $toEmail | Resultado: " . ($smtpOk ? 'EXITO' : 'FALLO') . "\n", FILE_APPEND);
+        logEmailActivity("SMTP RESERVA: Para: $toEmail | Resultado: " . ($smtpOk ? 'EXITO' : 'FALLO'));
         if ($smtpOk) return true;
-    } catch (Exception $exSmtp) {}
+    } catch (Exception $exSmtp) {
+        logEmailActivity("Excepción SMTP Reserva: " . $exSmtp->getMessage());
+    }
 
     $fromEmail = "info@kortzen.com";
+    $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+    $encodedFromName = "=?UTF-8?B?" . base64_encode("KORTZEN Barbería") . "?=";
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: KORTZEN Barbería <$fromEmail>\r\n";
-    $headers .= "Reply-To: KORTZEN Barbería <$fromEmail>\r\n";
+    $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+    $headers .= "From: {$encodedFromName} <{$fromEmail}>\r\n";
+    $headers .= "Reply-To: {$encodedFromName} <{$fromEmail}>\r\n";
+    $headers .= "Subject: {$encodedSubject}\r\n";
     $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
 
     $res = @mail($toEmail, $subject, $message, $headers, "-f $fromEmail");
-    @file_put_contents(__DIR__ . '/../logs/email_log.txt', date('[Y-m-d H:i:s] ') . "MAIL NATIVO RESERVA: Para: $toEmail | Resultado: " . ($res ? 'EXITO' : 'FALLO') . "\n", FILE_APPEND);
+    logEmailActivity("MAIL NATIVO RESERVA: Para: $toEmail | Resultado: " . ($res ? 'EXITO' : 'FALLO'));
 
     return $res;
 }
@@ -272,19 +349,25 @@ function enviarCorreoRecordatorio($toEmail, $clienteNombre, $datosCita)
         }
 
         $smtpOk = enviarCorreoSMTPDirecto($toEmail, $subject, $message, $cfgs);
-        @file_put_contents(__DIR__ . '/../logs/email_log.txt', date('[Y-m-d H:i:s] ') . "SMTP RECORDATORIO: Para: $toEmail | Resultado: " . ($smtpOk ? 'EXITO' : 'FALLO') . "\n", FILE_APPEND);
+        logEmailActivity("SMTP RECORDATORIO: Para: $toEmail | Resultado: " . ($smtpOk ? 'EXITO' : 'FALLO'));
         if ($smtpOk) return true;
-    } catch (Exception $exSmtp) {}
+    } catch (Exception $exSmtp) {
+        logEmailActivity("Excepción SMTP Recordatorio: " . $exSmtp->getMessage());
+    }
 
     $fromEmail = "info@kortzen.com";
+    $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+    $encodedFromName = "=?UTF-8?B?" . base64_encode("KORTZEN Barbería") . "?=";
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: KORTZEN Barbería <$fromEmail>\r\n";
-    $headers .= "Reply-To: KORTZEN Barbería <$fromEmail>\r\n";
+    $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+    $headers .= "From: {$encodedFromName} <{$fromEmail}>\r\n";
+    $headers .= "Reply-To: {$encodedFromName} <{$fromEmail}>\r\n";
+    $headers .= "Subject: {$encodedSubject}\r\n";
     $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
 
     $res = @mail($toEmail, $subject, $message, $headers, "-f $fromEmail");
-    @file_put_contents(__DIR__ . '/../logs/email_log.txt', date('[Y-m-d H:i:s] ') . "MAIL NATIVO RECORDATORIO: Para: $toEmail | Resultado: " . ($res ? 'EXITO' : 'FALLO') . "\n", FILE_APPEND);
+    logEmailActivity("MAIL NATIVO RECORDATORIO: Para: $toEmail | Resultado: " . ($res ? 'EXITO' : 'FALLO'));
 
     return $res;
 }

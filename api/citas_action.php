@@ -90,6 +90,32 @@ try {
 
             registrarLog('CREAR', 'citas', $newCitaId, "Cita agendada para el cliente '$clienteNombre' ($fecha_hora)");
 
+            // Enviar correo de confirmación al cliente si tiene correo registrado
+            try {
+                $stmtClient = $pdo->prepare("SELECT nombre, email FROM clientes WHERE id = ?");
+                $stmtClient->execute([$cliente_id]);
+                $cData = $stmtClient->fetch(PDO::FETCH_ASSOC);
+
+                if ($cData && !empty($cData['email'])) {
+                    require_once __DIR__ . '/../includes/email_helper.php';
+                    $stmtSrv = $pdo->prepare("SELECT nombre, precio FROM servicios WHERE id = ?");
+                    $stmtSrv->execute([$servicio_id]);
+                    $srvData = $stmtSrv->fetch(PDO::FETCH_ASSOC);
+
+                    $stmtBarb = $pdo->prepare("SELECT nombre FROM usuarios WHERE id = ?");
+                    $stmtBarb->execute([$barbero_id]);
+                    $barbName = $stmtBarb->fetchColumn() ?: 'Barbero Profesional';
+
+                    enviarCorreoReserva($cData['email'], $cData['nombre'], [
+                        'servicio' => $srvData['nombre'] ?? 'Servicio de Barbería',
+                        'barbero' => $barbName,
+                        'fecha' => date('d/m/Y', strtotime($fecha)),
+                        'hora' => $hora,
+                        'precio' => number_format(floatval($srvData['precio'] ?? 0), 2)
+                    ]);
+                }
+            } catch (Throwable $eMail) {}
+
             header('Location: ../citas.php?success=Cita creada exitosamente');
             exit;
 
