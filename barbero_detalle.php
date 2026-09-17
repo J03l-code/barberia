@@ -173,6 +173,48 @@ try {
 
 $gananciaMesTotal = $gananciaMesServicios + $gananciaMesVentas + $propinasMes;
 
+// Ganancias Históricas Totales Acumuladas
+$gananciaHistServicios = 0.00;
+try {
+    $stmtGanHistServ = $pdo->prepare("
+        SELECT SUM((IFNULL(precio_final, 0) * (CASE WHEN DAYOFWEEK(fecha_hora) IN (1, 7) THEN ? ELSE ? END) / 100)) as total
+        FROM citas 
+        WHERE barbero_id = ? AND estado = 'completada'
+    ");
+    $stmtGanHistServ->execute([$com_finde, $com_diaria, $barbero_id]);
+    $gananciaHistServicios = floatval($stmtGanHistServ->fetchColumn() ?? 0);
+} catch (Exception $e) {
+    $gananciaHistServicios = 0.00;
+}
+
+$gananciaHistVentas = 0.00;
+try {
+    $stmtGanHistProd = $pdo->prepare("
+        SELECT SUM((IFNULL(cantidad * precio_unitario, 0) * ? / 100)) as total
+        FROM ventas_productos 
+        WHERE usuario_id = ?
+    ");
+    $stmtGanHistProd->execute([$com_productos, $barbero_id]);
+    $gananciaHistVentas = floatval($stmtGanHistProd->fetchColumn() ?? 0);
+} catch (Exception $e) {
+    $gananciaHistVentas = 0.00;
+}
+
+$propinasHist = 0.00;
+try {
+    $stmtPropHist = $pdo->prepare("
+        SELECT SUM(IFNULL(propina, 0)) as total
+        FROM citas 
+        WHERE barbero_id = ? AND estado = 'completada'
+    ");
+    $stmtPropHist->execute([$barbero_id]);
+    $propinasHist = floatval($stmtPropHist->fetchColumn() ?? 0);
+} catch (Exception $e) {
+    $propinasHist = 0.00;
+}
+
+$gananciaHistoricaTotal = $gananciaHistServicios + $gananciaHistVentas + $propinasHist;
+
 // Estadísticas de Citas
 $totalCitas = count($historialCitas);
 $citasCompletadas = 0;
@@ -242,6 +284,20 @@ include 'includes/header.php';
         </div>
         <div style="font-size: 0.78rem; color: #888888; margin-top: 4px;">
             Servicios: $<?php echo number_format($gananciaMesServicios, 2); ?> • Ventas: $<?php echo number_format($gananciaMesVentas, 2); ?>
+        </div>
+    </div>
+
+    <!-- CUADRO DE INGRESOS HISTÓRICOS TOTALES -->
+    <div style="background: #111111; border: 1.5px solid #333333; border-radius: 12px; padding: 18px; color: #FFFFFF; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+        <div style="font-size: 0.75rem; font-weight: 800; color: #E2E8F0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Ingresos Históricos</span>
+            <span style="background: rgba(255,255,255,0.15); padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; color: #FFFFFF; font-weight: 900;">HISTÓRICO</span>
+        </div>
+        <div style="font-size: 1.6rem; font-weight: 900; color: #FFFFFF;">
+            $<?php echo number_format($gananciaHistoricaTotal, 2); ?>
+        </div>
+        <div style="font-size: 0.78rem; color: #CBD5E1; margin-top: 4px;">
+            Servicios: $<?php echo number_format($gananciaHistServicios, 2); ?> • Ventas: $<?php echo number_format($gananciaHistVentas, 2); ?> • Propinas: $<?php echo number_format($propinasHist, 2); ?>
         </div>
     </div>
 
