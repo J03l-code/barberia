@@ -41,7 +41,7 @@ if (empty($sucursales)) {
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon.png?v=10">
     <link rel="shortcut icon" href="/assets/icons/favicon.png?v=10">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/favicon.png?v=10">
-    <script src="/js/pwa.js" defer></script>
+    <script src="/js/pwa.js?v=26200" defer></script>
 
     <style>
         * {

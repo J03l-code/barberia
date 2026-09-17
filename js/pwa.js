@@ -20,7 +20,7 @@ if ('serviceWorker' in navigator) {
 // Global PWA State
 let deferredPrompt;
 
-document.addEventListener('DOMContentLoaded', () => {
+function initPwaCore() {
   // PWA Persistent Login Sync (LocalStorage Backup for iOS/Android Standalone WebViews)
   const pathname = window.location.pathname;
   
@@ -240,7 +240,14 @@ document.addEventListener('DOMContentLoaded', () => {
       checkAndPromptNotifications();
     }, 2000);
   }
-});
+}
+
+// Guarantee execution regardless of when the script is parsed
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPwaCore);
+} else {
+  initPwaCore();
+}
 
 // Show Android install banner
 function showAndroidInstallPrompt() {
@@ -267,7 +274,7 @@ function showAndroidInstallPrompt() {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      console.log(\`User response to install prompt: \${outcome}\`);
+      console.log(`User response to install prompt: ${outcome}`);
       deferredPrompt = null;
     }
   });
@@ -310,7 +317,7 @@ function checkAndPromptNotifications() {
   if (Notification.permission === 'default') {
     const banner = document.createElement('div');
     banner.className = 'pwa-banner';
-    banner.style.bottom = '80px'; // Sit slightly above the installation banner if both are present
+    banner.style.bottom = '80px';
     banner.innerHTML = `
       <div class="pwa-banner__header">
         <img src="/assets/icons/favicon.png" class="pwa-banner__icon" alt="Notificaciones">
@@ -377,86 +384,68 @@ function initPullToRefresh() {
 
   let startY = 0;
   let startX = 0;
-  let currentY = 0;
-  let isTracking = false;
-  let canPull = false;
+  let isPulling = false;
   let isRefreshing = false;
   let pullDistance = 0;
   let hasTriggeredHaptic = false;
 
-  const THRESHOLD = 80; // Distancia para activar la recarga
-  const MAX_PULL = 135;  // Límite de desplazamiento visual
+  const THRESHOLD = 65; // Distancia para activar la recarga
+  const MAX_PULL = 125;  // Límite de desplazamiento visual
 
-  function isScrolledToTop(target) {
-    let el = target;
-    while (el && el !== document.body && el !== document.documentElement) {
-      if (el.scrollHeight > el.clientHeight) {
-        const overflowY = window.getComputedStyle(el).overflowY;
-        if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollTop > 0) {
-          return false;
-        }
-      }
-      el = el.parentElement;
-    }
-    const docTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
-    return docTop <= 2;
+  function getScrollTop() {
+    return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
 
+  // Touch Start
   window.addEventListener('touchstart', (e) => {
-    if (isRefreshing) return;
-    if (e.touches.length !== 1) return;
+    if (isRefreshing || e.touches.length !== 1) return;
 
-    if (isScrolledToTop(e.target)) {
-      startY = e.touches[0].pageY;
-      startX = e.touches[0].pageX;
-      isTracking = true;
-      canPull = true;
+    if (getScrollTop() <= 8) {
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      isPulling = false;
       pullDistance = 0;
       hasTriggeredHaptic = false;
       ptr.style.transition = 'none';
     } else {
-      isTracking = false;
-      canPull = false;
+      startY = 0;
     }
   }, { passive: true });
 
+  // Touch Move
   window.addEventListener('touchmove', (e) => {
-    if (!isTracking || !canPull || isRefreshing) return;
+    if (isRefreshing || !startY || e.touches.length !== 1) return;
 
-    currentY = e.touches[0].pageY;
-    const currentX = e.touches[0].pageX;
+    const currentY = e.touches[0].clientY;
+    const currentX = e.touches[0].clientX;
     const diffY = currentY - startY;
     const diffX = currentX - startX;
 
-    // Si el usuario desliza horizontalmente, cancelar gesto de recarga
-    if (Math.abs(diffX) > Math.abs(diffY)) {
-      canPull = false;
-      resetPtr();
+    // Si el usuario desliza horizontalmente más que verticalmente, cancelar
+    if (!isPulling && Math.abs(diffX) > Math.abs(diffY)) {
+      startY = 0;
       return;
     }
 
-    // Solo actuar si el usuario arrastra hacia abajo y sigue arriba
-    if (diffY > 0 && isScrolledToTop(e.target)) {
-      // Resistencia elástica progresiva tipo iOS / Android
-      pullDistance = Math.min(MAX_PULL, Math.pow(diffY, 0.83) * 1.5);
+    // Si está en el tope superior y arrastra hacia abajo
+    if (diffY > 0 && getScrollTop() <= 8) {
+      isPulling = true;
+      pullDistance = Math.min(MAX_PULL, Math.pow(diffY, 0.82) * 1.5);
 
-      if (pullDistance > 10) {
+      if (pullDistance > 6) {
         if (e.cancelable) e.preventDefault();
 
-        const translateY = Math.min(pullDistance, MAX_PULL);
-        ptr.style.transform = `translate3d(-50%, ${translateY}px, 0)`;
+        ptr.style.transform = `translate3d(-50%, ${pullDistance}px, 0)`;
 
-        // Rotar flecha según progreso
         const progress = Math.min(1, pullDistance / THRESHOLD);
-        const deg = progress * 180;
-        ptrArrow.style.transform = `rotate(${deg}deg)`;
+        ptrArrow.style.transform = `rotate(${progress * 180}deg)`;
 
         if (pullDistance >= THRESHOLD) {
           ptr.classList.add('pwa-ptr--ready');
           ptrText.textContent = 'Suelta para actualizar';
           if (!hasTriggeredHaptic) {
             hasTriggeredHaptic = true;
-            if ('vibrate' in navigator) {
+            if (navigator.vibrate) {
               try { navigator.vibrate(15); } catch (err) {}
             }
           }
@@ -466,15 +455,22 @@ function initPullToRefresh() {
           hasTriggeredHaptic = false;
         }
       }
-    } else {
-      resetPtr();
+    } else if (getScrollTop() > 8) {
+      startY = 0;
+      if (isPulling) resetPtr();
     }
   }, { passive: false });
 
-  window.addEventListener('touchend', () => {
-    if (!isTracking || isRefreshing) return;
-    isTracking = false;
-    canPull = false;
+  // Touch End
+  const handleTouchEnd = () => {
+    if (!isPulling || isRefreshing) {
+      startY = 0;
+      isPulling = false;
+      return;
+    }
+
+    isPulling = false;
+    startY = 0;
 
     if (pullDistance >= THRESHOLD) {
       isRefreshing = true;
@@ -484,30 +480,30 @@ function initPullToRefresh() {
       ptr.classList.add('pwa-ptr--loading');
       ptrText.textContent = 'Actualizando...';
 
-      if ('vibrate' in navigator) {
+      if (navigator.vibrate) {
         try { navigator.vibrate([20, 30, 20]); } catch (err) {}
       }
 
-      // Limpiar SW y recargar la página fresca
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      // Actualizar Service Worker
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
-          regs.forEach(r => r.update());
+          for (let reg of regs) reg.update();
         }).catch(() => {});
       }
 
       setTimeout(() => {
-        window.location.reload(true);
-      }, 450);
+        // Recargar la página fresca evitando caché
+        const url = new URL(window.location.href);
+        url.searchParams.set('pwa_refreshed', Date.now());
+        window.location.href = url.toString();
+      }, 350);
     } else {
       resetPtr();
     }
-  }, { passive: true });
+  };
 
-  window.addEventListener('touchcancel', () => {
-    isTracking = false;
-    canPull = false;
-    if (!isRefreshing) resetPtr();
-  }, { passive: true });
+  window.addEventListener('touchend', handleTouchEnd, { passive: true });
+  window.addEventListener('touchcancel', resetPtr, { passive: true });
 
   function resetPtr() {
     ptr.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -516,7 +512,9 @@ function initPullToRefresh() {
     ptrArrow.style.transform = 'rotate(0deg)';
     ptrText.textContent = 'Desliza para actualizar';
     pullDistance = 0;
+    isPulling = false;
     hasTriggeredHaptic = false;
   }
 }
+
 

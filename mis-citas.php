@@ -61,7 +61,7 @@ if ($cliente_id) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="KORTZEN">
     <link rel="apple-touch-icon" href="/assets/icons/favicon.png">
-    <script src="/js/pwa.js" defer></script>
+    <script src="/js/pwa.js?v=26200" defer></script>
     <script src="/js/branch-selector.js?v=26000"></script>
 </head>
 

@@ -114,7 +114,7 @@ if ($cliente_id) {
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon.png?v=10">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon.png?v=10">
     <link rel="shortcut icon" href="/assets/icons/favicon.png?v=10">
-    <script src="/js/pwa.js" defer></script>
+    <script src="/js/pwa.js?v=26200" defer></script>
     <script src="/js/calendar-helper.js?v=1"></script>
     <script src="/js/branch-selector.js?v=26000"></script>
 </head>

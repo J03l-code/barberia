@@ -59,7 +59,7 @@ if (empty($servicios_por_cat)) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="KORTZEN">
     <link rel="apple-touch-icon" href="/assets/icons/favicon.png">
-    <script src="/js/pwa.js" defer></script>
+    <script src="/js/pwa.js?v=26200" defer></script>
     <style>
         .pwa-service-card {
             background: var(--pwa-card-bg, #FFFFFF);
