@@ -236,11 +236,19 @@ if ($currentUser['rol'] === 'admin_local') {
 
     if (!empty($scopedBranchIds)) {
         $idsStr = implode(',', array_map('intval', $scopedBranchIds));
-        $whereCitas = " AND sucursal_id IN ($idsStr)";
-        $whereProd = " AND sucursal_id IN ($idsStr)";
+        $whereCitasDirect = " AND sucursal_id IN ($idsStr)";
+        $whereCitasAliased = " AND c.sucursal_id IN ($idsStr)";
+        $whereProdDirect = " AND sucursal_id IN ($idsStr)";
+        $whereProdAliased = " AND vp.sucursal_id IN ($idsStr)";
+        $whereInvDirect = " AND sucursal_id IN ($idsStr)";
+        $whereInvAliased = " AND i.sucursal_id IN ($idsStr)";
     } else {
-        $whereCitas = "";
-        $whereProd = "";
+        $whereCitasDirect = "";
+        $whereCitasAliased = "";
+        $whereProdDirect = "";
+        $whereProdAliased = "";
+        $whereInvDirect = "";
+        $whereInvAliased = "";
     }
 
     // 1. KPI: Ventas Citas + Productos Hoy
@@ -249,10 +257,10 @@ if ($currentUser['rol'] === 'admin_local') {
         SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
         SUM(CASE WHEN estado = 'completada' THEN precio_final ELSE 0 END) as venta_citas,
         SUM(CASE WHEN estado = 'completada' THEN propina ELSE 0 END) as propinas_hoy
-    FROM citas WHERE DATE(fecha_hora) = ?$whereCitas", [$hoy])[0] ?? [];
+    FROM citas WHERE DATE(fecha_hora) = ?$whereCitasDirect", [$hoy])[0] ?? [];
 
     $prodHoyRow = query("SELECT SUM(precio_unitario * cantidad) as total_prod, SUM(cantidad) as items_prod 
-                         FROM ventas_productos WHERE DATE(fecha) = ?$whereProd", [$hoy])[0] ?? [];
+                         FROM ventas_productos WHERE DATE(fecha) = ?$whereProdDirect", [$hoy])[0] ?? [];
 
     $vCitasHoy = floatval($citasHoyRow['venta_citas'] ?? 0);
     $vProdHoy = floatval($prodHoyRow['total_prod'] ?? 0);
@@ -266,10 +274,10 @@ if ($currentUser['rol'] === 'admin_local') {
         SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
         SUM(CASE WHEN estado = 'completada' THEN precio_final ELSE 0 END) as venta_citas,
         SUM(CASE WHEN estado = 'completada' THEN propina ELSE 0 END) as propinas_mes
-    FROM citas WHERE estado = 'completada' AND DATE(fecha_hora) BETWEEN ? AND ?$whereCitas", [$mesInicio, $mesFin])[0] ?? [];
+    FROM citas WHERE estado = 'completada' AND DATE(fecha_hora) BETWEEN ? AND ?$whereCitasDirect", [$mesInicio, $mesFin])[0] ?? [];
 
     $prodMesRow = query("SELECT SUM(precio_unitario * cantidad) as total_prod 
-                         FROM ventas_productos WHERE DATE(fecha) BETWEEN ? AND ?$whereProd", [$mesInicio, $mesFin])[0] ?? [];
+                         FROM ventas_productos WHERE DATE(fecha) BETWEEN ? AND ?$whereProdDirect", [$mesInicio, $mesFin])[0] ?? [];
 
     $vCitasMes = floatval($citasMesRow['venta_citas'] ?? 0);
     $vProdMes = floatval($prodMesRow['total_prod'] ?? 0);
@@ -293,7 +301,7 @@ if ($currentUser['rol'] === 'admin_local') {
         ) as total_neto_servicios
         FROM citas c
         LEFT JOIN usuarios u ON c.barbero_id = u.id
-        WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ?$whereCitas
+        WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ?$whereCitasAliased
     ", [$mesInicio, $mesFin])[0] ?? [];
 
     // 2. Ventas Productos Mes Neto Negocio
@@ -308,7 +316,7 @@ if ($currentUser['rol'] === 'admin_local') {
         ) as total_neto_productos
         FROM ventas_productos vp
         LEFT JOIN usuarios u ON vp.usuario_id = u.id
-        WHERE DATE(vp.fecha) BETWEEN ? AND ?$whereProd
+        WHERE DATE(vp.fecha) BETWEEN ? AND ?$whereProdAliased
     ", [$mesInicio, $mesFin])[0] ?? [];
 
     $gananciaNetaMesServicios = floatval($netaServiciosMesRow['total_neto_servicios'] ?? 0);
@@ -330,7 +338,7 @@ if ($currentUser['rol'] === 'admin_local') {
         ) as total_neto_servicios
         FROM citas c
         LEFT JOIN usuarios u ON c.barbero_id = u.id
-        WHERE c.estado = 'completada' AND DATE(c.fecha_hora) = ?$whereCitas
+        WHERE c.estado = 'completada' AND DATE(c.fecha_hora) = ?$whereCitasAliased
     ", [$hoy])[0] ?? [];
 
     $netaProdHoyRow = query("
@@ -344,7 +352,7 @@ if ($currentUser['rol'] === 'admin_local') {
         ) as total_neto_productos
         FROM ventas_productos vp
         LEFT JOIN usuarios u ON vp.usuario_id = u.id
-        WHERE DATE(vp.fecha) = ?$whereProd
+        WHERE DATE(vp.fecha) = ?$whereProdAliased
     ", [$hoy])[0] ?? [];
 
     $gananciaNetaHoyServicios = floatval($netaServiciosHoyRow['total_neto_servicios'] ?? 0);
@@ -381,7 +389,7 @@ if ($currentUser['rol'] === 'admin_local') {
             ) as neto_negocio_servicios
         FROM citas c
         LEFT JOIN usuarios u ON c.barbero_id = u.id
-        WHERE c.estado = 'completada' $whereCitas
+        WHERE c.estado = 'completada' $whereCitasAliased
         GROUP BY DATE_FORMAT(c.fecha_hora, '%Y-%m')
         ORDER BY mes_key DESC
     ");
@@ -409,7 +417,7 @@ if ($currentUser['rol'] === 'admin_local') {
             ) as neto_negocio_productos
         FROM ventas_productos vp
         LEFT JOIN usuarios u ON vp.usuario_id = u.id
-        WHERE 1=1 $whereProd
+        WHERE 1=1 $whereProdAliased
         GROUP BY DATE_FORMAT(vp.fecha, '%Y-%m')
         ORDER BY mes_key DESC
     ");
@@ -501,66 +509,34 @@ if ($currentUser['rol'] === 'admin_local') {
     $ticketPromedioMes = $citasCompletadasMes > 0 ? ($vCitasMes / $citasCompletadasMes) : 0;
 
     // 3. Valor Stock Global / Sede
-    if ($filterSucursalId > 0) {
-        $invStats = query("SELECT SUM(cantidad * precio) as total_valor, SUM(cantidad) as total_items FROM inventario WHERE sucursal_id = ?", [$filterSucursalId])[0] ?? [];
-    } else {
-        $invStats = query("SELECT SUM(cantidad * precio) as total_valor, SUM(cantidad) as total_items FROM inventario")[0] ?? [];
-    }
+    $invStats = query("SELECT SUM(cantidad * precio) as total_valor, SUM(cantidad) as total_items FROM inventario WHERE 1=1 $whereInvDirect")[0] ?? [];
     $valorInventario = floatval($invStats['total_valor'] ?? 0);
     $totalItems = floatval($invStats['total_items'] ?? 0);
 
     // 4. Ranking Barberos
-    if ($filterSucursalId > 0) {
-        $topBarberos = query("SELECT u.id, u.nombre, s.nombre as sucursal, COUNT(c.id) as citas, SUM(c.precio_final) as total
-                              FROM usuarios u
-                              JOIN citas c ON u.id = c.barbero_id
-                              LEFT JOIN sucursales s ON u.sucursal_id = s.id
-                              WHERE u.sucursal_id = ? AND c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ?
-                              GROUP BY u.id ORDER BY total DESC LIMIT 5", [$filterSucursalId, $mesInicio, $mesFin]);
-    } else {
-        $topBarberos = query("SELECT u.id, u.nombre, s.nombre as sucursal, COUNT(c.id) as citas, SUM(c.precio_final) as total
-                              FROM usuarios u
-                              JOIN citas c ON u.id = c.barbero_id
-                              LEFT JOIN sucursales s ON u.sucursal_id = s.id
-                              WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ?
-                              GROUP BY u.id ORDER BY total DESC LIMIT 5", [$mesInicio, $mesFin]);
-    }
+    $topBarberos = query("SELECT u.id, u.nombre, s.nombre as sucursal, COUNT(c.id) as citas, SUM(c.precio_final) as total
+                          FROM usuarios u
+                          JOIN citas c ON u.id = c.barbero_id
+                          LEFT JOIN sucursales s ON c.sucursal_id = s.id
+                          WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ? $whereCitasAliased
+                          GROUP BY u.id ORDER BY total DESC LIMIT 5", [$mesInicio, $mesFin]);
 
     // 5. Inventario Bajo / Alertas
-    if ($filterSucursalId > 0) {
-        $lowStock = query("SELECT i.producto, i.cantidad, i.stock_minimo, s.nombre as sucursal 
-                           FROM inventario i
-                           JOIN sucursales s ON i.sucursal_id = s.id
-                           WHERE i.sucursal_id = ? AND i.cantidad <= i.stock_minimo 
-                           ORDER BY i.cantidad ASC LIMIT 5", [$filterSucursalId]);
-    } else {
-        $lowStock = query("SELECT i.producto, i.cantidad, i.stock_minimo, s.nombre as sucursal 
-                           FROM inventario i
-                           JOIN sucursales s ON i.sucursal_id = s.id
-                           WHERE i.cantidad <= i.stock_minimo 
-                           ORDER BY i.cantidad ASC LIMIT 5");
-    }
+    $lowStock = query("SELECT i.producto, i.cantidad, i.stock_minimo, s.nombre as sucursal 
+                       FROM inventario i
+                       JOIN sucursales s ON i.sucursal_id = s.id
+                       WHERE i.cantidad <= i.stock_minimo $whereInvAliased
+                       ORDER BY i.cantidad ASC LIMIT 5");
 
     // 6. Agenda de Hoy
-    if ($filterSucursalId > 0) {
-        $agendaGlobal = query("SELECT c.*, u.nombre as barbero, s.nombre as servicio, suc.nombre as sucursal_nombre, cli.nombre as cliente, cli.telefono, cli.id as cliente_id 
-                               FROM citas c
-                               JOIN usuarios u ON c.barbero_id = u.id
-                               JOIN servicios s ON c.servicio_id = s.id
-                               JOIN sucursales suc ON c.sucursal_id = suc.id
-                               JOIN clientes cli ON c.cliente_id = cli.id
-                               WHERE c.sucursal_id = ? AND DATE(c.fecha_hora) = ?
-                               ORDER BY c.fecha_hora ASC", [$filterSucursalId, $hoy]);
-    } else {
-        $agendaGlobal = query("SELECT c.*, u.nombre as barbero, s.nombre as servicio, suc.nombre as sucursal_nombre, cli.nombre as cliente, cli.telefono, cli.id as cliente_id 
-                               FROM citas c
-                               JOIN usuarios u ON c.barbero_id = u.id
-                               JOIN servicios s ON c.servicio_id = s.id
-                               JOIN sucursales suc ON c.sucursal_id = suc.id
-                               JOIN clientes cli ON c.cliente_id = cli.id
-                               WHERE DATE(c.fecha_hora) = ?
-                               ORDER BY c.fecha_hora ASC", [$hoy]);
-    }
+    $agendaGlobal = query("SELECT c.*, u.nombre as barbero, s.nombre as servicio, suc.nombre as sucursal_nombre, cli.nombre as cliente, cli.telefono, cli.id as cliente_id 
+                           FROM citas c
+                           JOIN usuarios u ON c.barbero_id = u.id
+                           JOIN servicios s ON c.servicio_id = s.id
+                           JOIN sucursales suc ON c.sucursal_id = suc.id
+                           JOIN clientes cli ON c.cliente_id = cli.id
+                           WHERE DATE(c.fecha_hora) = ? $whereCitasAliased
+                           ORDER BY c.fecha_hora ASC", [$hoy]);
 
     // 7. Retención
     $totalHoyCitas = count($agendaGlobal);
@@ -577,13 +553,8 @@ if ($currentUser['rol'] === 'admin_local') {
 
     for ($i = 6; $i >= 0; $i--) {
         $d = date('Y-m-d', strtotime("-$i days"));
-        if ($filterSucursalId > 0) {
-            $tCitas = query("SELECT SUM(precio_final) as t FROM citas WHERE sucursal_id = ? AND estado = 'completada' AND DATE(fecha_hora) = ?", [$filterSucursalId, $d])[0]['t'] ?? 0;
-            $tProd = query("SELECT SUM(precio_unitario * cantidad) as t FROM ventas_productos WHERE sucursal_id = ? AND DATE(fecha) = ?", [$filterSucursalId, $d])[0]['t'] ?? 0;
-        } else {
-            $tCitas = query("SELECT SUM(precio_final) as t FROM citas WHERE estado = 'completada' AND DATE(fecha_hora) = ?", [$d])[0]['t'] ?? 0;
-            $tProd = query("SELECT SUM(precio_unitario * cantidad) as t FROM ventas_productos WHERE DATE(fecha) = ?", [$d])[0]['t'] ?? 0;
-        }
+        $tCitas = query("SELECT SUM(precio_final) as t FROM citas WHERE estado = 'completada' AND DATE(fecha_hora) = ? $whereCitasDirect", [$d])[0]['t'] ?? 0;
+        $tProd = query("SELECT SUM(precio_unitario * cantidad) as t FROM ventas_productos WHERE DATE(fecha) = ? $whereProdDirect", [$d])[0]['t'] ?? 0;
         $dayName = date('D', strtotime($d));
         $last7Days[] = ['date' => $diasEsp[$dayName], 'val' => floatval($tCitas + $tProd)];
     }
