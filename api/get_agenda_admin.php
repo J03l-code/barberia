@@ -67,7 +67,7 @@ try {
         $sucursales = query("SELECT id, nombre, direccion FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
     }
 
-    // 2. Obtener Barberos
+    // 2. Obtener Barberos (Solo usuarios con rol 'barbero')
     $paramsBarberos = [];
     $whereBarberExtra = "";
     
@@ -89,7 +89,7 @@ try {
         $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, COALESCE(u.foto_url, '') AS foto_url, u.almuerzo_inicio, u.almuerzo_fin, u.almuerzo_activo, s.nombre AS sucursal_nombre 
                         FROM usuarios u 
                         LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                        WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1" . $whereBarberExtra;
+                        WHERE u.rol = 'barbero' AND u.activo = 1" . $whereBarberExtra;
         $stmtB = $pdo->prepare($sqlBarberos);
         $stmtB->execute($paramsBarberos);
         $barberos = $stmtB->fetchAll(PDO::FETCH_ASSOC);
@@ -97,7 +97,7 @@ try {
         $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, COALESCE(u.foto_url, '') AS foto_url, s.nombre AS sucursal_nombre 
                         FROM usuarios u 
                         LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                        WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1" . $whereBarberExtra;
+                        WHERE u.rol = 'barbero' AND u.activo = 1" . $whereBarberExtra;
         $stmtB = $pdo->prepare($sqlBarberos);
         $stmtB->execute($paramsBarberos);
         $barberos = $stmtB->fetchAll(PDO::FETCH_ASSOC);

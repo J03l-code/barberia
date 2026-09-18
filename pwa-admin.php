@@ -1,8 +1,8 @@
 <?php
 /**
  * KORTZEN - PWA Integral Exclusiva para Administradores
- * 100% aislada de la plataforma web de escritorio.
- * Incluye: Agenda & Disponibilidad en Tiempo Real, Overview Completo con todos los KPIs, Agenda General de Hoy, Calendario de Ocupación Interactivo, Modal de Ganancias Netas Históricas, Citas, Equipo, Inventario, Servicios, Sucursales, Clientes, Reseñas y Galería.
+ * 100% fiel a los módulos, nombres y funciones de la plataforma web.
+ * Módulos: Overview, Usuarios, Sucursales, Inventario, Servicios, Galería Web, Reseñas, Citas, Horarios, Clientes, Configuración.
  */
 
 require_once 'config.php';
@@ -426,9 +426,9 @@ foreach ($bookings as $b) {
 }
 
 // -------------------------------------------------------------
-// LISTADOS PARA MODULOS
+// LISTADOS PARA MODULOS DEL SISTEMA
 // -------------------------------------------------------------
-// 1. Barberos
+// 1. Barberos (SOLO ROL 'barbero' para Horarios y Disponibilidad)
 $barberosList = [];
 try {
     if ($userRol === 'admin_local' && !empty($scopedBranchIds)) {
@@ -436,7 +436,7 @@ try {
         $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
                                 FROM usuarios u 
                                 LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                                WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1
+                                WHERE u.rol = 'barbero' AND u.activo = 1
                                   AND (u.sucursal_id IN ($inList) OR EXISTS (SELECT 1 FROM usuarios_sucursales us WHERE us.usuario_id = u.id AND us.sucursal_id IN ($inList)))
                                 ORDER BY u.nombre ASC");
         $stmt->execute(array_merge($scopedBranchIds, $scopedBranchIds));
@@ -446,7 +446,7 @@ try {
             $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
                                     FROM usuarios u 
                                     LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                                    WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1 AND u.sucursal_id = ?
+                                    WHERE u.rol = 'barbero' AND u.activo = 1 AND u.sucursal_id = ?
                                     ORDER BY u.nombre ASC");
             $stmt->execute([$filterSucursalId]);
             $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -454,7 +454,7 @@ try {
             $stmt = $pdo->query("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
                                  FROM usuarios u 
                                  LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                                 WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1
+                                 WHERE u.rol = 'barbero' AND u.activo = 1
                                  ORDER BY u.nombre ASC");
             $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -463,7 +463,18 @@ try {
     $barberosList = [];
 }
 
-// 2. Servicios
+// 2. Usuarios (Todos: Admin, Admin Local, Barberos)
+$usuariosList = [];
+try {
+    $usuariosList = query("SELECT u.id, u.nombre, u.email, u.rol, u.activo, s.nombre as sucursal_nombre 
+                           FROM usuarios u 
+                           LEFT JOIN sucursales s ON u.sucursal_id = s.id 
+                           ORDER BY u.nombre ASC");
+} catch (Exception $e) {
+    $usuariosList = [];
+}
+
+// 3. Servicios
 $serviciosList = [];
 try {
     $serviciosList = query("SELECT s.*, cs.nombre as categoria_nombre FROM servicios s LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre WHERE s.activo = 1 ORDER BY s.categoria ASC, s.nombre ASC");
@@ -471,7 +482,7 @@ try {
     $serviciosList = [];
 }
 
-// 3. Inventario
+// 4. Inventario
 $inventarioList = [];
 try {
     $sqlInv = "SELECT i.*, s.nombre as sucursal_nombre FROM inventario i LEFT JOIN sucursales s ON i.sucursal_id = s.id WHERE 1=1";
@@ -485,7 +496,7 @@ try {
     $inventarioList = [];
 }
 
-// 4. Clientes
+// 5. Clientes
 $clientesList = [];
 try {
     $clientesList = query("SELECT c.*, (SELECT COUNT(*) FROM citas WHERE cliente_id = c.id) as total_citas FROM clientes c WHERE c.activo = 1 ORDER BY c.nombre ASC LIMIT 100");
@@ -493,7 +504,7 @@ try {
     $clientesList = [];
 }
 
-// 5. Reseñas
+// 6. Reseñas
 $resenasList = [];
 try {
     $resenasList = query("SELECT r.*, c.nombre as cliente_nombre FROM resenas r LEFT JOIN clientes c ON r.cliente_id = c.id ORDER BY r.fecha_creacion DESC LIMIT 50");
@@ -501,7 +512,7 @@ try {
     $resenasList = [];
 }
 
-// 6. Galería
+// 7. Galería
 $galeriaList = [];
 try {
     $galeriaList = query("SELECT * FROM galeria ORDER BY fecha_subida DESC LIMIT 40");
@@ -509,7 +520,15 @@ try {
     $galeriaList = [];
 }
 
-$activeTab = $_GET['tab'] ?? 'agenda';
+// 8. Configuración
+$configuracionesList = [];
+try {
+    $configuracionesList = query("SELECT * FROM configuracion ORDER BY clave ASC");
+} catch (Exception $e) {
+    $configuracionesList = [];
+}
+
+$activeTab = $_GET['tab'] ?? 'overview';
 $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 ?>
 <!DOCTYPE html>
@@ -1310,91 +1329,24 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
             </button>
-            <div class="pwa-avatar-badge" onclick="cambiarVistaPwa('equipo')">
+            <div class="pwa-avatar-badge" onclick="cambiarVistaPwa('usuarios')">
                 <?php echo strtoupper(substr($nombreAdmin, 0, 2)); ?>
             </div>
         </div>
     </header>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 1: AGENDA & DISPONIBILIDAD EN TIEMPO REAL -->
-    <!-- ========================================================================= -->
-    <section id="viewAgenda" class="pwa-view-panel <?php echo $activeTab === 'agenda' ? 'active' : ''; ?>">
-        <!-- Date Strip -->
-        <div class="pwa-date-strip-container" style="margin: -16px -16px 14px -16px;">
-            <div class="pwa-date-strip-header">
-                <div class="pwa-branch-pill">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                    <span>
-                        <?php 
-                        if ($filterSucursalId > 0) {
-                            foreach ($sucursalesList as $s) {
-                                if ($s['id'] == $filterSucursalId) { echo htmlspecialchars($s['nombre']); break; }
-                            }
-                        } else {
-                            echo 'Todas las Sucursales';
-                        }
-                        ?>
-                    </span>
-                </div>
-                <div class="pwa-strip-nav">
-                    <button class="pwa-nav-btn" onclick="cambiarSemanaAgenda(-1)" title="Semana anterior">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                    <button class="pwa-nav-btn" onclick="irAHoyAgenda()" style="width: auto; padding: 0 8px; border-radius: 12px; font-weight: 800; font-size: 0.7rem;">Hoy</button>
-                    <button class="pwa-nav-btn" onclick="cambiarSemanaAgenda(1)" title="Semana siguiente">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="pwa-date-strip" id="pwaDateStripDays"></div>
-        </div>
-
-        <!-- Barber Filter Chips -->
-        <div class="pwa-barber-chips" style="margin: -14px -16px 14px -16px;">
-            <div class="pwa-chip active" data-barbero-id="0" onclick="filtrarBarberoAgenda(0, this)">
-                <span class="pwa-chip-avatar">ALL</span>
-                <span>Todos los Horarios</span>
-            </div>
-            <?php foreach ($barberosList as $b): ?>
-                <div class="pwa-chip" data-barbero-id="<?php echo $b['id']; ?>" onclick="filtrarBarberoAgenda(<?php echo $b['id']; ?>, this)">
-                    <span class="pwa-chip-avatar"><?php echo strtoupper(substr($b['nombre'], 0, 2)); ?></span>
-                    <span><?php echo htmlspecialchars($b['nombre']); ?></span>
-                </div>
-            <?php endforeach; ?>
-        </div>
-
-        <!-- Feed de Citas y Disponibilidad en Vivo -->
-        <div id="pwaAgendaFeed">
-            <div style="text-align: center; padding: 40px; color: var(--text-light);">
-                <i class="fas fa-spinner fa-spin fa-2x"></i>
-                <p style="margin-top: 10px; font-weight: 600;">Cargando disponibilidad...</p>
-            </div>
-        </div>
-
-        <!-- Resumen Flotante Inferior -->
-        <div class="pwa-summary-pill">
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: var(--text-gray);">
-                <i class="fas fa-receipt"></i>
-                <span>Ingresos de esta semana</span>
-            </div>
-            <div style="font-size: 1rem; font-weight: 800; color: var(--text-dark); text-decoration: underline;" id="txtIngresosSemana">$0.00</div>
-        </div>
-    </section>
-
-    <!-- ========================================================================= -->
-    <!-- VIEW 2: OVERVIEW COMPLETO (TODOS LOS KPIS, AGENDA HOY, CALENDARIO, MODAL) -->
+    <!-- VIEW 1: OVERVIEW (DASHBOARD COMPLETO CON TODOS LOS KPIS) -->
     <!-- ========================================================================= -->
     <section id="viewOverview" class="pwa-view-panel <?php echo $activeTab === 'overview' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
             <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Overview Completo</h2>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Overview</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">Métricas del negocio en tiempo real</p>
             </div>
         </div>
 
-        <!-- Cuadros de Métricas al Principio -->
+        <!-- 8 Cuadros de Métricas al Principio -->
         <div class="pwa-kpi-grid">
             <!-- 1. Venta Total Hoy -->
             <div class="pwa-kpi-card">
@@ -1531,9 +1483,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             <?php endif; ?>
         </div>
 
-        <!-- ========================================================================= -->
-        <!-- AGENDA GENERAL DE HOY (CON CONTROL INTERACTIVO Y BOTÓN GUARDAR) -->
-        <!-- ========================================================================= -->
+        <!-- Agenda General de Hoy -->
         <div class="pwa-item-card" style="margin-bottom: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="font-size: 0.95rem; font-weight: 900; color: var(--text-dark); display: flex; align-items: center; gap: 6px;">
@@ -1567,7 +1517,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                             </div>
 
                             <!-- Acciones de contacto y cambio de estado -->
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; pt-2; border-top: 1px dashed #E5E7EB; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px dashed #E5E7EB; padding-top: 8px;">
                                 <div style="display: flex; gap: 6px; align-items: center;">
                                     <?php if (!empty($telLimpio)): ?>
                                         <a href="https://wa.me/<?php echo $telLimpio; ?>?text=<?php echo urlencode('Hola ' . explode(' ', $cg['cliente'])[0] . ', te escribo de Kortzen sobre tu cita.'); ?>" target="_blank" style="background: #25D366; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem;">
@@ -1598,9 +1548,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             <?php endif; ?>
         </div>
 
-        <!-- ========================================================================= -->
-        <!-- CALENDARIO DE OCUPACIÓN INTERACTIVO (CON CARGA DE CITAS AL HACER CLIC) -->
-        <!-- ========================================================================= -->
+        <!-- Calendario de Ocupación Interactivo -->
         <div class="pwa-item-card" style="margin-bottom: 24px;">
             <div style="font-size: 0.95rem; font-weight: 900; color: var(--text-dark); margin-bottom: 4px;">
                 Calendario de Ocupación - <?php echo $mesActual . ' ' . $calYear; ?>
@@ -1619,12 +1567,10 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <div class="pwa-cal-head">Dom</div>
 
                 <?php
-                // Espacios vacíos antes del primer día
                 for ($i = 1; $i < $firstDayOfMonth; $i++) {
                     echo "<div></div>";
                 }
 
-                // Días del mes
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $count = $bookingsMap[$day] ?? 0;
                     $isToday = ($day == date('d'));
@@ -1644,7 +1590,6 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 ?>
             </div>
 
-            <!-- Contenedor dinámico de citas del día seleccionado en el calendario -->
             <div id="pwaCalDayDetails" style="display: none; margin-top: 14px; background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <div style="font-weight: 800; font-size: 0.88rem;" id="pwaCalDayTitle">Citas del Día</div>
@@ -1657,12 +1602,79 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 3: CITAS COMPLETAS -->
+    <!-- VIEW 2: HORARIOS (AGENDA & DISPONIBILIDAD EN TIEMPO REAL) -->
+    <!-- ========================================================================= -->
+    <section id="viewHorarios" class="pwa-view-panel <?php echo $activeTab === 'horarios' ? 'active' : ''; ?>">
+        <!-- Date Strip -->
+        <div class="pwa-date-strip-container" style="margin: -16px -16px 14px -16px;">
+            <div class="pwa-date-strip-header">
+                <div class="pwa-branch-pill">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    <span>
+                        <?php 
+                        if ($filterSucursalId > 0) {
+                            foreach ($sucursalesList as $s) {
+                                if ($s['id'] == $filterSucursalId) { echo htmlspecialchars($s['nombre']); break; }
+                            }
+                        } else {
+                            echo 'Todas las Sucursales';
+                        }
+                        ?>
+                    </span>
+                </div>
+                <div class="pwa-strip-nav">
+                    <button class="pwa-nav-btn" onclick="cambiarSemanaAgenda(-1)" title="Semana anterior">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button class="pwa-nav-btn" onclick="irAHoyAgenda()" style="width: auto; padding: 0 8px; border-radius: 12px; font-weight: 800; font-size: 0.7rem;">Hoy</button>
+                    <button class="pwa-nav-btn" onclick="cambiarSemanaAgenda(1)" title="Semana siguiente">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="pwa-date-strip" id="pwaDateStripDays"></div>
+        </div>
+
+        <!-- Barber Filter Chips (SOLO BARBEROS) -->
+        <div class="pwa-barber-chips" style="margin: -14px -16px 14px -16px;">
+            <div class="pwa-chip active" data-barbero-id="0" onclick="filtrarBarberoAgenda(0, this)">
+                <span class="pwa-chip-avatar">ALL</span>
+                <span>Todos los Horarios</span>
+            </div>
+            <?php foreach ($barberosList as $b): ?>
+                <div class="pwa-chip" data-barbero-id="<?php echo $b['id']; ?>" onclick="filtrarBarberoAgenda(<?php echo $b['id']; ?>, this)">
+                    <span class="pwa-chip-avatar"><?php echo strtoupper(substr($b['nombre'], 0, 2)); ?></span>
+                    <span><?php echo htmlspecialchars($b['nombre']); ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Feed de Citas y Disponibilidad del Día -->
+        <div id="pwaAgendaFeed">
+            <div style="text-align: center; padding: 40px; color: var(--text-light);">
+                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                <p style="margin-top: 10px; font-weight: 600;">Cargando disponibilidad...</p>
+            </div>
+        </div>
+
+        <!-- Resumen Flotante Inferior -->
+        <div class="pwa-summary-pill">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: var(--text-gray);">
+                <i class="fas fa-receipt"></i>
+                <span>Ingresos de esta semana</span>
+            </div>
+            <div style="font-size: 1rem; font-weight: 800; color: var(--text-dark); text-decoration: underline;" id="txtIngresosSemana">$0.00</div>
+        </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 3: CITAS -->
     <!-- ========================================================================= -->
     <section id="viewCitas" class="pwa-view-panel <?php echo $activeTab === 'citas' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Citas & Reservas</h2>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Citas</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Control de agenda y estados</p>
             </div>
             <button onclick="abrirModalNuevaCitaPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">
@@ -1676,42 +1688,31 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 4: EQUIPO & DISPONIBILIDAD EN TIEMPO REAL -->
+    <!-- VIEW 4: USUARIOS -->
     <!-- ========================================================================= -->
-    <section id="viewEquipo" class="pwa-view-panel <?php echo $activeTab === 'equipo' ? 'active' : ''; ?>">
-        <div style="margin-bottom: 16px;">
-            <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Equipo & Disponibilidad</h2>
-            <p style="font-size: 0.8rem; color: var(--text-gray);">Turnos libres en vivo de todos los barberos</p>
+    <section id="viewUsuarios" class="pwa-view-panel <?php echo $activeTab === 'usuarios' ? 'active' : ''; ?>">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Usuarios</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Administradores y barberos</p>
+            </div>
+            <a href="usuarios_crear.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ USUARIO</a>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-            <?php foreach ($barberosList as $b): ?>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($usuariosList as $u): ?>
                 <div class="pwa-item-card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 44px; height: 44px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;">
-                                <?php echo strtoupper(substr($b['nombre'], 0, 2)); ?>
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
+                                <?php echo strtoupper(substr($u['nombre'], 0, 2)); ?>
                             </div>
                             <div>
-                                <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($b['nombre']); ?></div>
-                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($b['sucursal_nombre'] ?? 'Kortzen'); ?></div>
+                                <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($u['nombre']); ?></div>
+                                <div style="font-size: 0.75rem; color: var(--text-gray);"><?php echo htmlspecialchars($u['email']); ?> • <strong style="text-transform: uppercase;"><?php echo htmlspecialchars($u['rol']); ?></strong></div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Horarios Disponibles del Barbero Hoy -->
-                    <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-size: 0.75rem; font-weight: 800; color: var(--green-pwa); text-transform: uppercase;">
-                                <i class="fas fa-clock"></i> Turnos Libres Hoy
-                            </span>
-                            <button type="button" onclick="copiarDisponibilidadBarbero(<?php echo $b['id']; ?>, '<?php echo addslashes($b['nombre']); ?>')" style="background: #25D366; color: #fff; border: none; padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; cursor: pointer;">
-                                <i class="fab fa-whatsapp"></i> Copiar Horarios
-                            </button>
-                        </div>
-                        <div id="barber-slots-<?php echo $b['id']; ?>" style="display: flex; flex-wrap: wrap; gap: 4px;">
-                            <span style="font-size: 0.75rem; color: var(--text-light);">Consultando disponibilidad...</span>
-                        </div>
+                        <a href="usuarios_editar.php?id=<?php echo $u['id']; ?>" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Editar</a>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -1719,105 +1720,9 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 5: INVENTARIO CENTRAL -->
+    <!-- VIEW 5: CLIENTES -->
     <!-- ========================================================================= -->
-    <section id="viewInventario" class="pwa-view-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Inventario Central</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Stock de productos y suministros</p>
-            </div>
-            <a href="inventario.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ PRODUCTO</a>
-        </div>
-
-        <?php if (empty($inventarioList)): ?>
-            <div class="pwa-item-card" style="text-align: center; color: var(--text-gray); padding: 30px;">
-                No hay productos registrados en el inventario.
-            </div>
-        <?php else: ?>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <?php foreach ($inventarioList as $inv): ?>
-                    <div class="pwa-item-card">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($inv['producto']); ?></div>
-                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($inv['sucursal_nombre'] ?? 'Stock General'); ?></div>
-                            </div>
-                            <span style="font-weight: 900; font-size: 1.1rem; color: <?php echo floatval($inv['cantidad']) > 0 ? 'var(--green-pwa)' : 'var(--red-pwa)'; ?>;">
-                                <?php echo number_format($inv['cantidad'], 0); ?> <span style="font-size: 0.75rem; font-weight: 600; color: #666;"><?php echo htmlspecialchars($inv['unidad'] ?? 'unid'); ?></span>
-                            </span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8rem; color: #666; font-weight: 700;">
-                            <div>Precio Ref: $<?php echo number_format($inv['precio'], 2); ?></div>
-                            <div>Mínimo: <?php echo $inv['stock_minimo']; ?> unid</div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </section>
-
-    <!-- ========================================================================= -->
-    <!-- VIEW 6: SERVICIOS & PRECIOS -->
-    <!-- ========================================================================= -->
-    <section id="viewServicios" class="pwa-view-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Servicios & Precios</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes y tratamientos</p>
-            </div>
-            <a href="servicios.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SERVICIO</a>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($serviciosList as $srv): ?>
-                <div class="pwa-item-card">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
-                            <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($srv['nombre']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($srv['categoria'] ?? 'General'); ?> • <?php echo $srv['duracion_minutos']; ?> min</div>
-                        </div>
-                        <div style="font-weight: 900; font-size: 1.15rem; color: var(--gold-pwa);">
-                            $<?php echo number_format($srv['precio'], 2); ?>
-                        </div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </section>
-
-    <!-- ========================================================================= -->
-    <!-- VIEW 7: SUCURSALES & SEDES -->
-    <!-- ========================================================================= -->
-    <section id="viewSucursales" class="pwa-view-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Sucursales & Sedes</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Sedes habilitadas de la barbería</p>
-            </div>
-            <a href="sucursales.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SEDE</a>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($sucursalesList as $suc): ?>
-                <div class="pwa-item-card">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                        <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($suc['nombre']); ?></div>
-                        <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: <?php echo $suc['activo'] ? '#DCFCE7; color: #15803D;' : '#F3F4F6; color: #666;'; ?>">
-                            <?php echo $suc['activo'] ? 'Activa' : 'Inactiva'; ?>
-                        </span>
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px;">📍 <?php echo htmlspecialchars($suc['direccion'] ?? 'Sin dirección'); ?></div>
-                    <div style="font-size: 0.8rem; color: var(--text-gray);">📞 <?php echo htmlspecialchars($suc['telefono'] ?? 'Sin teléfono'); ?></div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </section>
-
-    <!-- ========================================================================= -->
-    <!-- VIEW 8: DIRECTORIO DE CLIENTES -->
-    <!-- ========================================================================= -->
-    <section id="viewClientes" class="pwa-view-panel">
+    <section id="viewClientes" class="pwa-view-panel <?php echo $activeTab === 'clientes' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Clientes</h2>
@@ -1847,40 +1752,97 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 9: RESEÑAS & FEEDBACK -->
+    <!-- VIEW 6: SUCURSALES -->
     <!-- ========================================================================= -->
-    <section id="viewResenas" class="pwa-view-panel">
+    <section id="viewSucursales" class="pwa-view-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Reseñas & Feedback</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Opiniones de clientes</p>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Sucursales</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Sedes de la barbería</p>
             </div>
-            <a href="resenas.php" class="pwa-btn-secondary">Moderar</a>
+            <a href="sucursales.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SEDE</a>
         </div>
 
-        <?php if (empty($resenasList)): ?>
-            <div class="pwa-item-card" style="text-align: center; color: var(--text-gray); padding: 30px;">
-                No hay reseñas registradas aún.
-            </div>
-        <?php else: ?>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <?php foreach ($resenasList as $res): ?>
-                    <div class="pwa-item-card">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                            <div style="font-weight: 800; font-size: 0.9rem;"><?php echo htmlspecialchars($res['cliente_nombre'] ?? 'Cliente'); ?></div>
-                            <div style="color: var(--gold-pwa); font-size: 0.85rem;">
-                                <?php echo str_repeat('★', intval($res['calificacion'] ?? 5)); ?>
-                            </div>
-                        </div>
-                        <div style="font-size: 0.82rem; color: #444; line-height: 1.4;"><?php echo htmlspecialchars($res['comentario'] ?? ''); ?></div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($sucursalesList as $suc): ?>
+                <div class="pwa-item-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                        <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($suc['nombre']); ?></div>
+                        <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: <?php echo $suc['activo'] ? '#DCFCE7; color: #15803D;' : '#F3F4F6; color: #666;'; ?>">
+                            <?php echo $suc['activo'] ? 'Activa' : 'Inactiva'; ?>
+                        </span>
                     </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
+                    <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px;">📍 <?php echo htmlspecialchars($suc['direccion'] ?? 'Sin dirección'); ?></div>
+                    <div style="font-size: 0.8rem; color: var(--text-gray);">📞 <?php echo htmlspecialchars($suc['telefono'] ?? 'Sin teléfono'); ?></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 10: GALERÍA WEB -->
+    <!-- VIEW 7: INVENTARIO -->
+    <!-- ========================================================================= -->
+    <section id="viewInventario" class="pwa-view-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Inventario</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Stock de productos y suministros</p>
+            </div>
+            <a href="inventario.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ PRODUCTO</a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($inventarioList as $inv): ?>
+                <div class="pwa-item-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($inv['producto']); ?></div>
+                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($inv['sucursal_nombre'] ?? 'Stock General'); ?></div>
+                        </div>
+                        <span style="font-weight: 900; font-size: 1.1rem; color: <?php echo floatval($inv['cantidad']) > 0 ? 'var(--green-pwa)' : 'var(--red-pwa)'; ?>;">
+                            <?php echo number_format($inv['cantidad'], 0); ?> <span style="font-size: 0.75rem; font-weight: 600; color: #666;"><?php echo htmlspecialchars($inv['unidad'] ?? 'unid'); ?></span>
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8rem; color: #666; font-weight: 700;">
+                        <div>Precio Ref: $<?php echo number_format($inv['precio'], 2); ?></div>
+                        <div>Mínimo: <?php echo $inv['stock_minimo']; ?> unid</div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 8: SERVICIOS -->
+    <!-- ========================================================================= -->
+    <section id="viewServicios" class="pwa-view-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Servicios</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes y precios</p>
+            </div>
+            <a href="servicios.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SERVICIO</a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($serviciosList as $srv): ?>
+                <div class="pwa-item-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($srv['nombre']); ?></div>
+                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($srv['categoria'] ?? 'General'); ?> • <?php echo $srv['duracion_minutos']; ?> min</div>
+                        </div>
+                        <div style="font-weight: 900; font-size: 1.15rem; color: var(--gold-pwa);">
+                            $<?php echo number_format($srv['precio'], 2); ?>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 9: GALERÍA WEB -->
     <!-- ========================================================================= -->
     <section id="viewGaleria" class="pwa-view-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -1900,6 +1862,56 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         </div>
     </section>
 
+    <!-- ========================================================================= -->
+    <!-- VIEW 10: RESEÑAS -->
+    <!-- ========================================================================= -->
+    <section id="viewResenas" class="pwa-view-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Reseñas</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Opiniones y calificaciones</p>
+            </div>
+            <a href="resenas.php" class="pwa-btn-secondary">Moderar</a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($resenasList as $res): ?>
+                <div class="pwa-item-card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <div style="font-weight: 800; font-size: 0.9rem;"><?php echo htmlspecialchars($res['cliente_nombre'] ?? 'Cliente'); ?></div>
+                        <div style="color: var(--gold-pwa); font-size: 0.85rem;">
+                            <?php echo str_repeat('★', intval($res['calificacion'] ?? 5)); ?>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #444; line-height: 1.4;"><?php echo htmlspecialchars($res['comentario'] ?? ''); ?></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 11: CONFIGURACIÓN -->
+    <!-- ========================================================================= -->
+    <section id="viewConfiguracion" class="pwa-view-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Configuración</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Puntos y descuentos de referidos</p>
+            </div>
+            <a href="configuracion.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">Ver Web</a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($configuracionesList as $cfg): ?>
+                <div class="pwa-item-card">
+                    <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);"><?php echo htmlspecialchars($cfg['clave']); ?></div>
+                    <div style="font-size: 1.1rem; font-weight: 900; color: var(--gold-pwa); margin: 4px 0;"><?php echo htmlspecialchars($cfg['valor']); ?></div>
+                    <div style="font-size: 0.75rem; color: var(--text-gray);"><?php echo htmlspecialchars($cfg['descripcion'] ?? ''); ?></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
     <!-- Floating Action Button (+) -->
     <button class="pwa-fab" onclick="abrirModalNuevaCitaPwa()" aria-label="Crear Cita">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1908,14 +1920,8 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         </svg>
     </button>
 
-    <!-- Bottom Tab Bar -->
+    <!-- Bottom Tab Bar (Con los nombres de la web) -->
     <nav class="pwa-bottom-bar">
-        <button class="pwa-tab-btn <?php echo $activeTab === 'agenda' ? 'active' : ''; ?>" onclick="cambiarVistaPwa('agenda')">
-            <div class="pwa-tab-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            </div>
-            <span>Agenda</span>
-        </button>
         <button class="pwa-tab-btn <?php echo $activeTab === 'overview' ? 'active' : ''; ?>" onclick="cambiarVistaPwa('overview')">
             <div class="pwa-tab-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
@@ -1924,15 +1930,21 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         </button>
         <button class="pwa-tab-btn <?php echo $activeTab === 'citas' ? 'active' : ''; ?>" onclick="cambiarVistaPwa('citas')">
             <div class="pwa-tab-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
             </div>
             <span>Citas</span>
         </button>
-        <button class="pwa-tab-btn <?php echo $activeTab === 'equipo' ? 'active' : ''; ?>" onclick="cambiarVistaPwa('equipo')">
+        <button class="pwa-tab-btn <?php echo $activeTab === 'horarios' ? 'active' : ''; ?>" onclick="cambiarVistaPwa('horarios')">
+            <div class="pwa-tab-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <span>Horarios</span>
+        </button>
+        <button class="pwa-tab-btn <?php echo $activeTab === 'usuarios' ? 'active' : ''; ?>" onclick="cambiarVistaPwa('usuarios')">
             <div class="pwa-tab-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
-            <span>Equipo</span>
+            <span>Usuarios</span>
         </button>
         <button class="pwa-tab-btn" onclick="abrirDrawer()">
             <div class="pwa-tab-icon">
@@ -1943,17 +1955,17 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </nav>
 </div>
 
-<!-- Drawer / Sidebar Modal -->
+<!-- Drawer / Sidebar Modal (Con todos los nombres exactamente como en la web) -->
 <div class="pwa-drawer-mask" id="pwaDrawerMask" onclick="cerrarDrawer()"></div>
 <aside class="pwa-drawer-content" id="pwaDrawerContent">
     <div class="pwa-drawer-promo">
         <h3>KORTZEN PRO Admin</h3>
-        <p>Disponibilidad y gestión integral en tiempo real.</p>
+        <p>Control y disponibilidad en tiempo real.</p>
         <span style="background: #111; color: #fff; padding: 6px 14px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">Modo Administrador</span>
     </div>
 
     <div style="padding: 0 16px 10px 16px;">
-        <div style="font-size: 0.72rem; font-weight: 800; color: var(--text-light); text-transform: uppercase; margin-bottom: 8px;">Sucursales</div>
+        <div style="font-size: 0.72rem; font-weight: 800; color: var(--text-light); text-transform: uppercase; margin-bottom: 8px;">Sucursal Activa</div>
         <select onchange="cambiarSucursalPwa(this.value)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.88rem;">
             <option value="0" <?php echo ($filterSucursalId == 0) ? 'selected' : ''; ?>>Todas las Sucursales</option>
             <?php foreach ($sucursalesList as $s): ?>
@@ -1963,51 +1975,51 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </div>
 
     <div style="padding: 10px 16px 6px 16px; font-size: 0.72rem; font-weight: 800; color: var(--text-light); text-transform: uppercase;">
-        Vistas Principales
-    </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('agenda'); cerrarDrawer();">
-        <i class="fas fa-calendar-alt" style="width: 20px;"></i>
-        <span>Agenda & Disponibilidad</span>
+        Menú de la Plataforma
     </div>
     <div class="pwa-drawer-item" onclick="cambiarVistaPwa('overview'); cerrarDrawer();">
         <i class="fas fa-chart-pie" style="width: 20px;"></i>
-        <span>Overview & Rendimiento</span>
+        <span>Overview</span>
     </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('citas'); cerrarDrawer();">
-        <i class="fas fa-cut" style="width: 20px;"></i>
-        <span>Citas Agendadas</span>
-    </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('equipo'); cerrarDrawer();">
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('usuarios'); cerrarDrawer();">
         <i class="fas fa-users" style="width: 20px;"></i>
-        <span>Equipo de Barberos</span>
-    </div>
-
-    <div style="padding: 14px 16px 6px 16px; font-size: 0.72rem; font-weight: 800; color: var(--text-light); text-transform: uppercase;">
-        Módulos del Sistema
-    </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('inventario'); cerrarDrawer();">
-        <i class="fas fa-boxes" style="width: 20px;"></i>
-        <span>Inventario Central</span>
-    </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('servicios'); cerrarDrawer();">
-        <i class="fas fa-tag" style="width: 20px;"></i>
-        <span>Servicios & Precios</span>
+        <span>Usuarios</span>
     </div>
     <div class="pwa-drawer-item" onclick="cambiarVistaPwa('sucursales'); cerrarDrawer();">
         <i class="fas fa-store" style="width: 20px;"></i>
-        <span>Sucursales & Sedes</span>
+        <span>Sucursales</span>
     </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('clientes'); cerrarDrawer();">
-        <i class="fas fa-user-friends" style="width: 20px;"></i>
-        <span>Directorio de Clientes</span>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('inventario'); cerrarDrawer();">
+        <i class="fas fa-boxes" style="width: 20px;"></i>
+        <span>Inventario</span>
     </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('resenas'); cerrarDrawer();">
-        <i class="fas fa-star" style="width: 20px;"></i>
-        <span>Reseñas & Feedback</span>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('servicios'); cerrarDrawer();">
+        <i class="fas fa-tag" style="width: 20px;"></i>
+        <span>Servicios</span>
     </div>
     <div class="pwa-drawer-item" onclick="cambiarVistaPwa('galeria'); cerrarDrawer();">
         <i class="fas fa-images" style="width: 20px;"></i>
         <span>Galería Web</span>
+    </div>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('resenas'); cerrarDrawer();">
+        <i class="fas fa-star" style="width: 20px;"></i>
+        <span>Reseñas</span>
+    </div>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('citas'); cerrarDrawer();">
+        <i class="fas fa-calendar-check" style="width: 20px;"></i>
+        <span>Citas</span>
+    </div>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('horarios'); cerrarDrawer();">
+        <i class="fas fa-clock" style="width: 20px;"></i>
+        <span>Horarios</span>
+    </div>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('clientes'); cerrarDrawer();">
+        <i class="fas fa-user-friends" style="width: 20px;"></i>
+        <span>Clientes</span>
+    </div>
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('configuracion'); cerrarDrawer();">
+        <i class="fas fa-cog" style="width: 20px;"></i>
+        <span>Configuración</span>
     </div>
     <a href="logout.php" class="pwa-drawer-item" style="color: #EF4444; margin-top: 10px; border-top: 1px solid var(--border-pwa); padding-top: 14px;">
         <i class="fas fa-sign-out-alt" style="width: 20px;"></i>
@@ -2110,7 +2122,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
             <div>
                 <div style="font-size: 1.15rem; font-weight: 900; color: #047857;">Ganancias Netas Negocio</div>
-                <div style="font-size: 0.78rem; color: var(--text-gray);">Desglose mensual de comisiones y margen real</div>
+                <div style="font-size: 0.78rem; color: var(--text-gray);">Desglose mensual de facturación y margen neto</div>
             </div>
             <button onclick="cerrarModalNetasPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
         </div>
@@ -2161,7 +2173,7 @@ let selectedAgendaBarber = 0;
 let agendaJsonData = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    cargarDatosAgendaPwa();
+    cargarDatosHorariosPwa();
 });
 
 function cambiarVistaPwa(vistaName) {
@@ -2171,22 +2183,22 @@ function cambiarVistaPwa(vistaName) {
     const viewEl = document.getElementById('view' + vistaName.charAt(0).toUpperCase() + vistaName.slice(1));
     if (viewEl) viewEl.classList.add('active');
 
-    const btn = Array.from(document.querySelectorAll('.pwa-tab-btn')).find(b => b.innerText.toLowerCase().includes(vistaName.toLowerCase()));
+    const btn = Array.from(document.querySelectorAll('.pwa-tab-btn')).find(b => b.innerText.toLowerCase().trim() === vistaName.toLowerCase().trim());
     if (btn) btn.classList.add('active');
 
-    if (vistaName === 'agenda') {
-        cargarDatosAgendaPwa();
+    if (vistaName === 'horarios') {
+        cargarDatosHorariosPwa();
     } else if (vistaName === 'citas') {
         renderizarCitasTab();
     }
 }
 
-function cargarDatosAgendaPwa() {
+function cargarDatosHorariosPwa() {
     const feed = document.getElementById('pwaAgendaFeed');
     feed.innerHTML = `
         <div style="text-align: center; padding: 40px; color: var(--text-light);">
             <i class="fas fa-spinner fa-spin fa-2x"></i>
-            <p style="margin-top: 10px; font-weight: 600;">Cargando disponibilidad...</p>
+            <p style="margin-top: 10px; font-weight: 600;">Cargando horarios libres...</p>
         </div>
     `;
 
@@ -2197,8 +2209,7 @@ function cargarDatosAgendaPwa() {
                 agendaJsonData = data;
                 actualizarMesHeader(data.rango.mes_nombre);
                 renderizarDateStripPwa(data);
-                renderizarFeedAgendaPwa(data);
-                actualizarDisponibilidadEquipo(data);
+                renderizarFeedHorariosPwa(data);
                 if (data.metricas) {
                     document.getElementById('txtIngresosSemana').innerText = '$' + data.metricas.ingresos_semana;
                 }
@@ -2207,7 +2218,7 @@ function cargarDatosAgendaPwa() {
             }
         })
         .catch(err => {
-            feed.innerHTML = `<div style="text-align: center; padding: 40px; color: red;">Error al consultar agenda.</div>`;
+            feed.innerHTML = `<div style="text-align: center; padding: 40px; color: red;">Error al consultar horarios.</div>`;
         });
 }
 
@@ -2239,8 +2250,7 @@ function renderizarDateStripPwa(data) {
             selectedAgendaDate = f;
             document.querySelectorAll('.pwa-day-col').forEach(c => c.classList.remove('is-selected'));
             col.classList.add('is-selected');
-            const target = document.getElementById('pwa-day-' + f);
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            renderizarFeedHorariosPwa(agendaJsonData);
         };
 
         col.innerHTML = `
@@ -2256,139 +2266,120 @@ function renderizarDateStripPwa(data) {
     }
 }
 
-function renderizarFeedAgendaPwa(data) {
+function renderizarFeedHorariosPwa(data) {
     const feed = document.getElementById('pwaAgendaFeed');
     feed.innerHTML = '';
+
+    if (!data) return;
 
     const diasNombres = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
     const mesesNombres = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     const today = new Date().toISOString().split('T')[0];
 
-    let curr = new Date(startWeekStr + 'T00:00:00');
+    const targetDate = selectedAgendaDate || today;
+    const curr = new Date(targetDate + 'T00:00:00');
+    const dayIdx = curr.getDay();
+    const num = curr.getDate();
+    const mIdx = curr.getMonth();
 
-    for (let i = 0; i < 7; i++) {
-        const f = curr.toISOString().split('T')[0];
-        const dayIdx = curr.getDay();
-        const num = curr.getDate();
-        const mIdx = curr.getMonth();
+    const title = `${diasNombres[dayIdx]}, ${num} ${mesesNombres[mIdx]}`;
+    const dayCitas = (data.citas_por_fecha && data.citas_por_fecha[targetDate]) ? data.citas_por_fecha[targetDate] : [];
+    const dayDisp = (data.disponibilidad && data.disponibilidad[targetDate]) ? data.disponibilidad[targetDate] : null;
 
-        const title = `${diasNombres[dayIdx]}, ${num} ${mesesNombres[mIdx]}`;
-        const dayCitas = (data.citas_por_fecha && data.citas_por_fecha[f]) ? data.citas_por_fecha[f] : [];
-        const dayDisp = (data.disponibilidad && data.disponibilidad[f]) ? data.disponibilidad[f] : null;
+    let totalLibres = 0;
+    if (dayDisp && dayDisp.barberos) {
+        dayDisp.barberos.forEach(b => { totalLibres += (b.total_slots_libres || 0); });
+    }
 
-        let totalLibres = 0;
-        if (dayDisp && dayDisp.barberos) {
-            dayDisp.barberos.forEach(b => { totalLibres += (b.total_slots_libres || 0); });
-        }
+    const group = document.createElement('div');
+    group.className = 'pwa-day-group';
+    group.id = 'pwa-day-' + targetDate;
 
-        const group = document.createElement('div');
-        group.className = 'pwa-day-group';
-        group.id = 'pwa-day-' + f;
-
-        let citasHtml = '';
-        if (dayCitas.length > 0) {
-            dayCitas.forEach(c => {
-                const hIn = formatHoraPwa(c.fecha_hora);
-                const statusClass = 'status-' + (c.estado || 'pendiente');
-
-                citasHtml += `
-                    <div class="pwa-cita-card ${statusClass}" onclick="abrirModalDetalleCitaPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                        <div class="pwa-cita-header">
-                            <div class="pwa-cita-client">${escapeHtml(c.cliente_nombre)}</div>
-                            <div class="pwa-cita-service">${escapeHtml(c.servicio_nombre)}</div>
+    // Sección 1: Horarios Libres del Día por Barbero
+    let availBoxHtml = '';
+    if (dayDisp && dayDisp.barberos && dayDisp.barberos.length > 0) {
+        let slotsContent = '';
+        dayDisp.barberos.forEach(b => {
+            if (b.labora && b.slots_libres && b.slots_libres.length > 0) {
+                let pills = b.slots_libres.map(s => `<button type="button" class="pwa-slot-pill" onclick="agendarSlotPwa('${targetDate}', '${s.hora_inicio}', ${b.barbero_id})">${s.label}</button>`).join('');
+                slotsContent += `
+                    <div style="margin-bottom: 12px; background: #FFF; border: 1px solid #E5E7EB; border-radius: 10px; padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-size: 0.88rem; font-weight: 800; color: var(--text-dark);">${escapeHtml(b.barbero_nombre)}:</div>
+                            <span style="background: #DCFCE7; color: #047857; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">${b.slots_libres.length} turnos libres</span>
                         </div>
-                        <div class="pwa-cita-meta">
-                            <div>${hIn}</div>
-                            <div class="pwa-barber-tag">${escapeHtml(c.barbero_nombre)}</div>
-                        </div>
+                        <div>${pills}</div>
                     </div>
                 `;
-            });
-        } else {
-            citasHtml = `<div class="pwa-day-empty">Nada planeado</div>`;
-        }
-
-        let liveLineHtml = (f === today) ? `<div class="pwa-live-time"><div class="pwa-live-dot"></div><div class="pwa-live-line"></div></div>` : '';
-
-        let availBoxHtml = '';
-        if (dayDisp && dayDisp.barberos && dayDisp.barberos.length > 0) {
-            let slotsContent = '';
-            dayDisp.barberos.forEach(b => {
-                if (b.labora && b.slots_libres && b.slots_libres.length > 0) {
-                    let pills = b.slots_libres.map(s => `<button type="button" class="pwa-slot-pill" onclick="agendarSlotPwa('${f}', '${s.hora_inicio}', ${b.barbero_id})">${s.label}</button>`).join('');
-                    slotsContent += `
-                        <div style="margin-bottom: 8px;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-dark); margin-bottom: 4px;">${escapeHtml(b.barbero_nombre)} (${b.slots_libres.length} libres):</div>
-                            <div>${pills}</div>
-                        </div>
-                    `;
-                }
-            });
-
-            availBoxHtml = `
-                <div class="pwa-avail-box" id="pwa-avail-${f}">
-                    <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--green-pwa); margin-bottom: 6px;">
-                        <i class="fas fa-clock"></i> Horarios Disponibles en Tiempo Real
+            } else if (!b.labora) {
+                slotsContent += `
+                    <div style="margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 10px; font-size: 0.8rem; color: #666;">
+                        <strong>${escapeHtml(b.barbero_nombre)}:</strong> <span style="color: #DC2626;">Día de descanso</span>
                     </div>
-                    ${slotsContent}
-                </div>
-            `;
-        }
-
-        group.innerHTML = `
-            <div class="pwa-day-title">
-                <div>${title}</div>
-                <button type="button" class="pwa-avail-badge" onclick="document.getElementById('pwa-avail-${f}').classList.toggle('open')">
-                    <i class="fas fa-clock"></i> ${totalLibres} libres
-                </button>
-            </div>
-            ${liveLineHtml}
-            ${citasHtml}
-            ${availBoxHtml}
-        `;
-
-        feed.appendChild(group);
-        curr.setDate(curr.getDate() + 1);
-    }
-}
-
-function actualizarDisponibilidadEquipo(data) {
-    const today = new Date().toISOString().split('T')[0];
-    if (data.disponibilidad && data.disponibilidad[today]) {
-        const barberosHoy = data.disponibilidad[today].barberos || [];
-        barberosHoy.forEach(b => {
-            const container = document.getElementById('barber-slots-' + b.barbero_id);
-            if (container) {
-                if (b.labora && b.slots_libres && b.slots_libres.length > 0) {
-                    let html = b.slots_libres.slice(0, 8).map(s => `
-                        <span class="pwa-slot-pill" onclick="agendarSlotPwa('${today}', '${s.hora_inicio}', ${b.barbero_id})">${s.label}</span>
-                    `).join('');
-                    if (b.slots_libres.length > 8) {
-                        html += `<span style="font-size: 0.72rem; font-weight: 700; color: var(--text-gray); padding: 4px;">+${b.slots_libres.length - 8} más</span>`;
-                    }
-                    container.innerHTML = html;
-                } else if (!b.labora) {
-                    container.innerHTML = `<span style="font-size: 0.75rem; color: var(--red-pwa); font-weight: 700;">Descanso / No labora hoy</span>`;
-                } else {
-                    container.innerHTML = `<span style="font-size: 0.75rem; color: var(--text-gray);">Sin turnos disponibles hoy</span>`;
-                }
+                `;
+            } else {
+                slotsContent += `
+                    <div style="margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 10px; font-size: 0.8rem; color: #666;">
+                        <strong>${escapeHtml(b.barbero_nombre)}:</strong> <span>Sin turnos libres para esta fecha</span>
+                    </div>
+                `;
             }
         });
-    }
-}
 
-function copiarDisponibilidadBarbero(bId, bNombre) {
-    const today = new Date().toISOString().split('T')[0];
-    if (agendaJsonData && agendaJsonData.disponibilidad && agendaJsonData.disponibilidad[today]) {
-        const bData = (agendaJsonData.disponibilidad[today].barberos || []).find(b => b.barbero_id === bId);
-        if (bData && bData.slots_libres && bData.slots_libres.length > 0) {
-            const lista = bData.slots_libres.map(s => `• ${s.label}`).join('\n');
-            const txt = `👋 ¡Hola! Estos son los turnos libres de hoy para *${bNombre}*:\n\n${lista}\n\n¿Cuál horario te gustaría agendar?`;
-            navigator.clipboard.writeText(txt).then(() => alert('¡Horarios copiados para WhatsApp!')).catch(() => prompt('Copia estos horarios:', txt));
-            return;
-        }
+        availBoxHtml = `
+            <div style="margin-top: 14px;">
+                <div style="font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--green-pwa); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-clock"></i> Horarios Libres de Este Día
+                </div>
+                ${slotsContent}
+            </div>
+        `;
     }
-    alert('No hay horarios disponibles para copiar hoy.');
+
+    // Sección 2: Citas Agendadas para este Día
+    let citasHtml = '';
+    if (dayCitas.length > 0) {
+        dayCitas.forEach(c => {
+            const hIn = formatHoraPwa(c.fecha_hora);
+            const statusClass = 'status-' + (c.estado || 'pendiente');
+
+            citasHtml += `
+                <div class="pwa-cita-card ${statusClass}" onclick="abrirModalDetalleCitaPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+                    <div class="pwa-cita-header">
+                        <div class="pwa-cita-client">${escapeHtml(c.cliente_nombre)}</div>
+                        <div class="pwa-cita-service">${escapeHtml(c.servicio_nombre)}</div>
+                    </div>
+                    <div class="pwa-cita-meta">
+                        <div>${hIn}</div>
+                        <div class="pwa-barber-tag">${escapeHtml(c.barbero_nombre)}</div>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        citasHtml = `<div class="pwa-day-empty" style="background: #FAFAFA; border: 1px dashed #E5E7EB; border-radius: 8px; padding: 16px; text-align: center;">No hay citas agendadas para este día.</div>`;
+    }
+
+    let liveLineHtml = (targetDate === today) ? `<div class="pwa-live-time"><div class="pwa-live-dot"></div><div class="pwa-live-line"></div></div>` : '';
+
+    group.innerHTML = `
+        <div class="pwa-day-title" style="border-bottom: 1.5px solid #EAEAEA; padding-bottom: 8px;">
+            <div style="font-size: 1.05rem;">${title}</div>
+            <span style="font-size: 0.75rem; font-weight: 800; color: var(--green-pwa); background: #DCFCE7; padding: 3px 10px; border-radius: 12px;">
+                ${totalLibres} libres
+            </span>
+        </div>
+        ${liveLineHtml}
+        <div style="margin-top: 12px;">
+            <div style="font-size: 0.78rem; font-weight: 800; text-transform: uppercase; color: #555; margin-bottom: 8px;">
+                Citas Agendadas (${dayCitas.length})
+            </div>
+            ${citasHtml}
+        </div>
+        ${availBoxHtml}
+    `;
+
+    feed.appendChild(group);
 }
 
 function renderizarCitasTab() {
@@ -2445,7 +2436,7 @@ function cambiarSemanaAgenda(delta) {
     endWeekStr = end.toISOString().split('T')[0];
 
     selectedAgendaDate = startWeekStr;
-    cargarDatosAgendaPwa();
+    cargarDatosHorariosPwa();
 }
 
 function irAHoyAgenda() {
@@ -2460,14 +2451,14 @@ function irAHoyAgenda() {
     endWeekStr = end.toISOString().split('T')[0];
 
     selectedAgendaDate = new Date().toISOString().split('T')[0];
-    cargarDatosAgendaPwa();
+    cargarDatosHorariosPwa();
 }
 
 function filtrarBarberoAgenda(bId, el) {
     selectedAgendaBarber = bId;
     document.querySelectorAll('.pwa-chip').forEach(c => c.classList.remove('active'));
     if (el) el.classList.add('active');
-    cargarDatosAgendaPwa();
+    cargarDatosHorariosPwa();
 }
 
 function cambiarSucursalPwa(sId) {
@@ -2563,7 +2554,7 @@ function guardarCitaPwa(e) {
         if (data.success) {
             cerrarModalNuevaCitaPwa();
             document.getElementById('formPwaNuevaCita').reset();
-            cargarDatosAgendaPwa();
+            cargarDatosHorariosPwa();
         } else {
             alert('Error: ' + (data.error || data.message || 'Error en servidor'));
             btn.disabled = false;
@@ -2572,7 +2563,7 @@ function guardarCitaPwa(e) {
     })
     .catch(err => {
         cerrarModalNuevaCitaPwa();
-        cargarDatosAgendaPwa();
+        cargarDatosHorariosPwa();
     });
 }
 
@@ -2587,11 +2578,11 @@ function completarCitaPwa(id) {
             .then(res => res.json())
             .then(() => {
                 cerrarModalCitaPwa();
-                cargarDatosAgendaPwa();
+                cargarDatosHorariosPwa();
             })
             .catch(() => {
                 cerrarModalCitaPwa();
-                cargarDatosAgendaPwa();
+                cargarDatosHorariosPwa();
             });
     }
 }
@@ -2607,11 +2598,11 @@ function cancelarCitaPwa(id) {
             .then(res => res.json())
             .then(() => {
                 cerrarModalCitaPwa();
-                cargarDatosAgendaPwa();
+                cargarDatosHorariosPwa();
             })
             .catch(() => {
                 cerrarModalCitaPwa();
-                cargarDatosAgendaPwa();
+                cargarDatosHorariosPwa();
             });
     }
 }
