@@ -2095,13 +2095,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 <!-- Drawer / Sidebar Modal (Con todos los nombres exactamente como en la web) -->
 <div class="pwa-drawer-mask" id="pwaDrawerMask" onclick="cerrarDrawer()"></div>
 <aside class="pwa-drawer-content" id="pwaDrawerContent">
-    <div class="pwa-drawer-promo">
-        <h3>KORTZEN PRO Admin</h3>
-        <p>Control y disponibilidad en tiempo real.</p>
-        <span style="background: #111; color: #fff; padding: 6px 14px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">Modo Administrador</span>
-    </div>
-
-    <div style="padding: 0 16px 10px 16px;">
+    <div style="padding: 20px 16px 10px 16px;">
         <div style="font-size: 0.72rem; font-weight: 800; color: var(--text-light); text-transform: uppercase; margin-bottom: 8px;">Sucursal Activa</div>
         <select onchange="cambiarSucursalPwa(this.value)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.88rem;">
             <option value="0" <?php echo ($filterSucursalId == 0) ? 'selected' : ''; ?>>Todas las Sucursales</option>
