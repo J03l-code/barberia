@@ -532,6 +532,41 @@ try {
     $configuracionesList = [];
 }
 
+// 9. Citas Completas (Gestión Integral PWA)
+$citasList = [];
+try {
+    $sqlCitasAll = "SELECT c.*, 
+            cl.nombre as cliente_nombre,
+            cl.telefono as cliente_telefono,
+            cl.email as cliente_email,
+            s.nombre as servicio_nombre,
+            COALESCE(s.precio, 0.00) as servicio_precio,
+            COALESCE(s.duracion_minutos, 45) as duracion_minutos,
+            u.nombre as barbero_nombre,
+            COALESCE(u.foto_url, '') as barbero_foto,
+            su.nombre as sucursal_nombre,
+            ref.codigo_usado as referido_codigo,
+            ref.descuento_aplicado as referido_descuento,
+            ref.referente_id,
+            ref_cli.nombre as referente_nombre
+            FROM citas c
+            INNER JOIN clientes cl ON c.cliente_id = cl.id
+            INNER JOIN servicios s ON c.servicio_id = s.id
+            INNER JOIN usuarios u ON c.barbero_id = u.id
+            INNER JOIN sucursales su ON c.sucursal_id = su.id
+            LEFT JOIN referidos ref ON c.id = ref.cita_id
+            LEFT JOIN clientes ref_cli ON ref.referente_id = ref_cli.id
+            WHERE 1=1";
+    if (!empty($scopedBranchIds)) {
+        $inSucAll = implode(',', array_map('intval', $scopedBranchIds));
+        $sqlCitasAll .= " AND c.sucursal_id IN ($inSucAll)";
+    }
+    $sqlCitasAll .= " ORDER BY c.fecha_hora DESC LIMIT 200";
+    $citasList = query($sqlCitasAll);
+} catch (Exception $e) {
+    $citasList = [];
+}
+
 $activeTab = $_GET['tab'] ?? 'overview';
 $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 ?>
@@ -1773,19 +1808,78 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 3: CITAS -->
+    <!-- VIEW 3: CITAS (GESTIÓN COMPLETA IGUAL A LA WEB CON ESTILO PWA) -->
     <!-- ========================================================================= -->
     <section id="viewCitas" class="pwa-view-panel <?php echo $activeTab === 'citas' ? 'active' : ''; ?>">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <!-- Header con Título y Botón + Cita -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
-                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Citas</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Control de agenda y estados</p>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Gestión de Citas</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Historial, cobros, estados y propinas</p>
             </div>
-            <button onclick="abrirModalNuevaCitaPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">
-                + CITA
+            <button type="button" onclick="abrirModalNuevaCitaPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800; font-size: 0.78rem; padding: 8px 12px; border-radius: 10px; display: flex; align-items: center; gap: 5px;">
+                <i class="fas fa-plus"></i> + AÑADIR CITA
             </button>
         </div>
 
+        <!-- Filtros Idénticos a la Versión Web -->
+        <div class="pwa-item-card" style="margin-bottom: 14px; padding: 14px; background: #FFFFFF; border: 1px solid var(--border-pwa);">
+            <!-- Buscador en tiempo real -->
+            <div style="position: relative; margin-bottom: 10px;">
+                <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem;"></i>
+                <input type="text" id="pwaFiltroCitasBuscar" oninput="filtrarCitasPwa()" placeholder="Buscar cliente, teléfono o servicio..." style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+            </div>
+
+            <!-- Selectores de Filtro -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <!-- Filtro Sucursal -->
+                <select id="pwaFiltroCitasSucursal" onchange="filtrarCitasPwa()" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700; background: #FFF;">
+                    <option value="">Todas las sucursales</option>
+                    <?php foreach ($sucursalesList as $suc): ?>
+                        <option value="<?php echo $suc['id']; ?>" <?php echo ($filterSucursalId == $suc['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($suc['nombre']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Filtro Barbero -->
+                <select id="pwaFiltroCitasBarbero" onchange="filtrarCitasPwa()" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700; background: #FFF;">
+                    <option value="">Todos los barberos</option>
+                    <?php foreach ($barberosList as $barb): ?>
+                        <option value="<?php echo $barb['id']; ?>">
+                            <?php echo htmlspecialchars($barb['nombre']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <!-- Filtro Estado -->
+                <select id="pwaFiltroCitasEstado" onchange="filtrarCitasPwa()" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700; background: #FFF;">
+                    <option value="">Todos los estados</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="confirmada">Confirmada</option>
+                    <option value="en_atencion">En Atención</option>
+                    <option value="completada">Completada</option>
+                    <option value="cancelada">Cancelada</option>
+                </select>
+
+                <!-- Filtro Fecha -->
+                <input type="date" id="pwaFiltroCitasFecha" onchange="filtrarCitasPwa()" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700;">
+            </div>
+
+            <!-- Botones Rápidos: Cortes de Hoy / Limpiar -->
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
+                <button type="button" id="btnToggleHoyCitas" onclick="toggleFiltroHoyCitasPwa()" class="pwa-btn-secondary" style="font-size: 0.78rem; padding: 7px 12px; font-weight: 800; display: flex; align-items: center; gap: 6px; border-radius: 8px; background: #F3F4F6; color: #111;">
+                    <i class="far fa-calendar"></i> <span id="txtBtnHoyCitas">Cortes de Hoy</span>
+                </button>
+                <button type="button" onclick="limpiarFiltrosCitasPwa()" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 7px 10px; color: #666;">
+                    Limpiar Filtros
+                </button>
+            </div>
+        </div>
+
+        <!-- Contenedor del Listado de Citas -->
         <div id="pwaCitasListContainer">
             <div style="text-align: center; padding: 30px; color: var(--text-gray);">Cargando citas...</div>
         </div>
@@ -2244,6 +2338,138 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             <button type="submit" id="btnSubmitPwaCita" class="pwa-btn-main" style="margin-top: 8px;">Agendar Cita</button>
         </form>
     </div>
+<!-- Modal Editar Cita Completa -->
+<div class="pwa-action-sheet" id="pwaEditarCitaSheet" onclick="if(event.target===this) cerrarModalEditarCitaPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #111;">Editar Cita</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Modifica horario, barbero o servicio</div>
+            </div>
+            <button onclick="cerrarModalEditarCitaPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaEditarCita" onsubmit="guardarEdicionCitaPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" value="update">
+            <input type="hidden" name="id" id="pwaEditCitaId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Cliente</label>
+                <select name="cliente_id" id="pwaEditCitaCliente" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <?php foreach ($clientesList as $c): ?>
+                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['nombre']); ?> (<?php echo htmlspecialchars($c['telefono']); ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Servicio</label>
+                <select name="servicio_id" id="pwaEditCitaServicio" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <?php foreach ($serviciosList as $s): ?>
+                        <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['nombre']); ?> - $<?php echo number_format($s['precio'], 2); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Barbero</label>
+                    <select name="barbero_id" id="pwaEditCitaBarbero" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                        <?php foreach ($barberosList as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['nombre']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Sucursal</label>
+                    <select name="sucursal_id" id="pwaEditCitaSucursal" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                        <?php foreach ($sucursalesList as $s): ?>
+                            <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['nombre']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Fecha</label>
+                    <input type="date" name="fecha" id="pwaEditCitaFecha" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Hora</label>
+                    <input type="time" name="hora" id="pwaEditCitaHora" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Estado</label>
+                    <select name="estado" id="pwaEditCitaEstado" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                        <option value="pendiente">Pendiente</option>
+                        <option value="confirmada">Confirmada</option>
+                        <option value="en_atencion">En Atención</option>
+                        <option value="completada">Completada</option>
+                        <option value="cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Propina ($)</label>
+                    <input type="number" step="0.5" name="propina" id="pwaEditCitaPropina" value="0.00" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Notas</label>
+                <textarea name="notas" id="pwaEditCitaNotas" rows="2" placeholder="Observaciones especiales..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; margin-top: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaEditCita" class="pwa-btn-main" style="margin-top: 8px;">Guardar Cambios</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Finalizar y Propina -->
+<div class="pwa-action-sheet" id="pwaTerminarCitaSheet" onclick="if(event.target===this) cerrarModalTerminarCitaPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #10B981;">Finalizar Corte y Propina</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);" id="pwaTerminarSubtitle">Completar servicio</div>
+            </div>
+            <button onclick="cerrarModalTerminarCitaPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaTerminarCita" onsubmit="guardarTerminarCitaPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" value="completar">
+            <input type="hidden" name="id" id="pwaTerminarCitaId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 12px; padding: 14px;">
+                <label style="font-size: 0.78rem; font-weight: 800; color: #166534; text-transform: uppercase; display: block; margin-bottom: 6px;">Propina para el Barbero ($)</label>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 12px; top: 11px; font-weight: 900; color: #166534;">$</span>
+                    <input type="number" step="0.5" min="0" name="propina" id="pwaTerminarPropina" value="0.00" style="width: 100%; padding: 10px 10px 10px 28px; border-radius: 8px; border: 1.5px solid #86EFAC; font-weight: 900; font-size: 1.1rem; color: #166534;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Material / Producto consumido (opcional)</label>
+                <select name="materiales[]" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <option value="">Ninguno / Sin insumos adicionales</option>
+                    <?php foreach ($inventarioList as $item): ?>
+                        <option value="<?php echo $item['id']; ?>">
+                            <?php echo htmlspecialchars($item['producto']); ?> (Stock: <?php echo $item['cantidad']; ?>) - $<?php echo number_format($item['precio'], 2); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaTerminar" class="pwa-btn-main" style="background: #10B981; color: #FFF; font-weight: 900; margin-top: 8px;">Confirmar y Finalizar Cita</button>
+        </form>
+    </div>
 </div>
 
 <!-- Modal Ganancias Netas Históricas -->
@@ -2688,9 +2914,11 @@ let endWeekStr = '<?php echo date('Y-m-d', strtotime('sunday this week')); ?>';
 let selectedAgendaDate = '<?php echo date('Y-m-d'); ?>';
 let selectedAgendaBarber = 0;
 let agendaJsonData = null;
+let rawCitasList = <?php echo json_encode($citasList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
 document.addEventListener('DOMContentLoaded', () => {
     cargarDatosHorariosPwa();
+    renderizarCitasTab();
 });
 
 function cambiarVistaPwa(vistaName) {
@@ -2930,45 +3158,393 @@ function renderizarFeedHorariosPwa(data) {
     feed.appendChild(group);
 }
 
+function filtrarCitasPwa() {
+    renderizarCitasTab();
+}
+
+function toggleFiltroHoyCitasPwa() {
+    const inputFecha = document.getElementById('pwaFiltroCitasFecha');
+    const txtBtn = document.getElementById('txtBtnHoyCitas');
+    const btn = document.getElementById('btnToggleHoyCitas');
+    const hoyStr = new Date().toISOString().split('T')[0];
+
+    if (inputFecha.value === hoyStr) {
+        inputFecha.value = '';
+        if (txtBtn) txtBtn.innerText = 'Cortes de Hoy';
+        if (btn) {
+            btn.style.background = '#F3F4F6';
+            btn.style.color = '#111';
+        }
+    } else {
+        inputFecha.value = hoyStr;
+        if (txtBtn) txtBtn.innerText = 'Viendo: Hoy';
+        if (btn) {
+            btn.style.background = '#111';
+            btn.style.color = '#FFF';
+        }
+    }
+    renderizarCitasTab();
+}
+
+function limpiarFiltrosCitasPwa() {
+    if (document.getElementById('pwaFiltroCitasBuscar')) document.getElementById('pwaFiltroCitasBuscar').value = '';
+    if (document.getElementById('pwaFiltroCitasSucursal')) document.getElementById('pwaFiltroCitasSucursal').value = '';
+    if (document.getElementById('pwaFiltroCitasBarbero')) document.getElementById('pwaFiltroCitasBarbero').value = '';
+    if (document.getElementById('pwaFiltroCitasEstado')) document.getElementById('pwaFiltroCitasEstado').value = '';
+    if (document.getElementById('pwaFiltroCitasFecha')) document.getElementById('pwaFiltroCitasFecha').value = '';
+
+    const txtBtn = document.getElementById('txtBtnHoyCitas');
+    const btn = document.getElementById('btnToggleHoyCitas');
+    if (txtBtn) txtBtn.innerText = 'Cortes de Hoy';
+    if (btn) {
+        btn.style.background = '#F3F4F6';
+        btn.style.color = '#111';
+    }
+    renderizarCitasTab();
+}
+
 function renderizarCitasTab() {
     const cont = document.getElementById('pwaCitasListContainer');
-    if (!agendaJsonData || !agendaJsonData.citas) {
-        cont.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-light);">Cargando citas...</div>';
+    if (!cont) return;
+
+    if (!rawCitasList || rawCitasList.length === 0) {
+        cont.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-gray); font-size: 0.9rem;">No hay citas registradas.</div>';
         return;
     }
 
-    if (agendaJsonData.citas.length === 0) {
-        cont.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-light);">No hay citas registradas en este período.</div>';
+    const sucFiltro = document.getElementById('pwaFiltroCitasSucursal')?.value || '';
+    const barbFiltro = document.getElementById('pwaFiltroCitasBarbero')?.value || '';
+    const estadoFiltro = document.getElementById('pwaFiltroCitasEstado')?.value || '';
+    const fechaFiltro = document.getElementById('pwaFiltroCitasFecha')?.value || '';
+    const busquedaFiltro = (document.getElementById('pwaFiltroCitasBuscar')?.value || '').toLowerCase().trim();
+
+    let filtradas = rawCitasList.filter(c => {
+        if (sucFiltro && String(c.sucursal_id) !== String(sucFiltro)) return false;
+        if (barbFiltro && String(c.barbero_id) !== String(barbFiltro)) return false;
+        if (estadoFiltro && String(c.estado).toLowerCase() !== String(estadoFiltro).toLowerCase()) return false;
+        if (fechaFiltro && (!c.fecha_hora || !c.fecha_hora.startsWith(fechaFiltro))) return false;
+        if (busquedaFiltro) {
+            const texto = `${c.cliente_nombre || ''} ${c.cliente_telefono || ''} ${c.servicio_nombre || ''} ${c.barbero_nombre || ''}`.toLowerCase();
+            if (!texto.includes(busquedaFiltro)) return false;
+        }
+        return true;
+    });
+
+    if (filtradas.length === 0) {
+        cont.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-gray); font-size: 0.9rem;">No se encontraron citas con los filtros seleccionados.</div>';
         return;
     }
 
     let html = '';
-    agendaJsonData.citas.forEach(c => {
+    filtradas.forEach(c => {
+        const fechaHora = c.fecha_hora ? c.fecha_hora.split(' ') : ['', ''];
+        const fStr = fechaHora[0] ? fechaHora[0].split('-').reverse().join('/') : '';
+        const hStr = fechaHora[1] ? fechaHora[1].substring(0, 5) : '';
+        const telLimpio = (c.cliente_telefono || '').replace(/\D/g, '');
         const cFoto = c.barbero_foto;
-        const barberoThumb = cFoto
-            ? `<img src="${escapeHtml(cFoto)}" alt="${escapeHtml(c.barbero_nombre)}" style="width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #DDD;" onerror="this.onerror=null; this.style.display='none';">`
-            : '';
+        const barberoAvatar = cFoto
+            ? `<img src="${escapeHtml(cFoto)}" alt="${escapeHtml(c.barbero_nombre)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid #E5E7EB; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div class=\\'pwa-chip-avatar\\' style=\\'width:24px;height:24px;font-size:0.65rem;\\'>${escapeHtml((c.barbero_nombre||'B').substring(0,2).toUpperCase())}</div>';">`
+            : `<div class="pwa-chip-avatar" style="width: 24px; height: 24px; font-size: 0.65rem; flex-shrink: 0; background: #111; color: #FFF; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 800;">${escapeHtml((c.barbero_nombre||'B').substring(0,2).toUpperCase())}</div>`;
+
+        const estadoStyles = {
+            'completada': { bg: '#DCFCE7', text: '#166534', border: '#86EFAC' },
+            'confirmada': { bg: '#DBEAFE', text: '#1E40AF', border: '#93C5FD' },
+            'en_atencion': { bg: '#E0F2FE', text: '#0369A1', border: '#7DD3FC' },
+            'cancelada': { bg: '#FEE2E2', text: '#991B1B', border: '#FCA5A5' },
+            'pendiente': { bg: '#FEF3C7', text: '#92400E', border: '#FCD34D' }
+        };
+        const estSt = estadoStyles[c.estado] || estadoStyles['pendiente'];
+
+        const propinaVal = parseFloat(c.propina || 0);
+        const descuentoVal = parseFloat(c.referido_descuento || 0);
 
         html += `
-            <div class="pwa-item-card" onclick="abrirModalDetalleCitaPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                    <div>
-                        <div style="font-weight: 800; font-size: 0.95rem;">${escapeHtml(c.cliente_nombre)}</div>
-                        <div style="font-size: 0.78rem; color: var(--text-gray);">${escapeHtml(c.servicio_nombre)} • $${parseFloat(c.precio_servicio||0).toFixed(2)}</div>
+            <div class="pwa-item-card" style="margin-bottom: 12px; padding: 14px; border-radius: 14px; background: #FFF; border: 1px solid var(--border-pwa); box-shadow: var(--shadow-pwa);">
+                <!-- Header de la tarjeta con Fecha, Hora y Sucursal -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed #E5E7EB; padding-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 800; color: var(--text-dark);">
+                        <i class="far fa-calendar-alt" style="color: var(--gold-pwa);"></i>
+                        <span>${fStr}</span>
+                        <span style="background: #111; color: #FFF; font-size: 0.72rem; padding: 2px 7px; border-radius: 6px; font-weight: 800;">${hStr}</span>
                     </div>
-                    <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: #F4F4F4;">${c.estado}</span>
+                    <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-gray); background: #F3F4F6; padding: 2px 8px; border-radius: 6px;">
+                        📍 ${escapeHtml(c.sucursal_nombre || 'Matriz')}
+                    </span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #666; font-weight: 600;">
-                    <div>📅 ${c.fecha_hora}</div>
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        ${barberoThumb}
-                        <span>${escapeHtml(c.barbero_nombre)}</span>
+
+                <!-- Datos del Cliente & Contacto Directo -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-size: 1rem; font-weight: 900; color: #111;">${escapeHtml(c.cliente_nombre || 'Cliente')}</div>
+                        ${c.cliente_telefono ? `
+                            <div style="font-size: 0.78rem; color: var(--text-gray); font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 6px;">
+                                <span>📞 ${escapeHtml(c.cliente_telefono)}</span>
+                            </div>
+                        ` : ''}
                     </div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        ${telLimpio ? `
+                            <a href="https://wa.me/${telLimpio}?text=${encodeURIComponent('Hola ' + (c.cliente_nombre || '').split(' ')[0] + ', te escribo de Kortzen Barbería sobre tu cita.')}" target="_blank" style="background: #25D366; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(37,211,102,0.3);">
+                                <i class="fab fa-whatsapp"></i>
+                            </a>
+                            <a href="tel:${telLimpio}" style="background: #111; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem;">
+                                <i class="fas fa-phone"></i>
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- Servicio & Barbero -->
+                <div style="background: #F9FAFB; border-radius: 10px; padding: 10px; margin-bottom: 10px; border: 1px solid #F3F4F6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);">
+                            ✂️ ${escapeHtml(c.servicio_nombre || 'Servicio')}
+                        </div>
+                        <span style="font-weight: 900; font-size: 0.95rem; color: var(--text-dark);">
+                            $${parseFloat(c.precio_final > 0 ? c.precio_final : (c.servicio_precio || 0)).toFixed(2)}
+                        </span>
+                    </div>
+
+                    ${descuentoVal > 0 ? `
+                        <div style="margin-bottom: 6px; font-size: 0.72rem; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 700;">
+                            <i class="fas fa-tag"></i> Descuento de referido aplicado: -$${descuentoVal.toFixed(2)} ${c.referido_codigo ? `(${escapeHtml(c.referido_codigo)})` : ''}
+                        </div>
+                    ` : (c.referido_codigo ? `
+                        <div style="margin-bottom: 6px; font-size: 0.72rem; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 700;">
+                            <i class="fas fa-tag"></i> Código referido: ${escapeHtml(c.referido_codigo)}
+                        </div>
+                    ` : '')}
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            ${barberoAvatar}
+                            <span style="font-weight: 700; color: #374151;">${escapeHtml(c.barbero_nombre || 'Barbero')}</span>
+                        </div>
+                        <div>
+                            ${propinaVal > 0 ? `
+                                <span style="color: #047857; font-weight: 800; background: #DCFCE7; padding: 2px 6px; border-radius: 4px;">+Propina: $${propinaVal.toFixed(2)}</span>
+                            ` : '<span style="color: #9CA3AF; font-size: 0.72rem;">Sin propina</span>'}
+                        </div>
+                    </div>
+                </div>
+
+                ${c.notas ? `
+                    <div style="font-size: 0.75rem; color: #6B7280; font-style: italic; margin-bottom: 10px; background: #FFFBEB; border-left: 3px solid #F59E0B; padding: 6px 8px; border-radius: 4px;">
+                        📝 ${escapeHtml(c.notas)}
+                    </div>
+                ` : ''}
+
+                <!-- Selector de Estado con Botón Guardar -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 10px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Estado:</span>
+                        <select id="pwa_select_estado_cita_${c.id}" style="padding: 5px 8px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; border: 1.5px solid ${estSt.border}; background: ${estSt.bg}; color: ${estSt.text};">
+                            <option value="pendiente" ${c.estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                            <option value="confirmada" ${c.estado === 'confirmada' ? 'selected' : ''}>Confirmada</option>
+                            <option value="en_atencion" ${c.estado === 'en_atencion' ? 'selected' : ''}>En Atención</option>
+                            <option value="completada" ${c.estado === 'completada' ? 'selected' : ''}>Completada</option>
+                            <option value="cancelada" ${c.estado === 'cancelada' ? 'selected' : ''}>Cancelada</option>
+                        </select>
+                    </div>
+                    <button type="button" onclick="guardarEstadoCitaDirectoPwa(${c.id})" style="background: #111; color: #FFF; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-check"></i> Guardar
+                    </button>
+                </div>
+
+                <!-- Barra de Acciones de la Cita -->
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    ${(c.estado !== 'completada' && c.estado !== 'cancelada') ? `
+                        <button type="button" onclick="abrirModalTerminarCitaPwa(${c.id}, '${escapeHtml(c.cliente_nombre || '')}')" style="flex: 1; min-width: 130px; background: #10B981; color: #FFF; border: none; padding: 8px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            <i class="fas fa-check-double"></i> FINALIZAR Y PROPINA
+                        </button>
+                    ` : ''}
+                    <button type="button" onclick="abrirModalEditarCitaPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="flex: 1; min-width: 70px; background: #F3F4F6; color: #111; border: 1px solid #D1D5DB; padding: 8px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <i class="fas fa-edit"></i> EDITAR
+                    </button>
+                    <button type="button" onclick="eliminarCitaPwa(${c.id})" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; padding: 8px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             </div>
         `;
     });
+
     cont.innerHTML = html;
+}
+
+function guardarEstadoCitaDirectoPwa(citaId) {
+    const sel = document.getElementById('pwa_select_estado_cita_' + citaId);
+    if (!sel) return;
+    const nuevoEstado = sel.value;
+
+    const fd = new FormData();
+    fd.append('action', 'cambiar_estado');
+    fd.append('id', citaId);
+    fd.append('estado', nuevoEstado);
+    fd.append('ajax', '1');
+
+    fetch('api/citas_action.php', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const target = rawCitasList.find(c => c.id == citaId);
+                if (target) target.estado = nuevoEstado;
+                renderizarCitasTab();
+                cargarDatosHorariosPwa();
+                alert('Estado de cita actualizado exitosamente.');
+            } else {
+                alert('Error al actualizar estado: ' + (data.message || data.error || ''));
+            }
+        })
+        .catch(err => {
+            alert('Error de conexión al actualizar estado.');
+        });
+}
+
+function abrirModalEditarCitaPwa(c) {
+    if (!c) return;
+    document.getElementById('pwaEditCitaId').value = c.id || '';
+    if (document.getElementById('pwaEditCitaCliente')) document.getElementById('pwaEditCitaCliente').value = c.cliente_id || '';
+    if (document.getElementById('pwaEditCitaServicio')) document.getElementById('pwaEditCitaServicio').value = c.servicio_id || '';
+    if (document.getElementById('pwaEditCitaBarbero')) document.getElementById('pwaEditCitaBarbero').value = c.barbero_id || '';
+    if (document.getElementById('pwaEditCitaSucursal')) document.getElementById('pwaEditCitaSucursal').value = c.sucursal_id || '';
+
+    if (c.fecha_hora) {
+        const parts = c.fecha_hora.split(' ');
+        if (document.getElementById('pwaEditCitaFecha')) document.getElementById('pwaEditCitaFecha').value = parts[0] || '';
+        if (document.getElementById('pwaEditCitaHora')) document.getElementById('pwaEditCitaHora').value = (parts[1] || '').substring(0, 5);
+    }
+    if (document.getElementById('pwaEditCitaEstado')) document.getElementById('pwaEditCitaEstado').value = c.estado || 'pendiente';
+    if (document.getElementById('pwaEditCitaPropina')) document.getElementById('pwaEditCitaPropina').value = c.propina || '0.00';
+    if (document.getElementById('pwaEditCitaNotas')) document.getElementById('pwaEditCitaNotas').value = c.notas || '';
+
+    document.getElementById('pwaEditarCitaSheet').style.display = 'flex';
+}
+
+function cerrarModalEditarCitaPwa() {
+    document.getElementById('pwaEditarCitaSheet').style.display = 'none';
+}
+
+function guardarEdicionCitaPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaEditCita');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const fd = new FormData(document.getElementById('formPwaEditarCita'));
+
+    fetch('api/citas_action.php', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = 'Guardar Cambios';
+            if (data.success) {
+                cerrarModalEditarCitaPwa();
+                const id = document.getElementById('pwaEditCitaId').value;
+                const target = rawCitasList.find(c => c.id == id);
+                if (target) {
+                    target.cliente_id = document.getElementById('pwaEditCitaCliente').value;
+                    target.servicio_id = document.getElementById('pwaEditCitaServicio').value;
+                    target.barbero_id = document.getElementById('pwaEditCitaBarbero').value;
+                    target.sucursal_id = document.getElementById('pwaEditCitaSucursal').value;
+                    target.fecha_hora = document.getElementById('pwaEditCitaFecha').value + ' ' + document.getElementById('pwaEditCitaHora').value + ':00';
+                    target.estado = document.getElementById('pwaEditCitaEstado').value;
+                    target.propina = document.getElementById('pwaEditCitaPropina').value;
+                    target.notas = document.getElementById('pwaEditCitaNotas').value;
+
+                    const selC = document.getElementById('pwaEditCitaCliente');
+                    if (selC && selC.selectedOptions[0]) target.cliente_nombre = selC.selectedOptions[0].text.split(' (')[0];
+                    const selS = document.getElementById('pwaEditCitaServicio');
+                    if (selS && selS.selectedOptions[0]) target.servicio_nombre = selS.selectedOptions[0].text.split(' -')[0];
+                    const selB = document.getElementById('pwaEditCitaBarbero');
+                    if (selB && selB.selectedOptions[0]) target.barbero_nombre = selB.selectedOptions[0].text;
+                    const selSuc = document.getElementById('pwaEditCitaSucursal');
+                    if (selSuc && selSuc.selectedOptions[0]) target.sucursal_nombre = selSuc.selectedOptions[0].text;
+                }
+                renderizarCitasTab();
+                cargarDatosHorariosPwa();
+                alert('Cita actualizada correctamente.');
+            } else {
+                alert('Error: ' + (data.message || data.error || 'No se pudo actualizar'));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = 'Guardar Cambios';
+            alert('Error de conexión al guardar cambios de la cita.');
+        });
+}
+
+function abrirModalTerminarCitaPwa(citaId, clienteNombre) {
+    document.getElementById('pwaTerminarCitaId').value = citaId;
+    document.getElementById('pwaTerminarSubtitle').innerText = 'Cliente: ' + (clienteNombre || 'Cliente');
+    document.getElementById('pwaTerminarPropina').value = '0.00';
+    document.getElementById('pwaTerminarCitaSheet').style.display = 'flex';
+}
+
+function cerrarModalTerminarCitaPwa() {
+    document.getElementById('pwaTerminarCitaSheet').style.display = 'none';
+}
+
+function guardarTerminarCitaPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaTerminar');
+    btn.disabled = true;
+    btn.innerText = 'Finalizando...';
+
+    const fd = new FormData(document.getElementById('formPwaTerminarCita'));
+
+    fetch('api/citas_action.php', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = 'Confirmar y Finalizar Cita';
+            if (data.success) {
+                cerrarModalTerminarCitaPwa();
+                const id = document.getElementById('pwaTerminarCitaId').value;
+                const prop = document.getElementById('pwaTerminarPropina').value;
+                const target = rawCitasList.find(c => c.id == id);
+                if (target) {
+                    target.estado = 'completada';
+                    target.propina = prop;
+                }
+                renderizarCitasTab();
+                cargarDatosHorariosPwa();
+                alert('Cita finalizada con éxito.');
+            } else {
+                alert('Error: ' + (data.message || data.error || 'No se pudo finalizar la cita.'));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = 'Confirmar y Finalizar Cita';
+            alert('Error de conexión al finalizar la cita.');
+        });
+}
+
+function eliminarCitaPwa(citaId) {
+    if (confirm('¿Estás seguro de eliminar esta cita de la base de datos?')) {
+        const fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('id', citaId);
+        fd.append('ajax', '1');
+
+        fetch('api/citas_action.php', { method: 'POST', body: fd })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    rawCitasList = rawCitasList.filter(c => c.id != citaId);
+                    renderizarCitasTab();
+                    cargarDatosHorariosPwa();
+                    alert('Cita eliminada exitosamente.');
+                } else {
+                    alert('Error: ' + (data.message || data.error || 'No se pudo eliminar la cita.'));
+                }
+            })
+            .catch(err => {
+                alert('Error de conexión al eliminar la cita.');
+            });
+    }
 }
 
 function formatHoraPwa(dateTimeStr) {

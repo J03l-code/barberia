@@ -228,8 +228,44 @@ try {
                 }
             } catch (Throwable $eMail) {}
 
-            header('Location: ../citas.php?success=Cita creada exitosamente');
-            exit;
+            responderAccionCita($isAjax, $redirect_url, 'Cita creada exitosamente', ['cita_id' => $newCitaId]);
+
+        case 'update':
+            $id = intval($_POST['id'] ?? 0);
+            $cliente_id = intval($_POST['cliente_id'] ?? 0);
+            $servicio_id = intval($_POST['servicio_id'] ?? 0);
+            $barbero_id = intval($_POST['barbero_id'] ?? 0);
+            $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
+            $fecha = $_POST['fecha'] ?? '';
+            $hora = $_POST['hora'] ?? '';
+            $estado = $_POST['estado'] ?? 'pendiente';
+            $notas = trim($_POST['notas'] ?? '');
+            $propina = floatval($_POST['propina'] ?? 0.00);
+
+            if ($id <= 0 || !$cliente_id || !$servicio_id || !$barbero_id || !$sucursal_id || !$fecha || !$hora) {
+                throw new Exception('Todos los campos son obligatorios para actualizar la cita.');
+            }
+
+            // Duración del servicio
+            $stmtServ = $pdo->prepare("SELECT nombre, duracion_minutos, precio FROM servicios WHERE id = ?");
+            $stmtServ->execute([$servicio_id]);
+            $servRow = $stmtServ->fetch(PDO::FETCH_ASSOC);
+            $duracionMin = intval($servRow['duracion_minutos'] ?? 45);
+            $precioServicio = floatval($servRow['precio'] ?? 0.00);
+
+            $fecha_hora = $fecha . ' ' . $hora . ':00';
+            $horaFinStr = date('H:i:s', strtotime($fecha_hora) + ($duracionMin * 60));
+
+            $stmtUpdate = $pdo->prepare("
+                UPDATE citas 
+                SET cliente_id = ?, servicio_id = ?, barbero_id = ?, sucursal_id = ?, fecha_hora = ?, hora_fin = ?, estado = ?, precio_final = ?, propina = ?, notas = ? 
+                WHERE id = ?
+            ");
+            $stmtUpdate->execute([$cliente_id, $servicio_id, $barbero_id, $sucursal_id, $fecha_hora, $horaFinStr, $estado, $precioServicio, $propina, $notas, $id]);
+
+            registrarLog('EDITAR', 'citas', $id, "Cita #$id actualizada para cliente #$cliente_id ($fecha_hora)");
+
+            responderAccionCita($isAjax, $redirect_url, 'Cita actualizada exitosamente.', ['cita_id' => $id]);
 
         case 'cancelar_barbero':
             // Permitir a barbero, admin y admin_local
