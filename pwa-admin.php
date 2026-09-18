@@ -332,7 +332,7 @@ $valorInventario = floatval($invStats['total_valor'] ?? 0);
 $totalItems = floatval($invStats['total_items'] ?? 0);
 
 // Top Barberos
-$topBarberos = query("SELECT u.id, u.nombre, s.nombre as sucursal, COUNT(c.id) as citas, SUM(c.precio_final) as total
+$topBarberos = query("SELECT u.id, u.nombre, COALESCE(u.foto_url, '') as foto_url, s.nombre as sucursal, COUNT(c.id) as citas, SUM(c.precio_final) as total
                       FROM usuarios u
                       JOIN citas c ON u.id = c.barbero_id
                       LEFT JOIN sucursales s ON c.sucursal_id = s.id
@@ -347,7 +347,7 @@ $lowStock = query("SELECT i.producto, i.cantidad, i.stock_minimo, s.nombre as su
                    ORDER BY i.cantidad ASC LIMIT 5");
 
 // Agenda General de Hoy
-$agendaGlobal = query("SELECT c.*, u.nombre as barbero, s.nombre as servicio, suc.nombre as sucursal_nombre, cli.nombre as cliente, cli.telefono, cli.id as cliente_id 
+$agendaGlobal = query("SELECT c.*, u.nombre as barbero, COALESCE(u.foto_url, '') as barbero_foto, s.nombre as servicio, suc.nombre as sucursal_nombre, cli.nombre as cliente, cli.telefono, cli.id as cliente_id 
                        FROM citas c
                        JOIN usuarios u ON c.barbero_id = u.id
                        JOIN servicios s ON c.servicio_id = s.id
@@ -1537,9 +1537,18 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <?php foreach ($topBarberos as $tb): ?>
                             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; border-bottom: 1px solid #F3F4F6; padding-bottom: 6px;">
-                                <div>
-                                    <span style="font-weight: 800;"><?php echo htmlspecialchars($tb['nombre']); ?></span>
-                                    <span style="font-size: 0.72rem; color: #888; margin-left: 4px;">(<?php echo $tb['citas']; ?> citas)</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <?php if (!empty($tb['foto_url'])): ?>
+                                        <img src="<?php echo htmlspecialchars($tb['foto_url']); ?>" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid #E5E7EB; flex-shrink: 0;">
+                                    <?php else: ?>
+                                        <div style="width: 28px; height: 28px; border-radius: 50%; background: #111; color: #FFF; font-size: 0.68rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <?php echo strtoupper(substr($tb['nombre'], 0, 2)); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div>
+                                        <span style="font-weight: 800;"><?php echo htmlspecialchars($tb['nombre']); ?></span>
+                                        <span style="font-size: 0.72rem; color: #888; margin-left: 4px;">(<?php echo $tb['citas']; ?> citas)</span>
+                                    </div>
                                 </div>
                                 <span style="font-weight: 900; color: var(--gold-pwa);">$<?php echo number_format($tb['total'], 2); ?></span>
                             </div>
@@ -1593,8 +1602,15 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
                                 <div>
                                     <span style="font-weight: 900; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($cg['cliente']); ?></span>
-                                    <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600;">
-                                        ✂️ <?php echo htmlspecialchars($cg['servicio']); ?> • 💈 <?php echo htmlspecialchars($cg['barbero']); ?>
+                                    <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600; display: flex; align-items: center; gap: 5px; margin-top: 2px;">
+                                        <span>✂️ <?php echo htmlspecialchars($cg['servicio']); ?></span>
+                                        <span>•</span>
+                                        <?php if (!empty($cg['barbero_foto'])): ?>
+                                            <img src="<?php echo htmlspecialchars($cg['barbero_foto']); ?>" alt="Foto" style="width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #DDD;">
+                                        <?php else: ?>
+                                            <span>💈</span>
+                                        <?php endif; ?>
+                                        <span><?php echo htmlspecialchars($cg['barbero']); ?></span>
                                     </div>
                                 </div>
                                 <span style="font-weight: 900; font-size: 0.9rem; color: var(--gold-pwa);"><?php echo $horaStr; ?></span>
@@ -1728,7 +1744,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             </div>
             <?php foreach ($barberosList as $b): ?>
                 <div class="pwa-chip" data-barbero-id="<?php echo $b['id']; ?>" onclick="filtrarBarberoAgenda(<?php echo $b['id']; ?>, this)">
-                    <span class="pwa-chip-avatar"><?php echo strtoupper(substr($b['nombre'], 0, 2)); ?></span>
+                    <?php if (!empty($b['foto_url'])): ?>
+                        <img src="<?php echo htmlspecialchars($b['foto_url']); ?>" alt="Foto" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
+                    <?php else: ?>
+                        <span class="pwa-chip-avatar"><?php echo strtoupper(substr($b['nombre'], 0, 2)); ?></span>
+                    <?php endif; ?>
                     <span><?php echo htmlspecialchars($b['nombre']); ?></span>
                 </div>
             <?php endforeach; ?>
@@ -2803,27 +2823,51 @@ function renderizarFeedHorariosPwa(data) {
     if (dayDisp && dayDisp.barberos && dayDisp.barberos.length > 0) {
         let slotsContent = '';
         dayDisp.barberos.forEach(b => {
+            const foto = b.foto_url || b.foto_perfil;
+            const initials = (b.barbero_nombre || 'B').substring(0, 2).toUpperCase();
+            const avatarHtml = foto
+                ? `<img src="${escapeHtml(foto)}" alt="${escapeHtml(b.barbero_nombre)}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1.5px solid #E5E7EB; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div class=\\'pwa-chip-avatar\\' style=\\'width:36px;height:36px;font-size:0.75rem;\\'>${initials}</div>';">`
+                : `<div class="pwa-chip-avatar" style="width: 36px; height: 36px; font-size: 0.75rem; flex-shrink: 0; background: #111; color: #FFF; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 800;">${initials}</div>`;
+
             if (b.labora && b.slots_libres && b.slots_libres.length > 0) {
                 let pills = b.slots_libres.map(s => `<button type="button" class="pwa-slot-pill" onclick="agendarSlotPwa('${targetDate}', '${s.hora_inicio}', ${b.barbero_id})">${s.label}</button>`).join('');
                 slotsContent += `
-                    <div style="margin-bottom: 12px; background: #FFF; border: 1px solid #E5E7EB; border-radius: 10px; padding: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <div style="font-size: 0.88rem; font-weight: 800; color: var(--text-dark);">${escapeHtml(b.barbero_nombre)}:</div>
-                            <span style="background: #DCFCE7; color: #047857; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">${b.slots_libres.length} turnos libres</span>
+                    <div style="margin-bottom: 12px; background: #FFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                ${avatarHtml}
+                                <div>
+                                    <div style="font-size: 0.9rem; font-weight: 800; color: var(--text-dark);">${escapeHtml(b.barbero_nombre)}</div>
+                                    ${b.sucursal_nombre ? `<div style="font-size: 0.72rem; color: var(--text-gray); font-weight: 600;">${escapeHtml(b.sucursal_nombre)}</div>` : ''}
+                                </div>
+                            </div>
+                            <span style="background: #DCFCE7; color: #047857; font-size: 0.72rem; font-weight: 800; padding: 3px 8px; border-radius: 10px;">${b.slots_libres.length} turnos libres</span>
                         </div>
                         <div>${pills}</div>
                     </div>
                 `;
             } else if (!b.labora) {
                 slotsContent += `
-                    <div style="margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 10px; font-size: 0.8rem; color: #666;">
-                        <strong>${escapeHtml(b.barbero_nombre)}:</strong> <span style="color: #DC2626;">Día de descanso</span>
+                    <div style="margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            ${avatarHtml}
+                            <div>
+                                <div style="font-size: 0.88rem; font-weight: 800; color: #374151;">${escapeHtml(b.barbero_nombre)}</div>
+                                <div style="font-size: 0.72rem; color: #DC2626; font-weight: 600;">Día de descanso</div>
+                            </div>
+                        </div>
                     </div>
                 `;
             } else {
                 slotsContent += `
-                    <div style="margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 10px; font-size: 0.8rem; color: #666;">
-                        <strong>${escapeHtml(b.barbero_nombre)}:</strong> <span>Sin turnos libres para esta fecha</span>
+                    <div style="margin-bottom: 8px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            ${avatarHtml}
+                            <div>
+                                <div style="font-size: 0.88rem; font-weight: 800; color: #374151;">${escapeHtml(b.barbero_nombre)}</div>
+                                <div style="font-size: 0.72rem; color: #6B7280; font-weight: 600;">Sin turnos libres para esta fecha</div>
+                            </div>
+                        </div>
                     </div>
                 `;
             }
@@ -2845,6 +2889,10 @@ function renderizarFeedHorariosPwa(data) {
         dayCitas.forEach(c => {
             const hIn = formatHoraPwa(c.fecha_hora);
             const statusClass = 'status-' + (c.estado || 'pendiente');
+            const cFoto = c.barbero_foto;
+            const barberoThumb = cFoto
+                ? `<img src="${escapeHtml(cFoto)}" alt="${escapeHtml(c.barbero_nombre)}" style="width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #DDD;" onerror="this.onerror=null; this.style.display='none';">`
+                : '';
 
             citasHtml += `
                 <div class="pwa-cita-card ${statusClass}" onclick="abrirModalDetalleCitaPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
@@ -2854,7 +2902,10 @@ function renderizarFeedHorariosPwa(data) {
                     </div>
                     <div class="pwa-cita-meta">
                         <div>${hIn}</div>
-                        <div class="pwa-barber-tag">${escapeHtml(c.barbero_nombre)}</div>
+                        <div class="pwa-barber-tag" style="display: inline-flex; align-items: center; gap: 5px;">
+                            ${barberoThumb}
+                            <span>${escapeHtml(c.barbero_nombre)}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2899,6 +2950,11 @@ function renderizarCitasTab() {
 
     let html = '';
     agendaJsonData.citas.forEach(c => {
+        const cFoto = c.barbero_foto;
+        const barberoThumb = cFoto
+            ? `<img src="${escapeHtml(cFoto)}" alt="${escapeHtml(c.barbero_nombre)}" style="width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #DDD;" onerror="this.onerror=null; this.style.display='none';">`
+            : '';
+
         html += `
             <div class="pwa-item-card" onclick="abrirModalDetalleCitaPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
@@ -2908,9 +2964,12 @@ function renderizarCitasTab() {
                     </div>
                     <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: #F4F4F4;">${c.estado}</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #666; font-weight: 600;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #666; font-weight: 600;">
                     <div>📅 ${c.fecha_hora}</div>
-                    <div>✂️ ${escapeHtml(c.barbero_nombre)}</div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        ${barberoThumb}
+                        <span>${escapeHtml(c.barbero_nombre)}</span>
+                    </div>
                 </div>
             </div>
         `;

@@ -136,6 +136,7 @@ try {
                 COALESCE(s.duracion_minutos, 45) AS duracion_minutos,
                 COALESCE(s.precio, 0.00) AS precio_servicio,
                 u.nombre AS barbero_nombre,
+                COALESCE(u.foto_url, '') AS barbero_foto,
                 suc.nombre AS sucursal_nombre
             FROM citas c
             LEFT JOIN clientes cl ON c.cliente_id = cl.id
@@ -310,7 +311,8 @@ try {
             $disponibilidadPorFecha[$fechaLoop]['barberos'][] = [
                 'barbero_id' => $bId,
                 'barbero_nombre' => $b['nombre'],
-                'foto_perfil' => $b['foto_perfil'] ?? '',
+                'foto_url' => $b['foto_url'] ?? ($b['foto_perfil'] ?? ''),
+                'foto_perfil' => $b['foto_url'] ?? ($b['foto_perfil'] ?? ''),
                 'sucursal_nombre' => $b['sucursal_nombre'] ?? '',
                 'labora' => $isTrabaja,
                 'motivo_no_labora' => $bloqueoDia['motivo'] ?? (!$hb ? 'No labora este día' : ''),
