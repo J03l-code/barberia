@@ -7,9 +7,19 @@
 require_once 'config.php';
 require_once 'includes/recaptcha_helper.php';
 
-// Si ya está logueado como staff, redirigir al dashboard
+// Si ya está logueado como staff, redirigir al dashboard adecuado
 if (isLoggedIn()) {
-    header('Location: dashboard.php');
+    $u = getCurrentUser();
+    $target = $_GET['redirect'] ?? '';
+    if (!empty($target)) {
+        header('Location: ' . $target);
+    } elseif ($u['rol'] === 'barbero') {
+        header('Location: barber-dashboard.php');
+    } elseif (isMobileDevice() || !empty($_GET['pwa']) || !empty($_COOKIE['kortzen_is_pwa'])) {
+        header('Location: pwa-admin.php');
+    } else {
+        header('Location: dashboard.php');
+    }
     exit;
 }
 
@@ -49,8 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     registrarLog('LOGIN', 'usuarios', $user['id'], "Inicio de sesión exitoso de usuario '{$user['nombre']}' (Rol: {$user['rol']})");
 
-                    if ($user['rol'] === 'barbero') {
+                    $redirectTarget = !empty($_POST['redirect']) ? $_POST['redirect'] : (!empty($_GET['redirect']) ? $_GET['redirect'] : '');
+                    $isPwaOrMobile = isMobileDevice() || !empty($_POST['is_pwa']) || (!empty($_COOKIE['kortzen_is_pwa']) && $_COOKIE['kortzen_is_pwa'] === '1');
+
+                    if (!empty($redirectTarget)) {
+                        header('Location: ' . $redirectTarget);
+                    } elseif ($user['rol'] === 'barbero') {
                         header('Location: barber-dashboard.php');
+                    } elseif ($isPwaOrMobile) {
+                        header('Location: pwa-admin.php');
                     } else {
                         header('Location: dashboard.php');
                     }
@@ -74,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KORTZEN - Acceso Barberos</title>
+    <title>KORTZEN - Acceso Staff y Administradores</title>
     <!-- Favicon & Touch Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon.png?v=10">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon.png?v=10">
@@ -89,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-wrapper">
         <div class="login-box">
             <h1 class="login-logo">KORTZEN</h1>
-            <p class="login-subtitle">Acceso para Barberos</p>
+            <p class="login-subtitle">Acceso Staff y Administradores</p>
 
             <?php if ($error): ?>
                 <div class="alert alert-danger">
@@ -98,6 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="" class="login-form">
+                <input type="hidden" name="redirect" value="<?php echo htmlspecialchars($_GET['redirect'] ?? ($_POST['redirect'] ?? '')); ?>">
+                <input type="hidden" name="is_pwa" id="isPwaInput" value="0">
+
                 <div class="form-group">
                     <label for="email" class="form-label">Email</label>
                     <input type="email" id="email" name="email" class="form-input"
@@ -121,6 +141,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (el) el.value = token;
                         });
                     });
+                  }
+                  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                      var pwaInp = document.getElementById('isPwaInput');
+                      if (pwaInp) pwaInp.value = '1';
+                      try {
+                          document.cookie = "kortzen_is_pwa=1; path=/; max-age=31536000; SameSite=Lax";
+                      } catch(e){}
                   }
                 </script>
 

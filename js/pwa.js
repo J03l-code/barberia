@@ -6,7 +6,7 @@
 // Register Service Worker & Auto-Update
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=101')
+    navigator.serviceWorker.register('/sw.js?v=102')
       .then(registration => {
         registration.update();
         console.log('Service Worker registrado con éxito:', registration.scope);

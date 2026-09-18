@@ -859,6 +859,16 @@ function getAuthStateJSON()
     return json_encode($state);
 }
 
+/**
+ * Detectar si el usuario está accediendo desde un dispositivo móvil o PWA
+ * @return bool
+ */
+function isMobileDevice()
+{
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    return (bool) preg_match('/(android|iphone|ipad|ipod|blackberry|windows phone|opera mini|mobile)/i', $userAgent);
+}
+
 // ============================================================
 // SISTEMA DE PERMISOS POR ROL
 // ============================================================

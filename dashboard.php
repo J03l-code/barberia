@@ -8,9 +8,15 @@ if ($currentUser['rol'] === 'barbero') {
     exit;
 }
 
-// Obtener estadísticas generales (solo si es Admin o Admin Local, mantenemos la lógica original)
-// ... (código original de admins omitido/mantenido igual, nos enfocamos en mejorar la vista de BARBERO)
+// Redirigir automáticamente a la versión moderna PWA si es móvil o PWA standalone
+$isMobileOrPwa = isMobileDevice() || !empty($_COOKIE['kortzen_is_pwa']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Mobile') !== false);
+if ($isMobileOrPwa && !isset($_GET['desktop'])) {
+    $sucParam = !empty($_GET['sucursal_id']) ? '?sucursal_id=' . intval($_GET['sucursal_id']) : '';
+    header('Location: pwa-admin.php' . $sucParam);
+    exit;
+}
 
+// Obtener estadísticas generales (solo si es Admin o Admin Local)
 $pageTitle = 'Overview Completo';
 include 'includes/header.php';
 ?>
