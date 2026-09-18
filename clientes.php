@@ -232,7 +232,8 @@ include 'includes/header.php';
                         <td>
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <?php if (!empty($cFoto)): ?>
-                                    <img src="<?php echo htmlspecialchars($cFoto); ?>" alt="Foto" class="avatar-circle" onerror="this.onerror=null; this.outerHTML='<div class=\'avatar-circle\'><span><?php echo $cInitial; ?></span></div>';">
+                                    <img src="<?php echo htmlspecialchars($cFoto); ?>" alt="Foto" class="avatar-circle" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="avatar-circle" style="display: none;"><span><?php echo $cInitial; ?></span></div>
                                 <?php else: ?>
                                     <div class="avatar-circle"><span><?php echo $cInitial; ?></span></div>
                                 <?php endif; ?>

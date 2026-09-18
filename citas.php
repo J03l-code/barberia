@@ -504,7 +504,8 @@ function toggleFiltroHoy() {
                                     <img src="<?php echo htmlspecialchars($cita['cliente_foto']); ?>" 
                                          class="avatar-circle-sm" 
                                          alt="<?php echo htmlspecialchars($cita['cliente_nombre']); ?>"
-                                         onerror="this.onerror=null; this.outerHTML='<div class=\'avatar-circle-sm\'>' + <?php echo json_encode($cliInit); ?> + '</div>';">
+                                         onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="avatar-circle-sm" style="display: none;"><?php echo $cliInit; ?></div>
                                 <?php else: ?>
                                     <div class="avatar-circle-sm"><?php echo $cliInit; ?></div>
                                 <?php endif; ?>
@@ -563,7 +564,8 @@ function toggleFiltroHoy() {
                                              class="avatar-circle-sm" 
                                              style="width: 28px; height: 28px; font-size: 10px;"
                                              alt="<?php echo htmlspecialchars($cita['barbero_nombre']); ?>"
-                                             onerror="this.onerror=null; this.outerHTML='<div class=\'avatar-circle-sm\' style=\'width:28px;height:28px;font-size:10px;\'>' + <?php echo json_encode($barbInit); ?> + '</div>';">
+                                             onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <div class="avatar-circle-sm" style="display: none; width: 28px; height: 28px; font-size: 10px; background: #374151;"><?php echo $barbInit; ?></div>
                                     <?php else: ?>
                                         <div class="avatar-circle-sm" style="width: 28px; height: 28px; font-size: 10px; background: #374151;"><?php echo $barbInit; ?></div>
                                     <?php endif; ?>
@@ -919,55 +921,120 @@ function toggleFiltroHoy() {
                 return;
             }
 
-            const matches = allCitasData.filter(c => 
-                c.cliente_nombre.toLowerCase().includes(q) ||
-                c.cliente_telefono.toLowerCase().includes(q) ||
-                c.servicio_nombre.toLowerCase().includes(q) ||
-                c.barbero_nombre.toLowerCase().includes(q) ||
-                c.sucursal_nombre.toLowerCase().includes(q) ||
-                c.estado.toLowerCase().includes(q) ||
-                c.fecha_hora.toLowerCase().includes(q)
-            ).slice(0, 6);
+            // Clientes únicos
+            const seenClients = new Set();
+            const clientMatches = [];
+            allCitasData.forEach(c => {
+                const nom = (c.cliente_nombre || '').toLowerCase();
+                const tel = (c.cliente_telefono || '').toLowerCase();
+                if (nom.includes(q) || tel.includes(q)) {
+                    const key = c.cliente_nombre.trim();
+                    if (!seenClients.has(key)) {
+                        seenClients.add(key);
+                        clientMatches.push(c);
+                    }
+                }
+            });
 
-            if (matches.length > 0) {
+            // Servicios únicos
+            const seenServices = new Set();
+            const serviceMatches = [];
+            allCitasData.forEach(c => {
+                const serv = (c.servicio_nombre || '').toLowerCase();
+                if (serv.includes(q)) {
+                    const key = c.servicio_nombre.trim();
+                    if (!seenServices.has(key)) {
+                        seenServices.add(key);
+                        serviceMatches.push(c);
+                    }
+                }
+            });
+
+            // Barberos únicos
+            const seenBarbers = new Set();
+            const barberMatches = [];
+            allCitasData.forEach(c => {
+                const barb = (c.barbero_nombre || '').toLowerCase();
+                if (barb.includes(q)) {
+                    const key = c.barbero_nombre.trim();
+                    if (!seenBarbers.has(key)) {
+                        seenBarbers.add(key);
+                        barberMatches.push(c);
+                    }
+                }
+            });
+
+            if (clientMatches.length > 0 || serviceMatches.length > 0 || barberMatches.length > 0) {
                 let html = '';
-                matches.forEach(m => {
+
+                // Clientes
+                clientMatches.slice(0, 6).forEach(m => {
                     const cliInit = (m.cliente_nombre || 'C').charAt(0).toUpperCase();
                     const cliAvatar = m.cliente_foto 
-                        ? `<img src="${m.cliente_foto}" class="avatar-circle-sm" onerror="this.onerror=null; this.outerHTML='<div class=\\'avatar-circle-sm\\'>${cliInit}</div>';">` 
+                        ? `<img src="${m.cliente_foto}" class="avatar-circle-sm" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="avatar-circle-sm" style="display:none;">${cliInit}</div>` 
                         : `<div class="avatar-circle-sm">${cliInit}</div>`;
 
-                    const barbInit = (m.barbero_nombre || 'B').charAt(0).toUpperCase();
-                    const barbAvatar = m.barbero_foto 
-                        ? `<img src="${m.barbero_foto}" class="avatar-circle-sm" style="width:20px;height:20px;font-size:9px;" onerror="this.onerror=null; this.outerHTML='<div class=\\'avatar-circle-sm\\' style=\\'width:20px;height:20px;font-size:9px;\\'>${barbInit}</div>';">` 
-                        : `<div class="avatar-circle-sm" style="width:20px;height:20px;font-size:9px;background:#374151;">${barbInit}</div>`;
-
                     html += `
-                        <div class="predictive-item" onclick="seleccionarCitaPredictiva(${m.id})">
+                        <div class="predictive-item" onclick="seleccionarFiltroTextoCita('${m.cliente_nombre.replace(/'/g, "\\'")}')">
                             ${cliAvatar}
                             <div style="flex-grow: 1; min-width: 0;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                                     <div style="font-weight: 800; font-size: 0.88rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                         ${m.cliente_nombre}
                                     </div>
-                                    <span class="status-badge status-${m.estado}" style="font-size: 9px; padding: 2px 6px;">${m.estado.toUpperCase()}</span>
+                                    <span style="font-size: 10px; font-weight: 700; color: #4B5563; background: #F3F4F6; padding: 2px 7px; border-radius: 6px;">👤 Cliente</span>
                                 </div>
-                                <div style="font-size: 0.76rem; color: #4B5563; margin-top: 2px;">
-                                    ✂️ <strong>${m.servicio_nombre}</strong> • 📅 ${m.fecha_hora}
-                                </div>
-                                <div style="font-size: 0.72rem; color: #6B7280; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                                    ${barbAvatar}
-                                    <span>${m.barbero_nombre} (${m.sucursal_nombre})</span>
-                                    ${m.cliente_telefono ? ' • 📞 ' + m.cliente_telefono : ''}
+                                <div style="font-size: 0.76rem; color: #6B7280; margin-top: 1px;">
+                                    📞 ${m.cliente_telefono || 'Sin teléfono'}
                                 </div>
                             </div>
                         </div>
                     `;
                 });
+
+                // Servicios
+                serviceMatches.slice(0, 3).forEach(m => {
+                    html += `
+                        <div class="predictive-item" onclick="seleccionarFiltroTextoCita('${m.servicio_nombre.replace(/'/g, "\\'")}')">
+                            <div class="avatar-circle-sm" style="background:#FEF3C7; color:#B45309;">✂️</div>
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: #111827;">
+                                        ${m.servicio_nombre}
+                                    </div>
+                                    <span style="font-size: 10px; font-weight: 700; color: #B45309; background: #FEF3C7; padding: 2px 7px; border-radius: 6px;">Servicio</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Barberos
+                barberMatches.slice(0, 3).forEach(m => {
+                    const barbInit = (m.barbero_nombre || 'B').charAt(0).toUpperCase();
+                    const barbAvatar = m.barbero_foto 
+                        ? `<img src="${m.barbero_foto}" class="avatar-circle-sm" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="avatar-circle-sm" style="display:none; background:#374151;">${barbInit}</div>` 
+                        : `<div class="avatar-circle-sm" style="background:#374151;">${barbInit}</div>`;
+
+                    html += `
+                        <div class="predictive-item" onclick="seleccionarFiltroTextoCita('${m.barbero_nombre.replace(/'/g, "\\'")}')">
+                            ${barbAvatar}
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: #111827;">
+                                        ${m.barbero_nombre}
+                                    </div>
+                                    <span style="font-size: 10px; font-weight: 700; color: #111; background: #E5E7EB; padding: 2px 7px; border-radius: 6px;">Barbero</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
                 citaSearchDropdown.innerHTML = html;
                 citaSearchDropdown.style.display = 'block';
             } else {
-                citaSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron citas coincidentes</div>';
+                citaSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron resultados</div>';
                 citaSearchDropdown.style.display = 'block';
             }
         });
@@ -977,6 +1044,16 @@ function toggleFiltroHoy() {
                 citaSearchDropdown.style.display = 'none';
             }
         });
+    }
+
+    function seleccionarFiltroTextoCita(texto) {
+        if (citaSearchInput) {
+            citaSearchInput.value = texto;
+            citaSearchInput.dispatchEvent(new Event('input'));
+        }
+        if (citaSearchDropdown) {
+            citaSearchDropdown.style.display = 'none';
+        }
     }
 
     function seleccionarCitaPredictiva(id) {

@@ -304,7 +304,8 @@ include 'includes/header.php';
                                              class="user-avatar" 
                                              style="object-fit: cover;"
                                              alt="<?php echo htmlspecialchars($usuario['nombre']); ?>"
-                                             onerror="this.onerror=null; this.outerHTML='<div class=\'user-avatar\'>' + <?php echo json_encode($iniciales); ?> + '</div>';">
+                                             onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <div class="user-avatar" style="display: none;"><?php echo $iniciales; ?></div>
                                     <?php else: ?>
                                         <div class="user-avatar"><?php echo $iniciales; ?></div>
                                     <?php endif; ?>

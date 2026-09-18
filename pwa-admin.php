@@ -2176,7 +2176,10 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <?php if (!empty($u['foto_url'])): ?>
-                                <img src="<?php echo htmlspecialchars($u['foto_url']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;" onerror="this.onerror=null; this.outerHTML='<div style=\'width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;\'>' + <?php echo json_encode($uInit); ?> + '</div>';">
+                                <img src="<?php echo htmlspecialchars($u['foto_url']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
+                                    <?php echo $uInit; ?>
+                                </div>
                             <?php else: ?>
                                 <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
                                     <?php echo $uInit; ?>
@@ -2225,7 +2228,10 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <?php if (!empty($cli['foto_perfil'])): ?>
-                                <img src="<?php echo htmlspecialchars($cli['foto_perfil']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;" onerror="this.onerror=null; this.outerHTML='<div style=\'width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;\'>' + <?php echo json_encode($cliInit); ?> + '</div>';">
+                                <img src="<?php echo htmlspecialchars($cli['foto_perfil']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
+                                    <?php echo $cliInit; ?>
+                                </div>
                             <?php else: ?>
                                 <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
                                     <?php echo $cliInit; ?>
@@ -4450,52 +4456,89 @@ function filtrarCitasPwa() {
     }
 
     const qLower = q.toLowerCase();
-    const matches = (rawCitasList || []).filter(c => {
-        const nom = (c.cliente_nombre || '').toLowerCase();
-        const tel = (c.cliente_telefono || '').toLowerCase();
-        const serv = (c.servicio_nombre || '').toLowerCase();
-        const barb = (c.barbero_nombre || '').toLowerCase();
-        return nom.includes(qLower) || tel.includes(qLower) || serv.includes(qLower) || barb.includes(qLower);
+
+    // 1. Clientes únicos coincidentes
+    const seenClients = new Set();
+    const clientMatches = [];
+    (allClientsPwa || []).forEach(c => {
+        const nom = (c.nombre || '').toLowerCase();
+        const tel = (c.telefono || '').toLowerCase();
+        const mail = (c.email || '').toLowerCase();
+        if (nom.includes(qLower) || tel.includes(qLower) || mail.includes(qLower)) {
+            const key = c.id || c.nombre;
+            if (!seenClients.has(key)) {
+                seenClients.add(key);
+                clientMatches.push(c);
+            }
+        }
     });
 
-    if (matches.length === 0) {
-        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron citas</div>';
+    // 2. Servicios o Barberos coincidentes
+    const serviceMatches = (allPwaServiciosData || []).filter(s => (s.nombre || '').toLowerCase().includes(qLower));
+    const barberMatches = (allPwaUsuariosData || []).filter(u => (u.nombre || '').toLowerCase().includes(qLower) && u.rol === 'barbero');
+
+    if (clientMatches.length === 0 && serviceMatches.length === 0 && barberMatches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron resultados</div>';
         dropdown.classList.add('active');
         return;
     }
 
     let html = '';
-    matches.slice(0, 10).forEach(c => {
-        const cliFoto = c.cliente_foto;
-        const cliInit = (c.cliente_nombre || 'C').substring(0, 2).toUpperCase();
-        const cliAvatar = cliFoto
-            ? `<img src="${escapeHtml(cliFoto)}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:32px;height:32px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;\\'>${escapeHtml(cliInit)}</div>';">`
-            : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(cliInit)}</div>`;
 
-        const fStr = c.fecha_hora ? c.fecha_hora.split(' ')[0].split('-').reverse().join('/') : '';
-        const hStr = c.fecha_hora ? (c.fecha_hora.split(' ')[1] || '').substring(0, 5) : '';
-        const estadoBadges = {
-            'completada': '<span style="background:#DCFCE7;color:#166534;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Completada</span>',
-            'pendiente': '<span style="background:#FEF3C7;color:#92400E;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Pendiente</span>',
-            'confirmada': '<span style="background:#DBEAFE;color:#1E40AF;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Confirmada</span>',
-            'en_atencion': '<span style="background:#E0E7FF;color:#3730A3;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">En Atención</span>',
-            'cancelada': '<span style="background:#FEE2E2;color:#991B1B;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Cancelada</span>'
-        };
-        const estBadge = estadoBadges[c.estado] || `<span style="background:#F3F4F6;color:#374151;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">${escapeHtml(c.estado || '')}</span>`;
+    // Clientes únicos
+    clientMatches.slice(0, 6).forEach(c => {
+        const foto = c.foto_perfil || c.foto_url;
+        const init = (c.nombre || 'C').substring(0, 2).toUpperCase();
+        const avatarHtml = foto
+            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display:none; width:34px; height:34px; border-radius:50%; background:#111; color:#fff; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800; flex-shrink:0;">${escapeHtml(init)}</div>`
+            : `<div style="width: 34px; height: 34px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(init)}</div>`;
 
         html += `
-            <div class="pwa-predictive-item" onclick="seleccionarCitaPredictivaPwa(${c.id}, '${escapeHtml(c.cliente_nombre || '')}')">
-                ${cliAvatar}
+            <div class="pwa-predictive-item" onclick="seleccionarFiltroCitaTextoPwa('${escapeHtml(c.nombre || '')}')">
+                ${avatarHtml}
                 <div style="flex: 1; min-width: 0;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${highlightMatch(c.cliente_nombre || '', q)}</span>
-                        ${estBadge}
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(c.nombre || '', q)}</span>
+                        <span style="font-size: 0.68rem; color: #666; font-weight: 700; background: #F3F4F6; padding: 2px 6px; border-radius: 6px;">👤 Cliente</span>
                     </div>
-                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">
-                        ✂️ ${escapeHtml(c.servicio_nombre || '')} • 💈 ${escapeHtml(c.barbero_nombre || '')}
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
+                        📞 ${highlightMatch(c.telefono || c.email || 'Sin teléfono', q)}
                     </div>
-                    <div style="font-size: 0.68rem; color: #888;">
-                        📅 ${fStr} ${hStr ? '🕒 ' + hStr : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    // Servicios
+    serviceMatches.slice(0, 3).forEach(s => {
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarFiltroCitaTextoPwa('${escapeHtml(s.nombre || '')}')">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; color: var(--gold-pwa); flex-shrink: 0;">✂️</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(s.nombre || '', q)}</span>
+                        <span style="font-size: 0.68rem; color: var(--gold-pwa); font-weight: 700; background: #FFFDF5; padding: 2px 6px; border-radius: 6px;">Servicio</span>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666;">
+                        🏷️ ${escapeHtml(s.categoria || 'General')} • $${parseFloat(s.precio || 0).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Barberos
+    barberMatches.slice(0, 3).forEach(b => {
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarFiltroCitaTextoPwa('${escapeHtml(b.nombre || '')}')">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #111; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">💈</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(b.nombre || '', q)}</span>
+                        <span style="font-size: 0.68rem; color: #111; font-weight: 700; background: #F3F4F6; padding: 2px 6px; border-radius: 6px;">Barbero</span>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666;">
+                        📍 ${escapeHtml(b.sucursal_nombre || 'Sede')}
                     </div>
                 </div>
             </div>
@@ -4506,24 +4549,15 @@ function filtrarCitasPwa() {
     dropdown.classList.add('active');
 }
 
-function seleccionarCitaPredictivaPwa(citaId, nombreCli) {
+function seleccionarFiltroCitaTextoPwa(texto) {
     const input = document.getElementById('pwaFiltroCitasBuscar');
-    if (input) input.value = nombreCli;
+    if (input) input.value = texto;
     const dropdown = document.getElementById('pwaFiltroCitasDropdown');
     if (dropdown) {
         dropdown.classList.remove('active');
         dropdown.innerHTML = '';
     }
     renderizarCitasTab();
-    setTimeout(() => {
-        const card = document.getElementById('pwa-cita-card-' + citaId);
-        if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            card.style.transition = 'box-shadow 0.3s ease';
-            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
-            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
-        }
-    }, 100);
 }
 
 function toggleFiltroHoyCitasPwa() {
@@ -5412,7 +5446,7 @@ function filtrarUsuariosPwa() {
         const foto = u.foto_url;
         const init = (u.nombre || 'U').substring(0, 2).toUpperCase();
         const avatarHtml = foto
-            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:34px;height:34px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;\\'>${escapeHtml(init)}</div>';">`
+            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display:none; width:34px; height:34px; border-radius:50%; background:#111; color:#fff; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800; flex-shrink:0;">${escapeHtml(init)}</div>`
             : `<div style="width: 34px; height: 34px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(init)}</div>`;
 
         const roleBadge = `<span style="font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; background: #F3F4F6; color: #111;">${escapeHtml(u.rol || '')}</span>`;
@@ -5574,7 +5608,7 @@ function filtrarClientesPwa() {
         const foto = c.foto_perfil || c.foto_url;
         const init = (c.nombre || 'C').substring(0, 2).toUpperCase();
         const avatarHtml = foto
-            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:34px;height:34px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;\\'>${escapeHtml(init)}</div>';">`
+            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="display:none; width:34px; height:34px; border-radius:50%; background:#111; color:#fff; align-items:center; justify-content:center; font-size:0.75rem; font-weight:800; flex-shrink:0;">${escapeHtml(init)}</div>`
             : `<div style="width: 34px; height: 34px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(init)}</div>`;
 
         html += `
