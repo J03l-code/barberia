@@ -38,7 +38,69 @@ include 'includes/header.php';
     <?php endif; ?>
 </div>
 
+<!-- Buscador Predictivo de Inventario -->
+<div style="position: relative; margin-bottom: 24px; max-width: 500px;">
+    <div style="position: relative; display: flex; align-items: center;">
+        <i class="fas fa-search search-icon" style="position: absolute; left: 14px; color: #9CA3AF; font-size: 14px; pointer-events: none;"></i>
+        <input type="text" 
+               id="predictiveInvSearch" 
+               placeholder="Buscar producto por nombre, sucursal, stock, precio..." 
+               class="search-input"
+               autocomplete="off"
+               style="width: 100%; padding: 11px 16px 11px 40px; background: #FFFFFF; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 14px; font-weight: 500; color: #111827; outline: none; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    </div>
+    <div id="predictiveInvDropdown" class="predictive-dropdown"></div>
+</div>
+
 <style>
+    .predictive-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .predictive-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #F3F4F6;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .predictive-item:last-child {
+        border-bottom: none;
+    }
+
+    .predictive-item:hover {
+        background: #F9FAFB;
+    }
+
+    .prod-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #F3F4F6;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        border: 1px solid #E5E7EB;
+    }
     .page-header {
         display: flex;
         justify-content: space-between;
@@ -188,16 +250,25 @@ include 'includes/header.php';
                         <td colspan="6" style="text-align: center; padding: 40px;">No hay productos registrados.</td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($inventario as $item): ?>
-                        <tr>
-                            <td style="font-weight: 500;"><?php echo htmlspecialchars($item['producto']); ?></td>
-                            <td><?php echo htmlspecialchars($item['sucursal_nombre'] ?? 'General'); ?></td>
+                    <?php foreach ($inventario as $item): 
+                        $minStock = $item['stock_minimo'] ?? 5;
+                        $sucText = $item['sucursal_nombre'] ?? 'General';
+                        $searchData = strtolower($item['producto'] . ' ' . $sucText . ' ' . $item['cantidad'] . ' ' . $item['precio'] . ' ' . ($item['cantidad'] <= $minStock ? 'bajo stock' : 'disponible'));
+                    ?>
+                        <tr class="inv-row" id="inv-row-<?php echo $item['id']; ?>" data-search="<?php echo htmlspecialchars($searchData); ?>">
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="prod-icon-box">🧴</div>
+                                    <div style="font-weight: 700; color: #111827; font-size: 14px;">
+                                        <?php echo htmlspecialchars($item['producto']); ?>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><?php echo htmlspecialchars($sucText); ?></td>
                             <td style="font-weight: 700; font-size: 15px;"><?php echo $item['cantidad']; ?></td>
                             <td>$<?php echo number_format($item['precio'], 2); ?></td>
                             <td>
-                                <?php
-                                $minStock = $item['stock_minimo'] ?? 5; // Use DB value or default to 5
-                                if ($item['cantidad'] <= $minStock): ?>
+                                <?php if ($item['cantidad'] <= $minStock): ?>
                                     <span class="status-badge status-low">Bajo Stock</span>
                                 <?php else: ?>
                                     <span class="status-badge status-ok">Disponible</span>
@@ -255,6 +326,103 @@ include 'includes/header.php';
 </div>
 
 <script>
+    const allInvData = <?php echo json_encode(array_map(function($i) {
+        $min = $i['stock_minimo'] ?? 5;
+        return [
+            'id' => $i['id'],
+            'producto' => $i['producto'],
+            'sucursal' => $i['sucursal_nombre'] ?? 'General',
+            'cantidad' => intval($i['cantidad']),
+            'precio' => number_format($i['precio'], 2),
+            'bajo_stock' => (intval($i['cantidad']) <= intval($min))
+        ];
+    }, $inventario)); ?>;
+
+    const invSearchInput = document.getElementById('predictiveInvSearch');
+    const invSearchDropdown = document.getElementById('predictiveInvDropdown');
+    const invRows = document.querySelectorAll('.inv-row');
+
+    if (invSearchInput && invSearchDropdown) {
+        invSearchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+
+            // 1. Instant table filtering
+            invRows.forEach(r => {
+                const text = r.getAttribute('data-search') || '';
+                if (!q || text.includes(q)) {
+                    r.style.display = '';
+                } else {
+                    r.style.display = 'none';
+                }
+            });
+
+            // 2. Predictive Suggestions
+            if (q.length === 0) {
+                invSearchDropdown.style.display = 'none';
+                invSearchDropdown.innerHTML = '';
+                return;
+            }
+
+            const matches = allInvData.filter(i => 
+                i.producto.toLowerCase().includes(q) ||
+                i.sucursal.toLowerCase().includes(q) ||
+                i.precio.includes(q)
+            ).slice(0, 6);
+
+            if (matches.length > 0) {
+                let html = '';
+                matches.forEach(m => {
+                    const badgeHtml = m.bajo_stock 
+                        ? `<span class="status-badge status-low" style="font-size:9px;padding:2px 6px;">Bajo Stock (${m.cantidad})</span>` 
+                        : `<span class="status-badge status-ok" style="font-size:9px;padding:2px 6px;">Stock: ${m.cantidad}</span>`;
+
+                    html += `
+                        <div class="predictive-item" onclick="seleccionarInvPredictivo(${m.id})">
+                            <div class="prod-icon-box">🧴</div>
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        ${m.producto}
+                                    </div>
+                                    <span style="color: #059669; font-weight: 900; font-size: 0.88rem;">$${m.precio}</span>
+                                </div>
+                                <div style="font-size: 0.76rem; color: #6B7280; margin-top: 2px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>📍 ${m.sucursal}</span>
+                                    ${badgeHtml}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                invSearchDropdown.innerHTML = html;
+                invSearchDropdown.style.display = 'block';
+            } else {
+                invSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron productos coincidentes</div>';
+                invSearchDropdown.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!invSearchInput.contains(e.target) && !invSearchDropdown.contains(e.target)) {
+                invSearchDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    function seleccionarInvPredictivo(id) {
+        invSearchDropdown.style.display = 'none';
+        const row = document.getElementById('inv-row-' + id);
+        if (row) {
+            invRows.forEach(r => r.style.display = 'none');
+            row.style.display = '';
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.background = '#FEF3C7';
+            setTimeout(() => {
+                row.style.background = '';
+            }, 2500);
+        }
+    }
+
     function openWithdrawModal(id, name, maxStock) {
         document.getElementById('withdrawId').value = id;
         document.getElementById('modalProductName').textContent = name + " (Stock: " + maxStock + ")";

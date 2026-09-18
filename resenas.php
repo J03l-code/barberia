@@ -139,11 +139,49 @@ try {
         </a>
     </div>
     
-    <div style="position: relative; min-width: 260px;">
-        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9CA3AF; font-size: 0.85rem;"></i>
-        <input type="text" id="filtroTextoResenas" placeholder="Buscar por cliente o contenido..." oninput="filtrarTablaResenas()" style="width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 0.84rem; outline: none; box-sizing: border-box;">
+    <div style="position: relative; min-width: 280px;">
+        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9CA3AF; font-size: 0.85rem; pointer-events: none;"></i>
+        <input type="text" id="filtroTextoResenas" placeholder="Buscar por cliente o contenido..." autocomplete="off" style="width: 100%; padding: 8px 12px 8px 34px; border: 1.5px solid #D1D5DB; border-radius: 8px; font-size: 0.84rem; outline: none; box-sizing: border-box; background: #FFF;">
+        <div id="predictiveResenasDropdown" class="predictive-dropdown"></div>
     </div>
 </div>
+
+<style>
+    .predictive-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .predictive-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #F3F4F6;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .predictive-item:last-child {
+        border-bottom: none;
+    }
+
+    .predictive-item:hover {
+        background: #F9FAFB;
+    }
+</style>
 
 <div class="table-container" style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E5E7EB; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
     <table class="table" style="width: 100%; border-collapse: collapse;">
@@ -175,7 +213,7 @@ try {
                     $rFechaInput = !empty($r['fecha']) ? date('Y-m-d', strtotime($r['fecha'])) : date('Y-m-d');
                     $esVisible = intval($r['visible'] ?? 0) === 1;
                 ?>
-                    <tr class="resena-row" data-search="<?php echo htmlspecialchars(strtolower($rNombre . ' ' . $rComentario)); ?>" style="border-bottom: 1px solid #F3F4F6; <?php echo !$esVisible ? 'background: #FFFDF5;' : ''; ?>">
+                    <tr class="resena-row" id="resena-row-<?php echo $rId; ?>" data-search="<?php echo htmlspecialchars(strtolower($rNombre . ' ' . $rComentario)); ?>" style="border-bottom: 1px solid #F3F4F6; <?php echo !$esVisible ? 'background: #FFFDF5;' : ''; ?>">
                         <td style="padding: 14px 16px; font-weight: 800; color: #111827;">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div style="width: 34px; height: 34px; border-radius: 50%; background: #EEF2F6; color: #1E293B; font-weight: 800; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -320,17 +358,102 @@ try {
 </div>
 
 <script>
-function filtrarTablaResenas() {
-    const q = (document.getElementById('filtroTextoResenas').value || '').toLowerCase().trim();
-    const rows = document.querySelectorAll('.resena-row');
-    rows.forEach(r => {
-        const text = r.getAttribute('data-search') || '';
-        if (!q || text.includes(q)) {
-            r.style.display = '';
+const allReviewsData = <?php echo json_encode(array_map(function($r) {
+    return [
+        'id' => intval($r['id']),
+        'nombre' => $r['cliente_nombre'] ?: 'Cliente',
+        'comentario' => $r['comentario'] ?: '',
+        'calificacion' => intval($r['calificacion'] ?? 5),
+        'fecha' => !empty($r['fecha']) ? date('d/m/Y', strtotime($r['fecha'])) : date('d/m/Y'),
+        'visible' => intval($r['visible'] ?? 0) === 1
+    ];
+}, $resenas)); ?>;
+
+const resenasSearchInput = document.getElementById('filtroTextoResenas');
+const resenasSearchDropdown = document.getElementById('predictiveResenasDropdown');
+const resenasRows = document.querySelectorAll('.resena-row');
+
+if (resenasSearchInput && resenasSearchDropdown) {
+    resenasSearchInput.addEventListener('input', function() {
+        const q = (this.value || '').toLowerCase().trim();
+
+        // 1. Instant table filtering
+        resenasRows.forEach(r => {
+            const text = r.getAttribute('data-search') || '';
+            if (!q || text.includes(q)) {
+                r.style.display = '';
+            } else {
+                r.style.display = 'none';
+            }
+        });
+
+        // 2. Predictive Suggestions
+        if (q.length === 0) {
+            resenasSearchDropdown.style.display = 'none';
+            resenasSearchDropdown.innerHTML = '';
+            return;
+        }
+
+        const matches = allReviewsData.filter(r => 
+            r.nombre.toLowerCase().includes(q) ||
+            r.comentario.toLowerCase().includes(q)
+        ).slice(0, 6);
+
+        if (matches.length > 0) {
+            let html = '';
+            matches.forEach(m => {
+                const initial = (m.nombre || 'C').charAt(0).toUpperCase();
+                const stars = '★'.repeat(m.calificacion);
+                const statusBadge = m.visible 
+                    ? '<span style="background: #DEF7EC; color: #03543F; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 8px;">PUBLICADA</span>' 
+                    : '<span style="background: #FEF08A; color: #713F12; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 8px;">PENDIENTE</span>';
+
+                html += `
+                    <div class="predictive-item" onclick="seleccionarResenaPredictiva(${m.id})">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #EEF2F6; color: #1E293B; font-weight: 800; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            ${initial}
+                        </div>
+                        <div style="flex-grow: 1; min-width: 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <div style="font-weight: 800; font-size: 0.88rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${m.nombre} <span style="color: #F59E0B; font-size: 0.8rem; margin-left: 4px;">${stars}</span>
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div style="font-size: 0.76rem; color: #4B5563; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
+                                "${m.comentario}"
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            resenasSearchDropdown.innerHTML = html;
+            resenasSearchDropdown.style.display = 'block';
         } else {
-            r.style.display = 'none';
+            resenasSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron reseñas coincidentes</div>';
+            resenasSearchDropdown.style.display = 'block';
         }
     });
+
+    document.addEventListener('click', function(e) {
+        if (!resenasSearchInput.contains(e.target) && !resenasSearchDropdown.contains(e.target)) {
+            resenasSearchDropdown.style.display = 'none';
+        }
+    });
+}
+
+function seleccionarResenaPredictiva(id) {
+    resenasSearchDropdown.style.display = 'none';
+    const row = document.getElementById('resena-row-' + id);
+    if (row) {
+        resenasRows.forEach(r => r.style.display = 'none');
+        row.style.display = '';
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.background = '#FEF3C7';
+        setTimeout(() => {
+            row.style.background = '';
+        }, 2500);
+    }
 }
 
 function abrirModalResena() {
@@ -362,12 +485,10 @@ function cerrarModalResena() {
 }
 
 function handleResenaAction(e, form) {
-    // Si se desea recarga limpia estándar se puede dejar continuar
     return true;
 }
 
 function guardarResenaModal(e) {
-    // Permite submit tradicional que redirige con success/error
     return true;
 }
 </script>

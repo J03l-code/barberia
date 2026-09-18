@@ -573,6 +573,7 @@ try {
             cl.nombre as cliente_nombre,
             cl.telefono as cliente_telefono,
             cl.email as cliente_email,
+            COALESCE(cl.foto_perfil, '') as cliente_foto,
             s.nombre as servicio_nombre,
             COALESCE(s.precio, 0.00) as servicio_precio,
             COALESCE(s.duracion_minutos, 45) as duracion_minutos,
@@ -1541,6 +1542,46 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             display: flex;
         }
 
+        /* Generic Predictive Dropdown for all PWA Views */
+        .pwa-predictive-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #FFFFFF;
+            border: 1.5px solid #E5E7EB;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.16);
+            z-index: 2500;
+            max-height: 280px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .pwa-predictive-dropdown.active {
+            display: block;
+        }
+
+        .pwa-predictive-item {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #F3F4F6;
+            transition: background 0.15s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .pwa-predictive-item:last-child {
+            border-bottom: none;
+        }
+
+        .pwa-predictive-item:hover, .pwa-predictive-item:active {
+            background: #F9FAFB;
+        }
+
         .pwa-toast-box {
             position: fixed;
             bottom: calc(var(--safe-bottom) + 70px);
@@ -2045,10 +2086,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 
         <!-- Filtros Idénticos a la Versión Web -->
         <div class="pwa-item-card" style="margin-bottom: 14px; padding: 14px; background: #FFFFFF; border: 1px solid var(--border-pwa);">
-            <!-- Buscador en tiempo real -->
+            <!-- Buscador en tiempo real predictivo -->
             <div style="position: relative; margin-bottom: 10px;">
-                <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem;"></i>
-                <input type="text" id="pwaFiltroCitasBuscar" oninput="filtrarCitasPwa()" placeholder="Buscar cliente, teléfono o servicio..." style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+                <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem; pointer-events: none;"></i>
+                <input type="text" id="pwaFiltroCitasBuscar" oninput="filtrarCitasPwa()" placeholder="Buscar cliente, teléfono o servicio..." autocomplete="off" style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+                <div id="pwaFiltroCitasDropdown" class="pwa-predictive-dropdown"></div>
             </div>
 
             <!-- Selectores de Filtro -->
@@ -2110,24 +2152,34 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- VIEW 4: USUARIOS -->
     <!-- ========================================================================= -->
     <section id="viewUsuarios" class="pwa-view-panel <?php echo $activeTab === 'usuarios' ? 'active' : ''; ?>">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Usuarios</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Administradores y barberos</p>
             </div>
-            <button type="button" onclick="abrirModalUsuarioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ USUARIO</button>
+            <button type="button" onclick="abrirModalUsuarioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800;">+ USUARIO</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($usuariosList as $u): ?>
-                <div class="pwa-item-card">
+        <!-- Buscador Predictivo de Usuarios PWA -->
+        <div style="position: relative; margin-bottom: 12px;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem; pointer-events: none;"></i>
+            <input type="text" id="pwaFiltroUsuariosBuscar" oninput="filtrarUsuariosPwa()" placeholder="Buscar usuario, barbero, rol o email..." autocomplete="off" style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+            <div id="pwaFiltroUsuariosDropdown" class="pwa-predictive-dropdown"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;" id="pwaUsuariosListContainer">
+            <?php foreach ($usuariosList as $u): 
+                $uInit = strtoupper(substr($u['nombre'] ?? 'U', 0, 2));
+                $uSearch = strtolower(($u['nombre'] ?? '') . ' ' . ($u['email'] ?? '') . ' ' . ($u['rol'] ?? '') . ' ' . ($u['sucursal_nombre'] ?? ''));
+            ?>
+                <div class="pwa-item-card pwa-usuario-card" id="pwa-user-card-<?php echo $u['id']; ?>" data-search="<?php echo htmlspecialchars($uSearch); ?>">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <?php if (!empty($u['foto_url'])): ?>
-                                <img src="<?php echo htmlspecialchars($u['foto_url']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;">
+                                <img src="<?php echo htmlspecialchars($u['foto_url']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;" onerror="this.onerror=null; this.outerHTML='<div style=\'width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;\'>' + <?php echo json_encode($uInit); ?> + '</div>';">
                             <?php else: ?>
                                 <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
-                                    <?php echo strtoupper(substr($u['nombre'], 0, 2)); ?>
+                                    <?php echo $uInit; ?>
                                 </div>
                             <?php endif; ?>
                             <div>
@@ -2149,22 +2201,41 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- VIEW 5: CLIENTES -->
     <!-- ========================================================================= -->
     <section id="viewClientes" class="pwa-view-panel <?php echo $activeTab === 'clientes' ? 'active' : ''; ?>">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Clientes</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Directorio de clientes registrados</p>
             </div>
-            <button type="button" onclick="abrirModalClientePwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ CLIENTE</button>
+            <button type="button" onclick="abrirModalClientePwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800;">+ CLIENTE</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($clientesList as $cli): ?>
-                <div class="pwa-item-card">
+        <!-- Buscador Predictivo de Clientes PWA -->
+        <div style="position: relative; margin-bottom: 12px;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem; pointer-events: none;"></i>
+            <input type="text" id="pwaFiltroClientesBuscar" oninput="filtrarClientesPwa()" placeholder="Buscar cliente por nombre, teléfono o email..." autocomplete="off" style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+            <div id="pwaFiltroClientesDropdown" class="pwa-predictive-dropdown"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;" id="pwaClientesListContainer">
+            <?php foreach ($clientesList as $cli): 
+                $cliInit = strtoupper(mb_substr($cli['nombre'] ?? 'C', 0, 1, 'UTF-8'));
+                $cliSearch = strtolower(($cli['nombre'] ?? '') . ' ' . ($cli['telefono'] ?? '') . ' ' . ($cli['email'] ?? ''));
+            ?>
+                <div class="pwa-item-card pwa-cliente-card" id="pwa-cliente-card-<?php echo $cli['id']; ?>" data-search="<?php echo htmlspecialchars($cliSearch); ?>">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($cli['nombre']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($cli['telefono'] ?: ($cli['email'] ?? 'Sin teléfono')); ?></div>
-                            <div style="font-size: 0.72rem; color: var(--gold-pwa); font-weight: 700; margin-top: 2px;">⭐ <?php echo intval($cli['puntos'] ?? 0); ?> Puntos • <?php echo intval($cli['total_citas']); ?> citas</div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <?php if (!empty($cli['foto_perfil'])): ?>
+                                <img src="<?php echo htmlspecialchars($cli['foto_perfil']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;" onerror="this.onerror=null; this.outerHTML='<div style=\'width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;\'>' + <?php echo json_encode($cliInit); ?> + '</div>';">
+                            <?php else: ?>
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
+                                    <?php echo $cliInit; ?>
+                                </div>
+                            <?php endif; ?>
+                            <div>
+                                <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($cli['nombre']); ?></div>
+                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($cli['telefono'] ?: ($cli['email'] ?? 'Sin teléfono')); ?></div>
+                                <div style="font-size: 0.72rem; color: var(--gold-pwa); font-weight: 700; margin-top: 2px;">⭐ <?php echo intval($cli['puntos'] ?? 0); ?> Puntos • <?php echo intval($cli['total_citas'] ?? 0); ?> citas</div>
+                            </div>
                         </div>
                         <div style="display: flex; gap: 6px; align-items: center;">
                             <?php if (!empty($cli['telefono'])): ?>
@@ -2184,23 +2255,37 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- VIEW 6: SUCURSALES -->
     <!-- ========================================================================= -->
     <section id="viewSucursales" class="pwa-view-panel <?php echo $activeTab === 'sucursales' ? 'active' : ''; ?>">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Sucursales</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Sedes de la barbería</p>
             </div>
-            <button type="button" onclick="abrirModalSucursalPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SEDE</button>
+            <button type="button" onclick="abrirModalSucursalPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800;">+ SEDE</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($sucursalesList as $suc): ?>
-                <div class="pwa-item-card">
+        <!-- Buscador Predictivo de Sucursales PWA -->
+        <div style="position: relative; margin-bottom: 12px;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem; pointer-events: none;"></i>
+            <input type="text" id="pwaFiltroSucursalesBuscar" oninput="filtrarSucursalesPwa()" placeholder="Buscar sucursal por nombre, dirección o teléfono..." autocomplete="off" style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+            <div id="pwaFiltroSucursalesDropdown" class="pwa-predictive-dropdown"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;" id="pwaSucursalesListContainer">
+            <?php foreach ($sucursalesList as $suc): 
+                $sucSearch = strtolower(($suc['nombre'] ?? '') . ' ' . ($suc['direccion'] ?? '') . ' ' . ($suc['telefono'] ?? ''));
+            ?>
+                <div class="pwa-item-card pwa-sucursal-card" id="pwa-sucursal-card-<?php echo $suc['id']; ?>" data-search="<?php echo htmlspecialchars($sucSearch); ?>">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                        <div>
-                            <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($suc['nombre']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray); margin-top: 2px;">📍 <?php echo htmlspecialchars($suc['direccion'] ?? 'Sin dirección'); ?></div>
-                            <div style="font-size: 0.75rem; color: var(--text-gray);">📞 <?php echo htmlspecialchars($suc['telefono'] ?? 'Sin teléfono'); ?></div>
-                            <div style="font-size: 0.72rem; color: #888;">🕒 <?php echo substr($suc['horario_apertura'] ?? '10:00', 0, 5); ?> - <?php echo substr($suc['horario_cierre'] ?? '20:00', 0, 5); ?></div>
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <div style="width: 36px; height: 36px; border-radius: 10px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                                📍
+                            </div>
+                            <div>
+                                <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($suc['nombre']); ?></div>
+                                <div style="font-size: 0.78rem; color: var(--text-gray); margin-top: 2px;">📍 <?php echo htmlspecialchars($suc['direccion'] ?? 'Sin dirección'); ?></div>
+                                <div style="font-size: 0.75rem; color: var(--text-gray);">📞 <?php echo htmlspecialchars($suc['telefono'] ?? 'Sin teléfono'); ?></div>
+                                <div style="font-size: 0.72rem; color: #888;">🕒 <?php echo substr($suc['horario_apertura'] ?? '10:00', 0, 5); ?> - <?php echo substr($suc['horario_cierre'] ?? '20:00', 0, 5); ?></div>
+                            </div>
                         </div>
                         <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                             <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: <?php echo $suc['activo'] ? '#DCFCE7; color: #15803D;' : '#F3F4F6; color: #666;'; ?>">
@@ -2218,22 +2303,36 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- VIEW 7: INVENTARIO -->
     <!-- ========================================================================= -->
     <section id="viewInventario" class="pwa-view-panel <?php echo $activeTab === 'inventario' ? 'active' : ''; ?>">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Inventario</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Stock de productos y suministros</p>
             </div>
-            <button type="button" onclick="abrirModalInventarioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ PRODUCTO</button>
+            <button type="button" onclick="abrirModalInventarioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800;">+ PRODUCTO</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($inventarioList as $inv): ?>
-                <div class="pwa-item-card">
+        <!-- Buscador Predictivo de Inventario PWA -->
+        <div style="position: relative; margin-bottom: 12px;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.85rem; pointer-events: none;"></i>
+            <input type="text" id="pwaFiltroInventarioBuscar" oninput="filtrarInventarioPwa()" placeholder="Buscar producto por nombre, sucursal, stock..." autocomplete="off" style="width: 100%; padding: 10px 10px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.85rem; font-weight: 600;">
+            <div id="pwaFiltroInventarioDropdown" class="pwa-predictive-dropdown"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;" id="pwaInventarioListContainer">
+            <?php foreach ($inventarioList as $inv): 
+                $invSearch = strtolower(($inv['producto'] ?? '') . ' ' . ($inv['sucursal_nombre'] ?? 'general') . ' ' . ($inv['cantidad'] ?? ''));
+            ?>
+                <div class="pwa-item-card pwa-inv-card" id="pwa-inv-card-<?php echo $inv['id']; ?>" data-search="<?php echo htmlspecialchars($invSearch); ?>">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
-                            <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($inv['producto']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($inv['sucursal_nombre'] ?? 'Stock General'); ?></div>
-                            <div style="font-size: 0.75rem; color: #666; margin-top: 4px;">Ref: $<?php echo number_format($inv['precio'], 2); ?> • Mín: <?php echo $inv['stock_minimo']; ?> unid</div>
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <div style="width: 38px; height: 38px; border-radius: 8px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                                🧴
+                            </div>
+                            <div>
+                                <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($inv['producto']); ?></div>
+                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($inv['sucursal_nombre'] ?? 'Stock General'); ?></div>
+                                <div style="font-size: 0.75rem; color: #666; margin-top: 4px;">Ref: $<?php echo number_format($inv['precio'], 2); ?> • Mín: <?php echo $inv['stock_minimo']; ?> unid</div>
+                            </div>
                         </div>
                         <div style="text-align: right;">
                             <span style="font-weight: 900; font-size: 1.15rem; color: <?php echo floatval($inv['cantidad']) > 0 ? 'var(--green-pwa)' : 'var(--red-pwa)'; ?>;">
@@ -2261,10 +2360,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             <button type="button" onclick="abrirModalServicioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800;">+ SERVICIO</button>
         </div>
 
-        <!-- Buscador de Servicios en Tiempo Real -->
+        <!-- Buscador de Servicios Predictivo en Tiempo Real -->
         <div style="margin-bottom: 12px; position: relative;">
-            <input type="text" id="pwaFiltroServiciosBuscar" oninput="filtrarServiciosPwa()" placeholder="Buscar por nombre o categoría..." style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.82rem; font-weight: 700;">
-            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.82rem;"></i>
+            <input type="text" id="pwaFiltroServiciosBuscar" oninput="filtrarServiciosPwa()" placeholder="Buscar por nombre o categoría..." autocomplete="off" style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.82rem; font-weight: 700;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.82rem; pointer-events: none;"></i>
+            <div id="pwaFiltroServiciosDropdown" class="pwa-predictive-dropdown"></div>
         </div>
 
         <!-- Category Filter Pills -->
@@ -2578,8 +2678,9 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 
         <!-- Buscador en tiempo real -->
         <div style="margin-bottom: 12px; position: relative;">
-            <input type="text" id="pwaFiltroResenasBuscar" oninput="filtrarResenasBuscarPwa()" placeholder="Buscar por cliente o comentario..." style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.82rem; font-weight: 700;">
-            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.82rem;"></i>
+            <input type="text" id="pwaFiltroResenasBuscar" oninput="filtrarResenasBuscarPwa()" placeholder="Buscar por cliente o comentario..." autocomplete="off" style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.82rem; font-weight: 700;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.82rem; pointer-events: none;"></i>
+            <div id="pwaFiltroResenasDropdown" class="pwa-predictive-dropdown"></div>
         </div>
 
         <!-- Tabs Filtros -->
@@ -3798,6 +3899,11 @@ let selectedAgendaBarber = 0;
 let agendaJsonData = null;
 let rawCitasList = <?php echo json_encode($citasList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 let allClientsPwa = <?php echo json_encode($clientesList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let allPwaUsuariosData = <?php echo json_encode($usuariosList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let allPwaSucursalesData = <?php echo json_encode($sucursalesList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let allPwaInventarioData = <?php echo json_encode($inventarioList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let allPwaServiciosData = <?php echo json_encode($serviciosList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let allPwaResenasData = <?php echo json_encode($resenasList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 let selectedClientForCita = null;
 let clientSearchDebounce = null;
 
@@ -4331,6 +4437,93 @@ function renderizarFeedHorariosPwa(data) {
 
 function filtrarCitasPwa() {
     renderizarCitasTab();
+
+    const dropdown = document.getElementById('pwaFiltroCitasDropdown');
+    const input = document.getElementById('pwaFiltroCitasBuscar');
+    if (!dropdown || !input) return;
+
+    const q = (input.value || '').trim();
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const qLower = q.toLowerCase();
+    const matches = (rawCitasList || []).filter(c => {
+        const nom = (c.cliente_nombre || '').toLowerCase();
+        const tel = (c.cliente_telefono || '').toLowerCase();
+        const serv = (c.servicio_nombre || '').toLowerCase();
+        const barb = (c.barbero_nombre || '').toLowerCase();
+        return nom.includes(qLower) || tel.includes(qLower) || serv.includes(qLower) || barb.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron citas</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(c => {
+        const cliFoto = c.cliente_foto;
+        const cliInit = (c.cliente_nombre || 'C').substring(0, 2).toUpperCase();
+        const cliAvatar = cliFoto
+            ? `<img src="${escapeHtml(cliFoto)}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:32px;height:32px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;\\'>${escapeHtml(cliInit)}</div>';">`
+            : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(cliInit)}</div>`;
+
+        const fStr = c.fecha_hora ? c.fecha_hora.split(' ')[0].split('-').reverse().join('/') : '';
+        const hStr = c.fecha_hora ? (c.fecha_hora.split(' ')[1] || '').substring(0, 5) : '';
+        const estadoBadges = {
+            'completada': '<span style="background:#DCFCE7;color:#166534;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Completada</span>',
+            'pendiente': '<span style="background:#FEF3C7;color:#92400E;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Pendiente</span>',
+            'confirmada': '<span style="background:#DBEAFE;color:#1E40AF;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Confirmada</span>',
+            'en_atencion': '<span style="background:#E0E7FF;color:#3730A3;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">En Atención</span>',
+            'cancelada': '<span style="background:#FEE2E2;color:#991B1B;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Cancelada</span>'
+        };
+        const estBadge = estadoBadges[c.estado] || `<span style="background:#F3F4F6;color:#374151;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">${escapeHtml(c.estado || '')}</span>`;
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarCitaPredictivaPwa(${c.id}, '${escapeHtml(c.cliente_nombre || '')}')">
+                ${cliAvatar}
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${highlightMatch(c.cliente_nombre || '', q)}</span>
+                        ${estBadge}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">
+                        ✂️ ${escapeHtml(c.servicio_nombre || '')} • 💈 ${escapeHtml(c.barbero_nombre || '')}
+                    </div>
+                    <div style="font-size: 0.68rem; color: #888;">
+                        📅 ${fStr} ${hStr ? '🕒 ' + hStr : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarCitaPredictivaPwa(citaId, nombreCli) {
+    const input = document.getElementById('pwaFiltroCitasBuscar');
+    if (input) input.value = nombreCli;
+    const dropdown = document.getElementById('pwaFiltroCitasDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    renderizarCitasTab();
+    setTimeout(() => {
+        const card = document.getElementById('pwa-cita-card-' + citaId);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+        }
+    }, 100);
 }
 
 function toggleFiltroHoyCitasPwa() {
@@ -4430,7 +4623,7 @@ function renderizarCitasTab() {
         const descuentoVal = parseFloat(c.referido_descuento || 0);
 
         html += `
-            <div class="pwa-item-card" style="margin-bottom: 12px; padding: 14px; border-radius: 14px; background: #FFF; border: 1px solid var(--border-pwa); box-shadow: var(--shadow-pwa);">
+            <div class="pwa-item-card" id="pwa-cita-card-${c.id}" style="margin-bottom: 12px; padding: 14px; border-radius: 14px; background: #FFF; border: 1px solid var(--border-pwa); box-shadow: var(--shadow-pwa);">
                 <!-- Header de la tarjeta con Fecha, Hora y Sucursal -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed #E5E7EB; padding-bottom: 8px;">
                     <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 800; color: var(--text-dark);">
@@ -5183,6 +5376,88 @@ function eliminarUsuarioPwa() {
     }
 }
 
+function filtrarUsuariosPwa() {
+    const input = document.getElementById('pwaFiltroUsuariosBuscar');
+    const dropdown = document.getElementById('pwaFiltroUsuariosDropdown');
+    const q = (input?.value || '').trim();
+    const qLower = q.toLowerCase();
+
+    // Direct card filtering
+    const cards = document.querySelectorAll('.pwa-usuario-card');
+    cards.forEach(card => {
+        const s = (card.getAttribute('data-search') || '').toLowerCase();
+        card.style.display = (!qLower || s.includes(qLower)) ? 'block' : 'none';
+    });
+
+    if (!dropdown) return;
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const matches = (allPwaUsuariosData || []).filter(u => {
+        const s = `${u.nombre || ''} ${u.email || ''} ${u.rol || ''} ${u.sucursal_nombre || ''}`.toLowerCase();
+        return s.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron usuarios</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(u => {
+        const foto = u.foto_url;
+        const init = (u.nombre || 'U').substring(0, 2).toUpperCase();
+        const avatarHtml = foto
+            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:34px;height:34px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;\\'>${escapeHtml(init)}</div>';">`
+            : `<div style="width: 34px; height: 34px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(init)}</div>`;
+
+        const roleBadge = `<span style="font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; background: #F3F4F6; color: #111;">${escapeHtml(u.rol || '')}</span>`;
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarUsuarioPredictivoPwa(${JSON.stringify(u).replace(/"/g, '&quot;')})">
+                ${avatarHtml}
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(u.nombre || '', q)}</span>
+                        ${roleBadge}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
+                        ✉️ ${highlightMatch(u.email || '', q)}
+                    </div>
+                    ${u.sucursal_nombre ? `<div style="font-size: 0.68rem; color: #888;">📍 ${escapeHtml(u.sucursal_nombre)}</div>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarUsuarioPredictivoPwa(user) {
+    const input = document.getElementById('pwaFiltroUsuariosBuscar');
+    if (input) input.value = user.nombre || '';
+    const dropdown = document.getElementById('pwaFiltroUsuariosDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    filtrarUsuariosPwa();
+    setTimeout(() => {
+        const card = document.getElementById('pwa-user-card-' + user.id);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+        }
+    }, 100);
+}
+
 // 2. CLIENTES
 function abrirModalClientePwa(cli) {
     const form = document.getElementById('formPwaCliente');
@@ -5263,6 +5538,85 @@ function eliminarClientePwa() {
     }
 }
 
+function filtrarClientesPwa() {
+    const input = document.getElementById('pwaFiltroClientesBuscar');
+    const dropdown = document.getElementById('pwaFiltroClientesDropdown');
+    const q = (input?.value || '').trim();
+    const qLower = q.toLowerCase();
+
+    // Direct card filtering
+    const cards = document.querySelectorAll('.pwa-cliente-card');
+    cards.forEach(card => {
+        const s = (card.getAttribute('data-search') || '').toLowerCase();
+        card.style.display = (!qLower || s.includes(qLower)) ? 'block' : 'none';
+    });
+
+    if (!dropdown) return;
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const matches = (allClientsPwa || []).filter(c => {
+        const s = `${c.nombre || ''} ${c.telefono || ''} ${c.email || ''}`.toLowerCase();
+        return s.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron clientes</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(c => {
+        const foto = c.foto_perfil || c.foto_url;
+        const init = (c.nombre || 'C').substring(0, 2).toUpperCase();
+        const avatarHtml = foto
+            ? `<img src="${escapeHtml(foto)}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:34px;height:34px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;\\'>${escapeHtml(init)}</div>';">`
+            : `<div style="width: 34px; height: 34px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">${escapeHtml(init)}</div>`;
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarClientePredictivoPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+                ${avatarHtml}
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(c.nombre || '', q)}</span>
+                        <span style="font-size: 0.68rem; color: var(--gold-pwa); font-weight: 800;">⭐ ${parseInt(c.puntos || 0)} pts</span>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
+                        📞 ${highlightMatch(c.telefono || c.email || 'Sin teléfono', q)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarClientePredictivoPwa(c) {
+    const input = document.getElementById('pwaFiltroClientesBuscar');
+    if (input) input.value = c.nombre || '';
+    const dropdown = document.getElementById('pwaFiltroClientesDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    filtrarClientesPwa();
+    setTimeout(() => {
+        const card = document.getElementById('pwa-cliente-card-' + c.id);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+        }
+    }, 100);
+}
+
 // 3. SUCURSALES
 function abrirModalSucursalPwa(suc) {
     const form = document.getElementById('formPwaSucursal');
@@ -5338,6 +5692,87 @@ function eliminarSucursalPwa() {
         .then(() => window.location.reload())
         .catch(() => window.location.reload());
     }
+}
+
+function filtrarSucursalesPwa() {
+    const input = document.getElementById('pwaFiltroSucursalesBuscar');
+    const dropdown = document.getElementById('pwaFiltroSucursalesDropdown');
+    const q = (input?.value || '').trim();
+    const qLower = q.toLowerCase();
+
+    // Direct card filtering
+    const cards = document.querySelectorAll('.pwa-sucursal-card');
+    cards.forEach(card => {
+        const s = (card.getAttribute('data-search') || '').toLowerCase();
+        card.style.display = (!qLower || s.includes(qLower)) ? 'block' : 'none';
+    });
+
+    if (!dropdown) return;
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const matches = (allPwaSucursalesData || []).filter(s => {
+        const text = `${s.nombre || ''} ${s.direccion || ''} ${s.telefono || ''}`.toLowerCase();
+        return text.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron sucursales</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(s => {
+        const isActive = s.activo == 1;
+        const statusBadge = isActive 
+            ? '<span style="background:#DCFCE7;color:#15803D;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Activa</span>'
+            : '<span style="background:#F3F4F6;color:#666;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;text-transform:uppercase;">Inactiva</span>';
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarSucursalPredictivaPwa(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">📍</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(s.nombre || '', q)}</span>
+                        ${statusBadge}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
+                        📍 ${highlightMatch(s.direccion || 'Sin dirección', q)}
+                    </div>
+                    <div style="font-size: 0.68rem; color: #888;">
+                        📞 ${highlightMatch(s.telefono || 'Sin teléfono', q)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarSucursalPredictivaPwa(s) {
+    const input = document.getElementById('pwaFiltroSucursalesBuscar');
+    if (input) input.value = s.nombre || '';
+    const dropdown = document.getElementById('pwaFiltroSucursalesDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    filtrarSucursalesPwa();
+    setTimeout(() => {
+        const card = document.getElementById('pwa-sucursal-card-' + s.id);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+        }
+    }, 100);
 }
 
 // 4. INVENTARIO
@@ -5417,6 +5852,84 @@ function eliminarInventarioPwa() {
     }
 }
 
+function filtrarInventarioPwa() {
+    const input = document.getElementById('pwaFiltroInventarioBuscar');
+    const dropdown = document.getElementById('pwaFiltroInventarioDropdown');
+    const q = (input?.value || '').trim();
+    const qLower = q.toLowerCase();
+
+    // Direct card filtering
+    const cards = document.querySelectorAll('.pwa-inv-card');
+    cards.forEach(card => {
+        const s = (card.getAttribute('data-search') || '').toLowerCase();
+        card.style.display = (!qLower || s.includes(qLower)) ? 'block' : 'none';
+    });
+
+    if (!dropdown) return;
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const matches = (allPwaInventarioData || []).filter(inv => {
+        const text = `${inv.producto || ''} ${inv.sucursal_nombre || ''} ${inv.categoria || ''}`.toLowerCase();
+        return text.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron productos</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(inv => {
+        const stockNum = parseFloat(inv.cantidad || 0);
+        const stockBadge = stockNum > 0
+            ? `<span style="background:#DCFCE7;color:#15803D;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;">${stockNum} ${escapeHtml(inv.unidad || 'unid')}</span>`
+            : `<span style="background:#FEE2E2;color:#991B1B;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;">Agotado</span>`;
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarInventarioPredictivoPwa(${JSON.stringify(inv).replace(/"/g, '&quot;')})">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">🧴</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(inv.producto || '', q)}</span>
+                        ${stockBadge}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
+                        📍 ${escapeHtml(inv.sucursal_nombre || 'Stock General')} • $${parseFloat(inv.precio || 0).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarInventarioPredictivoPwa(inv) {
+    const input = document.getElementById('pwaFiltroInventarioBuscar');
+    if (input) input.value = inv.producto || '';
+    const dropdown = document.getElementById('pwaFiltroInventarioDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    filtrarInventarioPwa();
+    setTimeout(() => {
+        const card = document.getElementById('pwa-inv-card-' + inv.id);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+        }
+    }, 100);
+}
+
 // 5. SERVICIOS
 let currentCatFilterPwa = 'all';
 
@@ -5429,6 +5942,67 @@ function filtrarServiciosPorCategoriaPwa(catName, el) {
 
 function filtrarServiciosPwa() {
     aplicarFiltrosServiciosPwa();
+
+    const input = document.getElementById('pwaFiltroServiciosBuscar');
+    const dropdown = document.getElementById('pwaFiltroServiciosDropdown');
+    const q = (input?.value || '').trim();
+    const qLower = q.toLowerCase();
+
+    if (!dropdown) return;
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const matches = (allPwaServiciosData || []).filter(srv => {
+        const text = `${srv.nombre || ''} ${srv.categoria || ''}`.toLowerCase();
+        return text.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron servicios</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(srv => {
+        const foto = srv.foto_url || srv.imagen_url;
+        const avatarHtml = foto
+            ? `<img src="${escapeHtml(foto)}" alt="Servicio" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">`
+            : `<div style="width: 32px; height: 32px; border-radius: 8px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; color: var(--gold-pwa);">✂️</div>`;
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarServicioPredictivoPwa(${JSON.stringify(srv).replace(/"/g, '&quot;')})">
+                ${avatarHtml}
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(srv.nombre || '', q)}</span>
+                        <span style="font-size: 0.75rem; font-weight: 800; color: var(--gold-pwa);">$${parseFloat(srv.precio || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
+                        🏷️ ${highlightMatch(srv.categoria || 'General', q)} • ⏱️ ${srv.duracion_minutos || 45} min
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarServicioPredictivoPwa(srv) {
+    const input = document.getElementById('pwaFiltroServiciosBuscar');
+    if (input) input.value = srv.nombre || '';
+    const dropdown = document.getElementById('pwaFiltroServiciosDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    aplicarFiltrosServiciosPwa();
+    abrirModalServicioPwa(srv);
 }
 
 function aplicarFiltrosServiciosPwa() {
@@ -6173,6 +6747,82 @@ function filtrarResenasPorEstadoPwa(tipo, el) {
 
 function filtrarResenasBuscarPwa() {
     aplicarFiltrosCombinadosResenasPwa();
+
+    const input = document.getElementById('pwaFiltroResenasBuscar');
+    const dropdown = document.getElementById('pwaFiltroResenasDropdown');
+    const q = (input?.value || '').trim();
+    const qLower = q.toLowerCase();
+
+    if (!dropdown) return;
+    if (!q) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const matches = (allPwaResenasData || []).filter(res => {
+        const text = `${res.cliente_nombre || ''} ${res.comentario || ''}`.toLowerCase();
+        return text.includes(qLower);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #888; font-size: 0.8rem;">No se encontraron reseñas</div>';
+        dropdown.classList.add('active');
+        return;
+    }
+
+    let html = '';
+    matches.slice(0, 10).forEach(res => {
+        const init = (res.cliente_nombre || 'C').substring(0, 2).toUpperCase();
+        const stars = '★'.repeat(parseInt(res.calificacion || 5));
+        const isVis = (res.visible == 1);
+        const statusBadge = isVis
+            ? '<span style="background:#DCFCE7;color:#15803D;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;">Publicada</span>'
+            : '<span style="background:#FEF3C7;color:#92400E;font-size:0.65rem;font-weight:800;padding:2px 6px;border-radius:6px;">Pendiente</span>';
+
+        html += `
+            <div class="pwa-predictive-item" onclick="seleccionarResenaPredictivaPwa(${JSON.stringify(res).replace(/"/g, '&quot;')})">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #111; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">
+                    ${escapeHtml(init)}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${highlightMatch(res.cliente_nombre || 'Cliente', q)}</span>
+                        ${statusBadge}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #F59E0B; margin-top: 1px;">
+                        ${stars}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic;">
+                        "${highlightMatch(res.comentario || '', q)}"
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.add('active');
+}
+
+function seleccionarResenaPredictivaPwa(res) {
+    const input = document.getElementById('pwaFiltroResenasBuscar');
+    if (input) input.value = res.cliente_nombre || '';
+    const dropdown = document.getElementById('pwaFiltroResenasDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+        dropdown.innerHTML = '';
+    }
+    aplicarFiltrosCombinadosResenasPwa();
+    setTimeout(() => {
+        const card = document.getElementById('pwaResenaCard_' + res.id);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 0 2px var(--gold-pwa), 0 8px 20px rgba(0,0,0,0.15)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 2000);
+        }
+    }, 100);
 }
 
 function aplicarFiltrosCombinadosResenasPwa() {
@@ -6207,6 +6857,15 @@ function escapeHtml(text) {
     if (!text) return '';
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
+
+// Global outside click listener to close all predictive search dropdowns
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.pwa-predictive-dropdown') && !e.target.closest('input')) {
+        document.querySelectorAll('.pwa-predictive-dropdown').forEach(dd => {
+            dd.classList.remove('active');
+        });
+    }
+});
 </script>
 
 </body>

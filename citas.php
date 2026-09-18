@@ -53,8 +53,10 @@ try {
     $sql = "SELECT c.*, 
             cl.nombre as cliente_nombre,
             cl.telefono as cliente_telefono,
+            COALESCE(cl.foto_perfil, '') as cliente_foto,
             s.nombre as servicio_nombre,
             u.nombre as barbero_nombre,
+            COALESCE(u.foto_url, '') as barbero_foto,
             su.nombre as sucursal_nombre,
             ref.codigo_usado as referido_codigo,
             ref.descuento_aplicado as referido_descuento,
@@ -185,6 +187,20 @@ include 'includes/header.php';
     </div>
 </div>
 
+<!-- Buscador Predictivo de Citas -->
+<div style="position: relative; margin-bottom: 24px; max-width: 540px;">
+    <div style="position: relative; display: flex; align-items: center;">
+        <i class="fas fa-search search-icon" style="position: absolute; left: 14px; color: #9CA3AF; font-size: 14px; pointer-events: none;"></i>
+        <input type="text" 
+               id="predictiveCitaSearch" 
+               placeholder="Buscar cita por cliente, teléfono, servicio, barbero..." 
+               class="search-input"
+               autocomplete="off"
+               style="width: 100%; padding: 11px 16px 11px 40px; background: #FFFFFF; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 14px; font-weight: 500; color: #111827; outline: none; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    </div>
+    <div id="predictiveCitaDropdown" class="predictive-dropdown"></div>
+</div>
+
 <script>
 function toggleFiltroHoy() {
     const inputFecha = document.getElementById('filtroFecha');
@@ -201,6 +217,56 @@ function toggleFiltroHoy() {
 </script>
 
 <style>
+    .predictive-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .predictive-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #F3F4F6;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .predictive-item:last-child {
+        border-bottom: none;
+    }
+
+    .predictive-item:hover {
+        background: #F9FAFB;
+    }
+
+    .avatar-circle-sm {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: #111827;
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 11px;
+        border: 1.5px solid #E5E7EB;
+    }
     .btn-today {
         padding: 9px 14px;
         background: #FFFFFF;
@@ -420,8 +486,12 @@ function toggleFiltroHoy() {
         </thead>
         <tbody>
             <?php if (count($citas) > 0): ?>
-                <?php foreach ($citas as $cita): ?>
-                    <tr>
+                <?php foreach ($citas as $cita): 
+                    $cliInit = strtoupper(mb_substr($cita['cliente_nombre'] ?? 'C', 0, 1, 'UTF-8'));
+                    $barbInit = strtoupper(mb_substr($cita['barbero_nombre'] ?? 'B', 0, 1, 'UTF-8'));
+                    $searchData = strtolower($cita['cliente_nombre'] . ' ' . ($cita['cliente_telefono'] ?? '') . ' ' . $cita['servicio_nombre'] . ' ' . $cita['barbero_nombre'] . ' ' . $cita['sucursal_nombre'] . ' ' . $cita['estado'] . ' ' . date('d/m/Y', strtotime($cita['fecha_hora'])));
+                ?>
+                    <tr class="cita-row" id="cita-row-<?php echo $cita['id']; ?>" data-search="<?php echo htmlspecialchars($searchData); ?>">
                         <td>
                             <strong><?php echo date('d/m/Y', strtotime($cita['fecha_hora'])); ?></strong><br>
                             <span style="color: var(--text-muted); font-size: 13px;">
@@ -429,25 +499,37 @@ function toggleFiltroHoy() {
                             </span>
                         </td>
                         <td>
-                            <div><?php echo htmlspecialchars($cita['cliente_nombre']); ?></div>
-                            <?php if (($currentUser['rol'] === 'admin' || $currentUser['rol'] === 'admin_local') && !empty($cita['cliente_telefono'])):
-                                $wa_phone = formatPhoneForWhatsapp($cita['cliente_telefono']);
-                                $wa_msg = urlencode("Hola " . explode(' ', $cita['cliente_nombre'])[0] . ", te escribo de Kortzen sobre tu cita.");
-                                ?>
-                                <div style="font-size: 11px; margin-top: 4px; display: flex; gap: 8px; align-items: center;">
-                                    <span style="color:#888;"><?php echo htmlspecialchars($cita['cliente_telefono']); ?></span>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <?php if (!empty($cita['cliente_foto'])): ?>
+                                    <img src="<?php echo htmlspecialchars($cita['cliente_foto']); ?>" 
+                                         class="avatar-circle-sm" 
+                                         alt="<?php echo htmlspecialchars($cita['cliente_nombre']); ?>"
+                                         onerror="this.onerror=null; this.outerHTML='<div class=\'avatar-circle-sm\'>' + <?php echo json_encode($cliInit); ?> + '</div>';">
+                                <?php else: ?>
+                                    <div class="avatar-circle-sm"><?php echo $cliInit; ?></div>
+                                <?php endif; ?>
+                                <div>
+                                    <div style="font-weight: 700; color: #111827;"><?php echo htmlspecialchars($cita['cliente_nombre']); ?></div>
+                                    <?php if (($currentUser['rol'] === 'admin' || $currentUser['rol'] === 'admin_local') && !empty($cita['cliente_telefono'])):
+                                        $wa_phone = formatPhoneForWhatsapp($cita['cliente_telefono']);
+                                        $wa_msg = urlencode("Hola " . explode(' ', $cita['cliente_nombre'])[0] . ", te escribo de Kortzen sobre tu cita.");
+                                        ?>
+                                        <div style="font-size: 11px; margin-top: 2px; display: flex; gap: 8px; align-items: center;">
+                                            <span style="color:#888;"><?php echo htmlspecialchars($cita['cliente_telefono']); ?></span>
 
-                                    <!-- WA Button -->
-                                    <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
-                                        title="WhatsApp" style="color: #25D366; text-decoration: none;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                            fill="currentColor">
-                                            <path
-                                                d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-                                        </svg>
-                                    </a>
+                                            <!-- WA Button -->
+                                            <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
+                                                title="WhatsApp" style="color: #25D366; text-decoration: none;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                                    fill="currentColor">
+                                                    <path
+                                                        d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
+                            </div>
                         </td>
                         <td>
                             <div style="font-weight: 700; color: #111111; font-size: 13.5px;">
@@ -474,7 +556,20 @@ function toggleFiltroHoy() {
                         </td>
 
                         <?php if ($currentUser['rol'] === 'admin' || $currentUser['rol'] === 'admin_local'): ?>
-                            <td><?php echo htmlspecialchars($cita['barbero_nombre']); ?></td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <?php if (!empty($cita['barbero_foto'])): ?>
+                                        <img src="<?php echo htmlspecialchars($cita['barbero_foto']); ?>" 
+                                             class="avatar-circle-sm" 
+                                             style="width: 28px; height: 28px; font-size: 10px;"
+                                             alt="<?php echo htmlspecialchars($cita['barbero_nombre']); ?>"
+                                             onerror="this.onerror=null; this.outerHTML='<div class=\'avatar-circle-sm\' style=\'width:28px;height:28px;font-size:10px;\'>' + <?php echo json_encode($barbInit); ?> + '</div>';">
+                                    <?php else: ?>
+                                        <div class="avatar-circle-sm" style="width: 28px; height: 28px; font-size: 10px; background: #374151;"><?php echo $barbInit; ?></div>
+                                    <?php endif; ?>
+                                    <span style="font-weight: 600; font-size: 13px;"><?php echo htmlspecialchars($cita['barbero_nombre']); ?></span>
+                                </div>
+                            </td>
                         <?php endif; ?>
 
                         <td>
@@ -780,6 +875,121 @@ function toggleFiltroHoy() {
             .catch(err => {
                 window.location.reload();
             });
+        }
+    }
+
+    // BUSCADOR PREDICTIVO CITAS
+    const allCitasData = <?php echo json_encode(array_map(function($c) {
+        return [
+            'id' => $c['id'],
+            'cliente_nombre' => $c['cliente_nombre'],
+            'cliente_telefono' => $c['cliente_telefono'] ?: '',
+            'cliente_foto' => $c['cliente_foto'] ?? '',
+            'servicio_nombre' => $c['servicio_nombre'],
+            'barbero_nombre' => $c['barbero_nombre'],
+            'barbero_foto' => $c['barbero_foto'] ?? '',
+            'sucursal_nombre' => $c['sucursal_nombre'] ?? '',
+            'fecha_hora' => date('d/m/Y H:i', strtotime($c['fecha_hora'])),
+            'estado' => $c['estado']
+        ];
+    }, $citas)); ?>;
+
+    const citaSearchInput = document.getElementById('predictiveCitaSearch');
+    const citaSearchDropdown = document.getElementById('predictiveCitaDropdown');
+    const citaRows = document.querySelectorAll('.cita-row');
+
+    if (citaSearchInput && citaSearchDropdown) {
+        citaSearchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+
+            // 1. Instant table row filtering
+            citaRows.forEach(r => {
+                const text = r.getAttribute('data-search') || '';
+                if (!q || text.includes(q)) {
+                    r.style.display = '';
+                } else {
+                    r.style.display = 'none';
+                }
+            });
+
+            // 2. Dropdown predictive suggestions
+            if (q.length === 0) {
+                citaSearchDropdown.style.display = 'none';
+                citaSearchDropdown.innerHTML = '';
+                return;
+            }
+
+            const matches = allCitasData.filter(c => 
+                c.cliente_nombre.toLowerCase().includes(q) ||
+                c.cliente_telefono.toLowerCase().includes(q) ||
+                c.servicio_nombre.toLowerCase().includes(q) ||
+                c.barbero_nombre.toLowerCase().includes(q) ||
+                c.sucursal_nombre.toLowerCase().includes(q) ||
+                c.estado.toLowerCase().includes(q) ||
+                c.fecha_hora.toLowerCase().includes(q)
+            ).slice(0, 6);
+
+            if (matches.length > 0) {
+                let html = '';
+                matches.forEach(m => {
+                    const cliInit = (m.cliente_nombre || 'C').charAt(0).toUpperCase();
+                    const cliAvatar = m.cliente_foto 
+                        ? `<img src="${m.cliente_foto}" class="avatar-circle-sm" onerror="this.onerror=null; this.outerHTML='<div class=\\'avatar-circle-sm\\'>${cliInit}</div>';">` 
+                        : `<div class="avatar-circle-sm">${cliInit}</div>`;
+
+                    const barbInit = (m.barbero_nombre || 'B').charAt(0).toUpperCase();
+                    const barbAvatar = m.barbero_foto 
+                        ? `<img src="${m.barbero_foto}" class="avatar-circle-sm" style="width:20px;height:20px;font-size:9px;" onerror="this.onerror=null; this.outerHTML='<div class=\\'avatar-circle-sm\\' style=\\'width:20px;height:20px;font-size:9px;\\'>${barbInit}</div>';">` 
+                        : `<div class="avatar-circle-sm" style="width:20px;height:20px;font-size:9px;background:#374151;">${barbInit}</div>`;
+
+                    html += `
+                        <div class="predictive-item" onclick="seleccionarCitaPredictiva(${m.id})">
+                            ${cliAvatar}
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        ${m.cliente_nombre}
+                                    </div>
+                                    <span class="status-badge status-${m.estado}" style="font-size: 9px; padding: 2px 6px;">${m.estado.toUpperCase()}</span>
+                                </div>
+                                <div style="font-size: 0.76rem; color: #4B5563; margin-top: 2px;">
+                                    ✂️ <strong>${m.servicio_nombre}</strong> • 📅 ${m.fecha_hora}
+                                </div>
+                                <div style="font-size: 0.72rem; color: #6B7280; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                                    ${barbAvatar}
+                                    <span>${m.barbero_nombre} (${m.sucursal_nombre})</span>
+                                    ${m.cliente_telefono ? ' • 📞 ' + m.cliente_telefono : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                citaSearchDropdown.innerHTML = html;
+                citaSearchDropdown.style.display = 'block';
+            } else {
+                citaSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron citas coincidentes</div>';
+                citaSearchDropdown.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!citaSearchInput.contains(e.target) && !citaSearchDropdown.contains(e.target)) {
+                citaSearchDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    function seleccionarCitaPredictiva(id) {
+        citaSearchDropdown.style.display = 'none';
+        const row = document.getElementById('cita-row-' + id);
+        if (row) {
+            citaRows.forEach(r => r.style.display = 'none');
+            row.style.display = '';
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.background = '#FEF3C7';
+            setTimeout(() => {
+                row.style.background = '';
+            }, 2500);
         }
     }
 </script>

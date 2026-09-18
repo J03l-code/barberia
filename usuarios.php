@@ -96,7 +96,56 @@ include 'includes/header.php';
     </div>
 </div>
 
+<!-- Buscador Predictivo de Usuarios / Barberos -->
+<div style="position: relative; margin-bottom: 24px; max-width: 500px;">
+    <div style="position: relative; display: flex; align-items: center;">
+        <i class="fas fa-search search-icon" style="position: absolute; left: 14px; color: #9CA3AF; font-size: 14px; pointer-events: none;"></i>
+        <input type="text" 
+               id="predictiveUserSearch" 
+               placeholder="Buscar por nombre, barbero, rol, email o sucursal..." 
+               class="search-input"
+               autocomplete="off"
+               style="width: 100%; padding: 11px 16px 11px 40px; background: #FFFFFF; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 14px; font-weight: 500; color: #111827; outline: none; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    </div>
+    <div id="predictiveUserDropdown" class="predictive-dropdown"></div>
+</div>
+
 <style>
+    .predictive-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .predictive-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #F3F4F6;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .predictive-item:last-child {
+        border-bottom: none;
+    }
+
+    .predictive-item:hover {
+        background: #F9FAFB;
+    }
+
     .filter-select {
         padding: 9px 14px;
         background: #FFFFFF;
@@ -242,12 +291,23 @@ include 'includes/header.php';
 
                     // Generar teléfono ficticio basado en ID
                     $telefono = '+34 ' . (900 + $usuario['id']) . ' ' . str_pad($usuario['id'] * 123, 6, '0', STR_PAD_LEFT);
+                    
+                    $userSucText = $usuario['rol'] === 'admin' ? 'Global' : ($usuario['sucursal_nombre'] ?? 'Sin asignar');
+                    $searchData = strtolower($usuario['nombre'] . ' ' . $usuario['email'] . ' ' . $rol_texto . ' ' . $userSucText);
                     ?>
-                    <tr>
+                    <tr class="usuario-row" id="user-row-<?php echo $usuario['id']; ?>" data-search="<?php echo htmlspecialchars($searchData); ?>">
                         <td>
                             <a href="barbero_detalle.php?id=<?php echo $usuario['id']; ?>" style="text-decoration: none; color: inherit;" title="Ver perfil completo y stock">
                                 <div class="user-cell">
-                                    <div class="user-avatar"><?php echo $iniciales; ?></div>
+                                    <?php if (!empty($usuario['foto_url'])): ?>
+                                        <img src="<?php echo htmlspecialchars($usuario['foto_url']); ?>" 
+                                             class="user-avatar" 
+                                             style="object-fit: cover;"
+                                             alt="<?php echo htmlspecialchars($usuario['nombre']); ?>"
+                                             onerror="this.onerror=null; this.outerHTML='<div class=\'user-avatar\'>' + <?php echo json_encode($iniciales); ?> + '</div>';">
+                                    <?php else: ?>
+                                        <div class="user-avatar"><?php echo $iniciales; ?></div>
+                                    <?php endif; ?>
                                     <div class="user-info">
                                         <div class="user-name" style="font-weight: 800; color: #111111;"><?php echo htmlspecialchars($usuario['nombre']); ?></div>
                                         <div class="user-phone"><?php echo $telefono; ?></div>
@@ -310,6 +370,88 @@ include 'includes/header.php';
 </div>
 
 <script>
+    const allUsersData = <?php echo json_encode(array_map(function($u) {
+        $userRolTxt = getRolDisplayName($u['rol']);
+        return [
+            'id' => $u['id'],
+            'nombre' => $u['nombre'],
+            'email' => $u['email'],
+            'rol' => $userRolTxt,
+            'sucursal' => $u['rol'] === 'admin' ? 'Global' : ($u['sucursal_nombre'] ?? 'Sin asignar'),
+            'foto' => $u['foto_url'] ?? ''
+        ];
+    }, $usuarios)); ?>;
+
+    const userSearchInput = document.getElementById('predictiveUserSearch');
+    const userSearchDropdown = document.getElementById('predictiveUserDropdown');
+    const userRows = document.querySelectorAll('.usuario-row');
+
+    if (userSearchInput && userSearchDropdown) {
+        userSearchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+
+            // 1. Instant Table Row Filtering
+            userRows.forEach(r => {
+                const text = r.getAttribute('data-search') || '';
+                if (!q || text.includes(q)) {
+                    r.style.display = '';
+                } else {
+                    r.style.display = 'none';
+                }
+            });
+
+            // 2. Predictive Suggestions
+            if (q.length === 0) {
+                userSearchDropdown.style.display = 'none';
+                userSearchDropdown.innerHTML = '';
+                return;
+            }
+
+            const matches = allUsersData.filter(u => 
+                u.nombre.toLowerCase().includes(q) ||
+                u.email.toLowerCase().includes(q) ||
+                u.rol.toLowerCase().includes(q) ||
+                u.sucursal.toLowerCase().includes(q)
+            ).slice(0, 6);
+
+            if (matches.length > 0) {
+                let html = '';
+                matches.forEach(m => {
+                    const initial = (m.nombre || 'U').charAt(0).toUpperCase();
+                    const avatarHtml = m.foto 
+                        ? `<img src="${m.foto}" class="user-avatar" style="width:34px;height:34px;font-size:11px;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\' style=\\'width:34px;height:34px;font-size:11px;\\'>${initial}</div>';">` 
+                        : `<div class="user-avatar" style="width:34px;height:34px;font-size:11px;">${initial}</div>`;
+
+                    html += `
+                        <a href="barbero_detalle.php?id=${m.id}" class="predictive-item">
+                            ${avatarHtml}
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.nombre}</div>
+                                    <span class="role-badge" style="font-size: 9px; padding: 2px 6px;">${m.rol}</span>
+                                </div>
+                                <div style="font-size: 0.76rem; color: #6B7280; margin-top: 2px;">
+                                    ✉️ ${m.email} • 📍 ${m.sucursal}
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                });
+                userSearchDropdown.innerHTML = html;
+                userSearchDropdown.style.display = 'block';
+            } else {
+                userSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron usuarios coincidentes</div>';
+                userSearchDropdown.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!userSearchInput.contains(e.target) && !userSearchDropdown.contains(e.target)) {
+                userSearchDropdown.style.display = 'none';
+            }
+        });
+    }
+
     function confirmarEliminar(id, nombre) {
         if (confirm('¿Estás seguro de eliminar el usuario "' + nombre + '"?')) {
             const form = document.createElement('form');

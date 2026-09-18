@@ -90,7 +90,69 @@ include 'includes/header.php';
     </div>
 <?php endif; ?>
 
+<!-- Buscador Predictivo de Servicios -->
+<div style="position: relative; margin-bottom: 24px; max-width: 500px;">
+    <div style="position: relative; display: flex; align-items: center;">
+        <i class="fas fa-search search-icon" style="position: absolute; left: 14px; color: #9CA3AF; font-size: 14px; pointer-events: none;"></i>
+        <input type="text" 
+               id="predictiveServiceSearch" 
+               placeholder="Buscar servicio por nombre, categoría, precio, duración..." 
+               class="search-input"
+               autocomplete="off"
+               style="width: 100%; padding: 11px 16px 11px 40px; background: #FFFFFF; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 14px; font-weight: 500; color: #111827; outline: none; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    </div>
+    <div id="predictiveServiceDropdown" class="predictive-dropdown"></div>
+</div>
+
 <style>
+    .predictive-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .predictive-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #F3F4F6;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .predictive-item:last-child {
+        border-bottom: none;
+    }
+
+    .predictive-item:hover {
+        background: #F9FAFB;
+    }
+
+    .service-icon-box {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #F3F4F6;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        border: 1px solid #E5E7EB;
+    }
     .page-header {
         display: flex;
         justify-content: space-between;
@@ -278,8 +340,11 @@ include 'includes/header.php';
                 <?php foreach ($servicios as $servicio): 
                     $catVal = trim($servicio['categoria'] ?? 'General');
                     $sOrden = intval($servicio['orden'] ?? 1);
+                    $assignedList = $barbersByService[$servicio['id']] ?? [];
+                    $barbNamesStr = implode(' ', $assignedList);
+                    $searchData = strtolower($servicio['nombre'] . ' ' . $catVal . ' ' . ($servicio['descripcion'] ?? '') . ' ' . $barbNamesStr . ' ' . $servicio['precio'] . ' ' . $servicio['duracion_minutos']);
                 ?>
-                    <tr class="service-row" data-category="<?php echo htmlspecialchars($catVal); ?>" id="row-service-<?php echo $servicio['id']; ?>">
+                    <tr class="service-row" data-category="<?php echo htmlspecialchars($catVal); ?>" data-search="<?php echo htmlspecialchars($searchData); ?>" id="row-service-<?php echo $servicio['id']; ?>">
                         <td style="text-align: center;">
                             <?php if (!$isReadOnly): ?>
                                 <div class="order-input-box" title="Cambia el número para reordenar en la web">
@@ -303,7 +368,6 @@ include 'includes/header.php';
                                     <?php echo htmlspecialchars($servicio['nombre']); ?>
                                 </strong>
                                 <?php 
-                                $assignedList = $barbersByService[$servicio['id']] ?? [];
                                 $singleB = !empty($servicio['barbero_asignado_nombre']) ? $servicio['barbero_asignado_nombre'] : (stripos($servicio['nombre'], 'mateo') !== false ? 'Mateo Álvaro' : null);
                                 
                                 if (!empty($assignedList)) {
@@ -382,6 +446,86 @@ include 'includes/header.php';
 </div>
 
 <script>
+    const allServicesData = <?php echo json_encode(array_map(function($s) use ($barbersByService) {
+        $assigned = $barbersByService[$s['id']] ?? [];
+        return [
+            'id' => $s['id'],
+            'nombre' => $s['nombre'],
+            'categoria' => trim($s['categoria'] ?? 'General'),
+            'precio' => number_format($s['precio'], 2),
+            'duracion' => intval($s['duracion_minutos']),
+            'barberos' => !empty($assigned) ? implode(', ', $assigned) : 'Todos los barberos',
+            'activo' => intval($s['activo'])
+        ];
+    }, $servicios)); ?>;
+
+    const serviceSearchInput = document.getElementById('predictiveServiceSearch');
+    const serviceSearchDropdown = document.getElementById('predictiveServiceDropdown');
+    const serviceRows = document.querySelectorAll('.service-row');
+
+    if (serviceSearchInput && serviceSearchDropdown) {
+        serviceSearchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+
+            // 1. Instant table filtering
+            serviceRows.forEach(r => {
+                const text = r.getAttribute('data-search') || '';
+                if (!q || text.includes(q)) {
+                    r.style.display = '';
+                } else {
+                    r.style.display = 'none';
+                }
+            });
+
+            // 2. Predictive Suggestions
+            if (q.length === 0) {
+                serviceSearchDropdown.style.display = 'none';
+                serviceSearchDropdown.innerHTML = '';
+                return;
+            }
+
+            const matches = allServicesData.filter(s => 
+                s.nombre.toLowerCase().includes(q) ||
+                s.categoria.toLowerCase().includes(q) ||
+                s.precio.includes(q) ||
+                s.barberos.toLowerCase().includes(q)
+            ).slice(0, 6);
+
+            if (matches.length > 0) {
+                let html = '';
+                matches.forEach(m => {
+                    html += `
+                        <a href="servicios_editar.php?id=${m.id}" class="predictive-item">
+                            <div class="service-icon-box">✂️</div>
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        ${m.nombre}
+                                    </div>
+                                    <span style="color: #059669; font-weight: 900; font-size: 0.88rem;">$${m.precio}</span>
+                                </div>
+                                <div style="font-size: 0.76rem; color: #6B7280; margin-top: 2px;">
+                                    🏷️ <strong>${m.categoria}</strong> • ⏱️ ${m.duracion} min • 💈 ${m.barberos}
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                });
+                serviceSearchDropdown.innerHTML = html;
+                serviceSearchDropdown.style.display = 'block';
+            } else {
+                serviceSearchDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9CA3AF; font-size: 0.85rem;">No se encontraron servicios coincidentes</div>';
+                serviceSearchDropdown.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!serviceSearchInput.contains(e.target) && !serviceSearchDropdown.contains(e.target)) {
+                serviceSearchDropdown.style.display = 'none';
+            }
+        });
+    }
+
     function filterByCategory(cat) {
         document.querySelectorAll('.cat-filter-pill').forEach(p => p.classList.remove('active'));
         if (cat === 'all') {
