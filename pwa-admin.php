@@ -543,6 +543,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/js/pwa.js?v=26200" defer></script>
     <style>
         :root {
             --bg-pwa: #FAF9F6;
@@ -558,6 +559,85 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             --shadow-pwa: 0 4px 20px rgba(0,0,0,0.04);
             --safe-bottom: env(safe-area-inset-bottom, 16px);
             --safe-top: env(safe-area-inset-top, 12px);
+        }
+
+        /* Native Pull-To-Refresh Indicator */
+        .pwa-ptr {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translate3d(-50%, -100%, 0);
+            z-index: 999999;
+            pointer-events: none;
+            user-select: none;
+            will-change: transform;
+            padding-top: calc(env(safe-area-inset-top, 12px) + 8px);
+        }
+
+        .pwa-ptr__pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            background: #111111;
+            color: #FFFFFF;
+            padding: 7px 16px 7px 9px;
+            border-radius: 40px;
+            border: 1px solid rgba(192, 160, 98, 0.35);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .pwa-ptr.pwa-ptr--ready .pwa-ptr__pill {
+            border-color: #C0A062;
+            background: #181818;
+            box-shadow: 0 12px 30px rgba(192, 160, 98, 0.25), 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .pwa-ptr__icon-wrap {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #C0A062;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .pwa-ptr.pwa-ptr--ready .pwa-ptr__icon-wrap {
+            background: rgba(192, 160, 98, 0.25);
+            color: #DFC085;
+        }
+
+        .pwa-ptr__arrow {
+            display: block;
+            transition: transform 0.08s linear;
+        }
+
+        .pwa-ptr__spinner {
+            display: none;
+        }
+
+        .pwa-ptr--loading .pwa-ptr__arrow {
+            display: none;
+        }
+
+        .pwa-ptr--loading .pwa-ptr__spinner {
+            display: block;
+            animation: pwa-ptr-spin 0.75s linear infinite;
+            color: #C0A062;
+        }
+
+        @keyframes pwa-ptr-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         * {
