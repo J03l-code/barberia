@@ -2176,7 +2176,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 6: SUCURSALES -->
     <!-- ========================================================================= -->
-    <section id="viewSucursales" class="pwa-view-panel">
+    <section id="viewSucursales" class="pwa-view-panel <?php echo $activeTab === 'sucursales' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Sucursales</h2>
@@ -2210,7 +2210,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 7: INVENTARIO -->
     <!-- ========================================================================= -->
-    <section id="viewInventario" class="pwa-view-panel">
+    <section id="viewInventario" class="pwa-view-panel <?php echo $activeTab === 'inventario' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Inventario</h2>
@@ -2245,7 +2245,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 8: SERVICIOS -->
     <!-- ========================================================================= -->
-    <section id="viewServicios" class="pwa-view-panel">
+    <section id="viewServicios" class="pwa-view-panel <?php echo $activeTab === 'servicios' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Servicios</h2>
@@ -2348,7 +2348,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 9: GESTIÓN DE HORARIOS DE BARBEROS (IDÉNTICO A HORARIOS.PHP EN WEB) -->
     <!-- ========================================================================= -->
-    <section id="viewHorariosConfig" class="pwa-view-panel">
+    <section id="viewHorariosConfig" class="pwa-view-panel <?php echo in_array($activeTab, ['horarios_config', 'horariosConfig']) ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Gestión de Horarios</h2>
@@ -2509,7 +2509,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 10: GALERÍA WEB -->
     <!-- ========================================================================= -->
-    <section id="viewGaleria" class="pwa-view-panel">
+    <section id="viewGaleria" class="pwa-view-panel <?php echo $activeTab === 'galeria' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Galería Web</h2>
@@ -2534,7 +2534,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 11: RESEÑAS -->
     <!-- ========================================================================= -->
-    <section id="viewResenas" class="pwa-view-panel">
+    <section id="viewResenas" class="pwa-view-panel <?php echo $activeTab === 'resenas' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Reseñas</h2>
@@ -2563,7 +2563,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- ========================================================================= -->
     <!-- VIEW 12: CONFIGURACIÓN INTEGRAL (EXACTAMENTE IGUAL A CONFIGURACION.PHP) -->
     <!-- ========================================================================= -->
-    <section id="viewConfiguracion" class="pwa-view-panel">
+    <section id="viewConfiguracion" class="pwa-view-panel <?php echo $activeTab === 'configuracion' ? 'active' : ''; ?>">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Configuración</h2>
@@ -3870,28 +3870,67 @@ function guardarNuevoClienteRapidoPwa(e) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Resolver la pestaña inicial activa respetando persistencia
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabFromUrl = urlParams.get('tab');
+    let tabFromStorage = null;
+    try {
+        tabFromStorage = localStorage.getItem('kortzen_pwa_admin_active_tab') || sessionStorage.getItem('kortzen_pwa_admin_active_tab');
+    } catch (e) {}
+
+    // Prioridad de pestaña: URL -> Almacenamiento -> PHP server-side -> 'overview'
+    const initialTab = tabFromUrl || tabFromStorage || '<?php echo $activeTab; ?>' || 'overview';
+
+    // 2. Cargar datos base
     cargarDatosHorariosPwa();
     renderizarCitasTab();
-    <?php if ($activeTab === 'horarios_config' || $activeTab === 'horariosConfig'): ?>
-        cambiarVistaPwa('horarios_config');
-    <?php endif; ?>
+
+    // 3. Activar la vista correspondiente
+    cambiarVistaPwa(initialTab);
 });
 
 function cambiarVistaPwa(vistaName) {
+    if (!vistaName) vistaName = 'overview';
+
+    // 1. Guardar en almacenamiento local/sesión para persistencia inmediata al recargar
+    try {
+        localStorage.setItem('kortzen_pwa_admin_active_tab', vistaName);
+        sessionStorage.setItem('kortzen_pwa_admin_active_tab', vistaName);
+    } catch (e) {}
+
+    // 2. Sincronizar parámetro ?tab= en la URL del navegador sin recargar la página
+    try {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('tab') !== vistaName) {
+            currentUrl.searchParams.set('tab', vistaName);
+            window.history.replaceState({ tab: vistaName }, '', currentUrl.toString());
+        }
+    } catch (e) {}
+
+    // 3. Quitar clase activa de todos los paneles
     document.querySelectorAll('.pwa-view-panel').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.pwa-tab-btn').forEach(b => b.classList.remove('active'));
 
+    // 4. Determinar ID del panel objetivo
     let targetId = 'view' + vistaName.charAt(0).toUpperCase() + vistaName.slice(1);
     if (vistaName === 'horarios_config' || vistaName === 'horariosConfig') {
         targetId = 'viewHorariosConfig';
     }
 
     const viewEl = document.getElementById(targetId);
-    if (viewEl) viewEl.classList.add('active');
+    if (viewEl) {
+        viewEl.classList.add('active');
+    }
 
-    const btn = Array.from(document.querySelectorAll('.pwa-tab-btn')).find(b => b.innerText.toLowerCase().trim() === vistaName.toLowerCase().trim());
-    if (btn) btn.classList.add('active');
+    // 5. Activar botón de barra inferior si coincide
+    document.querySelectorAll('.pwa-tab-btn').forEach(b => {
+        const spanText = b.querySelector('span')?.innerText?.toLowerCase().trim() || '';
+        if (spanText === vistaName.toLowerCase().trim()) {
+            b.classList.add('active');
+        }
+    });
 
+    // 6. Ejecutar cargadores de datos específicos según la pestaña
     if (vistaName === 'horarios') {
         cargarDatosHorariosPwa();
     } else if (vistaName === 'horarios_config' || vistaName === 'horariosConfig') {
@@ -4686,7 +4725,15 @@ function filtrarBarberoAgenda(bId, el) {
 }
 
 function cambiarSucursalPwa(sId) {
-    window.location.href = 'pwa-admin.php?sucursal_id=' + sId;
+    const url = new URL(window.location.href);
+    if (parseInt(sId, 10) > 0) {
+        url.searchParams.set('sucursal_id', sId);
+    } else {
+        url.searchParams.delete('sucursal_id');
+    }
+    const currentTab = localStorage.getItem('kortzen_pwa_admin_active_tab') || 'overview';
+    url.searchParams.set('tab', currentTab);
+    window.location.href = url.toString();
 }
 
 function abrirDrawer() {
