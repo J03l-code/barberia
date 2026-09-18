@@ -12,6 +12,8 @@ if (!isAdminTecnico() && !canManageSettings()) {
 
 $action = $_POST['action'] ?? '';
 
+$isAjax = (!empty($_POST['ajax']) || !empty($_GET['ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false));
+
 if ($action === 'save_configs') {
     try {
         $pdo = getConnection();
@@ -58,10 +60,21 @@ if ($action === 'save_configs') {
             $stmt->execute([$clave, $valor]);
         }
 
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => 'Configuración guardada exitosamente.']);
+            exit;
+        }
+
         header('Location: ../configuracion.php?success=' . urlencode('Configuración del sistema guardada exitosamente.'));
         exit;
 
     } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
         header('Location: ../configuracion.php?error=' . urlencode($e->getMessage()));
         exit;
     }
@@ -77,11 +90,21 @@ if ($action === 'crear_codigo_promocional') {
         $activo = isset($_POST['activo']) ? 1 : 0;
 
         if (empty($codigo)) {
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'El código no puede estar vacío.']);
+                exit;
+            }
             header('Location: ../configuracion.php?error=' . urlencode('El código no puede estar vacío.'));
             exit;
         }
 
         if ($porcentaje <= 0 || $porcentaje > 100) {
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'El porcentaje de descuento debe estar entre 1% y 100%.']);
+                exit;
+            }
             header('Location: ../configuracion.php?error=' . urlencode('El porcentaje de descuento debe estar entre 1% y 100%.'));
             exit;
         }
@@ -89,9 +112,20 @@ if ($action === 'crear_codigo_promocional') {
         $stmt = $pdo->prepare("INSERT INTO codigos_promocionales (codigo, descuento_porcentaje, uso_maximo_por_usuario, activo, descripcion) VALUES (?, ?, 1, ?, ?)");
         $stmt->execute([$codigo, $porcentaje, $activo, $descripcion]);
 
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => "Código promocional '$codigo' creado exitosamente ($porcentaje% de descuento)."]);
+            exit;
+        }
+
         header('Location: ../configuracion.php?success=' . urlencode("Código promocional '$codigo' creado exitosamente ($porcentaje% de descuento)."));
         exit;
     } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Error: El código ya existe o es inválido.']);
+            exit;
+        }
         header('Location: ../configuracion.php?error=' . urlencode('Error: El código ya existe o es inválido.'));
         exit;
     }
@@ -107,9 +141,19 @@ if ($action === 'toggle_codigo_promocional') {
         $stmt->execute([$activo, $id]);
 
         $estadoTexto = $activo ? 'activado' : 'desactivado';
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => "Código promocional $estadoTexto correctamente."]);
+            exit;
+        }
         header('Location: ../configuracion.php?success=' . urlencode("Código promocional $estadoTexto correctamente."));
         exit;
     } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
         header('Location: ../configuracion.php?error=' . urlencode($e->getMessage()));
         exit;
     }
@@ -123,12 +167,28 @@ if ($action === 'eliminar_codigo_promocional') {
         $stmt = $pdo->prepare("DELETE FROM codigos_promocionales WHERE id = ?");
         $stmt->execute([$id]);
 
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'message' => 'Código promocional eliminado exitosamente.']);
+            exit;
+        }
         header('Location: ../configuracion.php?success=' . urlencode("Código promocional eliminado exitosamente."));
         exit;
     } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
         header('Location: ../configuracion.php?error=' . urlencode($e->getMessage()));
         exit;
     }
+}
+
+if ($isAjax) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Acción no válida']);
+    exit;
 }
 
 header('Location: ../configuracion.php');

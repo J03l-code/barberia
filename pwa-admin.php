@@ -476,8 +476,14 @@ try {
 
 // 3. Servicios
 $serviciosList = [];
+$categoriasServiciosList = [];
 try {
-    $serviciosList = query("SELECT s.*, cs.nombre as categoria_nombre FROM servicios s LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre WHERE s.activo = 1 ORDER BY s.categoria ASC, s.nombre ASC");
+    $categoriasServiciosList = query("SELECT * FROM categorias_servicios ORDER BY orden ASC, nombre ASC");
+} catch (Exception $e) {
+    $categoriasServiciosList = [];
+}
+try {
+    $serviciosList = query("SELECT s.*, cs.nombre as categoria_nombre FROM servicios s LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre ORDER BY COALESCE(s.orden, 999) ASC, s.categoria ASC, s.nombre ASC");
 } catch (Exception $e) {
     $serviciosList = [];
 }
@@ -530,10 +536,27 @@ try {
 
 // 8. Configuración
 $configuracionesList = [];
+$configsMap = [];
 try {
     $configuracionesList = query("SELECT * FROM configuracion ORDER BY clave ASC");
+    foreach ($configuracionesList as $cr) {
+        $configsMap[$cr['clave']] = $cr['valor'];
+    }
 } catch (Exception $e) {
     $configuracionesList = [];
+    $configsMap = [];
+}
+
+// Códigos Promocionales y Cupones
+$codigosPromocionales = [];
+try {
+    $codigosPromocionales = query("
+        SELECT cp.*, (SELECT COUNT(*) FROM usos_codigos_promocionales u WHERE u.codigo_id = cp.id) as usos_totales 
+        FROM codigos_promocionales cp 
+        ORDER BY cp.id DESC
+    ");
+} catch (Exception $exP) {
+    $codigosPromocionales = [];
 }
 
 // 9. Citas Completas (Gestión Integral PWA)
@@ -2223,28 +2246,99 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     <!-- VIEW 8: SERVICIOS -->
     <!-- ========================================================================= -->
     <section id="viewServicios" class="pwa-view-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Servicios</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes y precios</p>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes, precios y duraciones</p>
             </div>
-            <button type="button" onclick="abrirModalServicioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SERVICIO</button>
+            <button type="button" onclick="abrirModalServicioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800;">+ SERVICIO</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- Buscador de Servicios en Tiempo Real -->
+        <div style="margin-bottom: 12px; position: relative;">
+            <input type="text" id="pwaFiltroServiciosBuscar" oninput="filtrarServiciosPwa()" placeholder="Buscar por nombre o categoría..." style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.82rem; font-weight: 700;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.82rem;"></i>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 14px;" id="pwaServCatPills">
+            <button type="button" class="pwa-chip active" onclick="filtrarServiciosPorCategoriaPwa('all', this)">
+                Todos (<?php echo count($serviciosList); ?>)
+            </button>
+            <?php foreach ($categoriasServiciosList as $cs): ?>
+                <?php 
+                    $countInCat = count(array_filter($serviciosList, function($s) use ($cs) {
+                        return strtolower(trim($s['categoria'] ?? '')) === strtolower(trim($cs['nombre']));
+                    }));
+                ?>
+                <button type="button" class="pwa-chip" onclick="filtrarServiciosPorCategoriaPwa('<?php echo htmlspecialchars(addslashes($cs['nombre'])); ?>', this)">
+                    <?php echo htmlspecialchars($cs['nombre']); ?> (<?php echo $countInCat; ?>)
+                </button>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Contenedor del Listado de Servicios -->
+        <div style="display: flex; flex-direction: column; gap: 12px;" id="pwaServiciosListContainer">
             <?php foreach ($serviciosList as $srv): ?>
-                <div class="pwa-item-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($srv['nombre']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($srv['categoria'] ?? 'General'); ?> • <?php echo $srv['duracion_minutos']; ?> min</div>
-                        </div>
+                <?php
+                    $incluyeList = array_filter(array_map('trim', preg_split('/\r\n|\r|\n|•/', $srv['que_incluye'] ?? '')));
+                ?>
+                <div class="pwa-item-card pwa-serv-card-item" data-cat="<?php echo htmlspecialchars(strtolower($srv['categoria'] ?? 'general')); ?>" data-name="<?php echo htmlspecialchars(strtolower($srv['nombre'] . ' ' . ($srv['categoria'] ?? ''))); ?>" style="padding: 14px; border-radius: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <div style="font-weight: 900; font-size: 1.15rem; color: var(--gold-pwa);">
+                            <?php if (!empty($srv['foto_url']) || !empty($srv['imagen_url'])): ?>
+                                <img src="<?php echo htmlspecialchars($srv['foto_url'] ?: $srv['imagen_url']); ?>" alt="Foto" style="width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 1px solid #EAEAEA;">
+                            <?php else: ?>
+                                <div style="width: 44px; height: 44px; border-radius: 10px; background: #F3F4F6; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--gold-pwa);">
+                                    ✂️
+                                </div>
+                            <?php endif; ?>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <div style="font-weight: 900; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($srv['nombre']); ?></div>
+                                    <?php if (isset($srv['orden']) && $srv['orden'] > 0): ?>
+                                        <span style="font-size: 0.68rem; font-weight: 800; background: #F3F4F6; color: #666; padding: 1px 6px; border-radius: 4px;">#<?php echo intval($srv['orden']); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <div style="font-size: 0.76rem; color: var(--text-gray); font-weight: 600; margin-top: 2px;">
+                                    <span style="background: #F4F4F5; padding: 2px 7px; border-radius: 6px; font-weight: 700;"><?php echo htmlspecialchars($srv['categoria'] ?? 'General'); ?></span>
+                                    • ⏱️ <?php echo intval($srv['duracion_minutos'] ?? 30); ?> min
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 900; font-size: 1.2rem; color: var(--gold-pwa);">
                                 $<?php echo number_format($srv['precio'], 2); ?>
                             </div>
-                            <button type="button" onclick="abrirModalServicioPwa(<?php echo htmlspecialchars(json_encode($srv), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 5px 10px;">Editar</button>
+                            <span style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: <?php echo !empty($srv['activo']) ? '#DCFCE7; color: #15803D;' : '#FEE2E2; color: #991B1B;'; ?>">
+                                <?php echo !empty($srv['activo']) ? 'Activo' : 'Inactivo'; ?>
+                            </span>
                         </div>
+                    </div>
+
+                    <?php if (!empty($srv['descripcion'])): ?>
+                        <div style="font-size: 0.78rem; color: #4B5563; margin-bottom: 8px; line-height: 1.35;">
+                            <?php echo htmlspecialchars($srv['descripcion']); ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($incluyeList)): ?>
+                        <div style="background: #F9FAFB; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #F3F4F6;">
+                            <div style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #6B7280; margin-bottom: 4px;">¿Qué incluye?</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                <?php foreach ($incluyeList as $item): ?>
+                                    <span style="font-size: 0.72rem; background: #FFFFFF; border: 1px solid #E5E7EB; padding: 2px 6px; border-radius: 4px; color: #374151; font-weight: 600;">
+                                        ✓ <?php echo htmlspecialchars($item); ?>
+                                    </span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px dashed #EAEAEA; padding-top: 8px;">
+                        <button type="button" onclick="abrirModalServicioPwa(<?php echo htmlspecialchars(json_encode($srv), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 6px 14px; font-weight: 800;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -2252,7 +2346,168 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 9: GALERÍA WEB -->
+    <!-- VIEW 9: GESTIÓN DE HORARIOS DE BARBEROS (IDÉNTICO A HORARIOS.PHP EN WEB) -->
+    <!-- ========================================================================= -->
+    <section id="viewHorariosConfig" class="pwa-view-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Gestión de Horarios</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Jornadas semanales y bloqueos por barbero</p>
+            </div>
+        </div>
+
+        <!-- Selector de Barbero -->
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.75rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase; margin-bottom: 8px;">Seleccionar Barbero</div>
+            <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;" id="pwaHorariosBarberChips">
+                <?php foreach ($barberosList as $idx => $b): ?>
+                    <button type="button" class="pwa-chip <?php echo $idx === 0 ? 'active' : ''; ?>" onclick="seleccionarBarberoHorariosConfig(<?php echo $b['id']; ?>, this)" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 20px;">
+                        <?php if (!empty($b['foto_url'])): ?>
+                            <img src="<?php echo htmlspecialchars($b['foto_url']); ?>" alt="Foto" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover;">
+                        <?php else: ?>
+                            <div style="width: 22px; height: 22px; border-radius: 50%; background: #111; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800;">
+                                <?php echo strtoupper(substr($b['nombre'], 0, 2)); ?>
+                            </div>
+                        <?php endif; ?>
+                        <span><?php echo htmlspecialchars($b['nombre']); ?></span>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Estado de Carga -->
+        <div id="pwaHorariosLoading" style="display: none; text-align: center; padding: 30px; color: var(--text-gray);">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <div style="margin-top: 8px; font-weight: 700; font-size: 0.85rem;">Cargando horarios del barbero...</div>
+        </div>
+
+        <!-- Contenedor Principal de Horarios -->
+        <div id="pwaHorariosContent">
+            <!-- 1. Jornada Semanal (7 Días) -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1.5px solid #F3F4F6; padding-bottom: 10px;">
+                    <div>
+                        <div style="font-weight: 900; font-size: 1rem; color: var(--text-dark);">📅 Horario Regular Semanal</div>
+                        <div style="font-size: 0.75rem; color: var(--text-gray);">Días laborales y rangos de atención</div>
+                    </div>
+                </div>
+
+                <form id="formPwaHorariosSemanal" onsubmit="guardarHorariosSemanalPwa(event)">
+                    <input type="hidden" name="action" value="guardar_horarios">
+                    <input type="hidden" name="barbero_id" id="pwaHorariosBarberoId" value="<?php echo $barberosList[0]['id'] ?? 0; ?>">
+                    <input type="hidden" name="ajax" value="1">
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;" id="pwaHorariosDiasContainer">
+                        <?php
+                        $diasNombres = [
+                            0 => 'Domingo',
+                            1 => 'Lunes',
+                            2 => 'Martes',
+                            3 => 'Miércoles',
+                            4 => 'Jueves',
+                            5 => 'Viernes',
+                            6 => 'Sábado'
+                        ];
+                        foreach ($diasNombres as $diaNum => $diaNom):
+                        ?>
+                            <div class="pwa-dia-row" style="background: #FAFAFA; border: 1px solid var(--border-pwa); border-radius: 10px; padding: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);">
+                                        <?php echo $diaNom; ?>
+                                    </div>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                                        <input type="checkbox" name="activo[<?php echo $diaNum; ?>]" id="pwa_dia_activo_<?php echo $diaNum; ?>" value="1" checked onchange="toggleDiaHorarioPwa(<?php echo $diaNum; ?>)">
+                                        <span id="pwa_dia_lbl_<?php echo $diaNum; ?>" style="color: #10B981; font-weight: 800;">Labora</span>
+                                    </label>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" id="pwa_dia_inputs_<?php echo $diaNum; ?>">
+                                    <div>
+                                        <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Entrada</label>
+                                        <input type="time" name="hora_inicio[<?php echo $diaNum; ?>]" id="pwa_hora_inicio_<?php echo $diaNum; ?>" value="09:00" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.85rem;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Salida</label>
+                                        <input type="time" name="hora_fin[<?php echo $diaNum; ?>]" id="pwa_hora_fin_<?php echo $diaNum; ?>" value="19:00" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.85rem;">
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <button type="submit" id="btnSubmitPwaHorarios" class="pwa-btn-main" style="margin-top: 14px; width: 100%; padding: 12px; font-weight: 800;">
+                        Guardar Horario Semanal
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. Días Bloqueados (Vacaciones / Descansos Especiales) -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="font-weight: 900; font-size: 1rem; color: var(--text-dark); margin-bottom: 4px;">🏖️ Días Bloqueados</div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Bloqueo de días completos (Vacaciones, incapacidades)</div>
+
+                <!-- Formulario Agregar Día Bloqueado -->
+                <form id="formPwaAgregarBloqueoDia" onsubmit="agregarBloqueoDiaPwa(event)" style="background: #FAFAFA; border: 1px solid var(--border-pwa); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Fecha</label>
+                            <input type="date" id="pwaBloqueoFecha" required min="<?php echo date('Y-m-d'); ?>" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.8rem;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Motivo</label>
+                            <input type="text" id="pwaBloqueoMotivo" placeholder="Ej: Descanso" value="Día libre" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.8rem;">
+                        </div>
+                    </div>
+                    <button type="submit" id="btnSubmitPwaBloqueoDia" class="pwa-btn-secondary" style="width: 100%; background: #111; color: #FFF; font-weight: 800; font-size: 0.78rem; padding: 8px;">
+                        + Bloquear Día Completo
+                    </button>
+                </form>
+
+                <!-- Listado Días Bloqueados -->
+                <div id="pwaListaDiasBloqueados">
+                    <div style="text-align: center; color: var(--text-gray); font-size: 0.78rem; padding: 10px;">Sin días bloqueados registrados</div>
+                </div>
+            </div>
+
+            <!-- 3. Bloqueos de Horas Específicas (Turnos Parciales) -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="font-weight: 900; font-size: 1rem; color: var(--text-dark); margin-bottom: 4px;">⏰ Bloqueos de Horas Parciales</div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Bloqueo de franjas horarias específicas (Almuerzo, citas personales)</div>
+
+                <!-- Formulario Agregar Bloqueo de Horas -->
+                <form id="formPwaAgregarBloqueoHora" onsubmit="agregarBloqueoHoraPwa(event)" style="background: #FAFAFA; border: 1px solid var(--border-pwa); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                    <div style="margin-bottom: 8px;">
+                        <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Fecha</label>
+                        <input type="date" id="pwaBloqueoHoraFecha" required min="<?php echo date('Y-m-d'); ?>" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.8rem;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Hora Inicio</label>
+                            <input type="time" id="pwaBloqueoHoraInicio" required value="13:00" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.8rem;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Hora Fin</label>
+                            <input type="time" id="pwaBloqueoHoraFin" required value="14:00" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.8rem;">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Motivo</label>
+                        <input type="text" id="pwaBloqueoHoraMotivo" placeholder="Ej: Almuerzo / Diligencia" value="Almuerzo" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.8rem;">
+                    </div>
+                    <button type="submit" id="btnSubmitPwaBloqueoHora" class="pwa-btn-secondary" style="width: 100%; background: #111; color: #FFF; font-weight: 800; font-size: 0.78rem; padding: 8px;">
+                        + Bloquear Horario Específico
+                    </button>
+                </form>
+
+                <!-- Listado Bloqueos de Horas -->
+                <div id="pwaListaBloqueosHoras">
+                    <div style="text-align: center; color: var(--text-gray); font-size: 0.78rem; padding: 10px;">Sin bloqueos por horas registrados</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 10: GALERÍA WEB -->
     <!-- ========================================================================= -->
     <section id="viewGaleria" class="pwa-view-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -2277,7 +2532,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 10: RESEÑAS -->
+    <!-- VIEW 11: RESEÑAS -->
     <!-- ========================================================================= -->
     <section id="viewResenas" class="pwa-view-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -2306,31 +2561,222 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 11: CONFIGURACIÓN -->
+    <!-- VIEW 12: CONFIGURACIÓN INTEGRAL (EXACTAMENTE IGUAL A CONFIGURACION.PHP) -->
     <!-- ========================================================================= -->
     <section id="viewConfiguracion" class="pwa-view-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Configuración</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Puntos y descuentos de referidos</p>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Fidelización, SMTP, Políticas y Cupones</p>
             </div>
-            <button type="button" onclick="abrirModalConfiguracionPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">Editar Config</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($configuracionesList as $cfg): ?>
-                <div class="pwa-item-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);"><?php echo htmlspecialchars($cfg['clave']); ?></div>
-                            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 2px;"><?php echo htmlspecialchars($cfg['descripcion'] ?? ''); ?></div>
-                        </div>
-                        <div style="font-size: 1.15rem; font-weight: 900; color: var(--gold-pwa);">
-                            <?php echo htmlspecialchars($cfg['valor']); ?>
-                        </div>
+        <!-- Formulario de Configuración General -->
+        <form id="formPwaConfiguracionGeneral" onsubmit="guardarConfiguracionGeneralPwa(event)">
+            <input type="hidden" name="action" value="save_configs">
+            <input type="hidden" name="ajax" value="1">
+
+            <!-- Card 1: Puntos KORTZEN -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 4px;">
+                    ⭐ Sistema de Puntos KORTZEN
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Recompensas acumulables por servicios y referidos</div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puntos por Corte</label>
+                        <input type="number" name="puntos_por_corte" value="<?php echo htmlspecialchars($configsMap['puntos_por_corte'] ?? '100'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puntos por Referido</label>
+                        <input type="number" name="puntos_por_referido" value="<?php echo htmlspecialchars($configsMap['puntos_por_referido'] ?? '200'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
                     </div>
                 </div>
-            <?php endforeach; ?>
+            </div>
+
+            <!-- Card 2: Descuentos de Referidos ($) -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 4px;">
+                    🏷️ Descuentos del Programa Amigo
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Monto en dólares ($) descontado automáticamente</div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Desc. Amigo ($)</label>
+                        <input type="number" step="0.50" name="descuento_referido_amigo" value="<?php echo htmlspecialchars($configsMap['descuento_referido_amigo'] ?? '2.00'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Desc. Referente ($)</label>
+                        <input type="number" step="0.50" name="descuento_referente" value="<?php echo htmlspecialchars($configsMap['descuento_referente'] ?? '2.00'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Niveles de Fidelización -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 4px;">
+                    🏆 Niveles de Fidelización
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Puntos necesarios para subir de categoría</div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <div>
+                        <label style="font-size: 0.65rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Plata</label>
+                        <input type="number" name="puntos_nivel_plata" value="<?php echo htmlspecialchars($configsMap['puntos_nivel_plata'] ?? '500'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.65rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Oro</label>
+                        <input type="number" name="puntos_nivel_oro" value="<?php echo htmlspecialchars($configsMap['puntos_nivel_oro'] ?? '1500'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.65rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">VIP</label>
+                        <input type="number" name="puntos_nivel_vip" value="<?php echo htmlspecialchars($configsMap['puntos_nivel_vip'] ?? '3000'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: Servidor SMTP Hostinger -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 4px;">
+                    ✉️ Servidor SMTP Hostinger
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Configuración de correos de confirmación y recordatorios</div>
+
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Host SMTP</label>
+                        <input type="text" name="smtp_host" value="<?php echo htmlspecialchars($configsMap['smtp_host'] ?? 'smtp.hostinger.com'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puerto</label>
+                        <input type="number" name="smtp_port" value="<?php echo htmlspecialchars($configsMap['smtp_port'] ?? '465'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Usuario / Correo</label>
+                        <input type="email" name="smtp_user" value="<?php echo htmlspecialchars($configsMap['smtp_user'] ?? ''); ?>" placeholder="citas@kortzen.com" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Contraseña</label>
+                        <input type="password" name="smtp_pass" value="<?php echo htmlspecialchars($configsMap['smtp_pass'] ?? ''); ?>" placeholder="••••••••" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 5: Política de Reservas & Condiciones -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 4px;">
+                    📜 Política de Reservas & Condiciones
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">Texto visible en la experiencia de agendamiento para clientes</div>
+
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Título de la Política</label>
+                    <input type="text" name="politica_reserva_titulo" value="<?php echo htmlspecialchars($configsMap['politica_reserva_titulo'] ?? 'POLÍTICA DE RESERVAS'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Cláusulas y Términos (Un ítem por renglón)</label>
+                    <textarea name="politica_reserva_texto" rows="4" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; font-size: 0.8rem; margin-top: 4px; font-family: inherit;"><?php echo htmlspecialchars($configsMap['politica_reserva_texto'] ?? ''); ?></textarea>
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Texto del Checkbox de Aceptación</label>
+                    <input type="text" name="politica_reserva_check_texto" value="<?php echo htmlspecialchars($configsMap['politica_reserva_check_texto'] ?? 'He leído y acepto la política de reserva y condiciones de puntualidad.'); ?>" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+
+                <div>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        <input type="hidden" name="politica_reserva_requiere_check" value="0">
+                        <input type="checkbox" name="politica_reserva_requiere_check" value="1" <?php echo ($configsMap['politica_reserva_requiere_check'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                        <span>Exigir marcar checkbox de aceptación para confirmar reserva</span>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaConfigGeneral" class="pwa-btn-main" style="width: 100%; padding: 14px; font-weight: 800; margin-bottom: 24px;">
+                Guardar Ajustes del Sistema
+            </button>
+        </form>
+
+        <!-- Card 6: Códigos Promocionales y Cupones -->
+        <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <div style="font-weight: 900; font-size: 1rem; color: var(--text-dark);">🎟️ Códigos Promocionales & Cupones</div>
+                <span style="font-size: 0.72rem; font-weight: 800; background: #FEF3C7; color: #92400E; padding: 2px 8px; border-radius: 6px;">
+                    <?php echo count($codigosPromocionales); ?> Cupones
+                </span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 14px;">Descuentos porcentuales para campañas y promociones</div>
+
+            <!-- Formulario Crear Cupón -->
+            <form id="formPwaCrearCupon" onsubmit="crearCuponPwa(event)" style="background: #FAFAFA; border: 1px solid var(--border-pwa); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                <input type="hidden" name="action" value="crear_codigo_promocional">
+                <input type="hidden" name="ajax" value="1">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div>
+                        <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Código</label>
+                        <input type="text" name="codigo" required placeholder="EJ: VERANO20" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 800; font-size: 0.82rem; text-transform: uppercase;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">% Descuento</label>
+                        <input type="number" step="1" min="1" max="100" name="descuento_porcentaje" required value="10" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 800; font-size: 0.82rem;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 0.68rem; font-weight: 700; color: #666; text-transform: uppercase;">Descripción / Campaña</label>
+                    <input type="text" name="descripcion" placeholder="Campaña especial de apertura" style="width: 100%; padding: 8px; border-radius: 6px; border: 1.5px solid var(--border-pwa); font-weight: 600; font-size: 0.8rem;">
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                        <input type="checkbox" name="activo" value="1" checked>
+                        <span>Activar inmediatamente</span>
+                    </label>
+                    <button type="submit" id="btnSubmitPwaCrearCupon" class="pwa-btn-secondary" style="background: #111; color: #FFF; font-weight: 800; font-size: 0.78rem; padding: 7px 12px;">
+                        + Crear Cupón
+                    </button>
+                </div>
+            </form>
+
+            <!-- Lista de Cupones -->
+            <div style="display: flex; flex-direction: column; gap: 8px;" id="pwaCuponesList">
+                <?php if (empty($codigosPromocionales)): ?>
+                    <div style="text-align: center; color: var(--text-gray); font-size: 0.8rem; padding: 12px;">No hay cupones creados aún.</div>
+                <?php else: ?>
+                    <?php foreach ($codigosPromocionales as $cup): ?>
+                        <div style="background: #FAFAFA; border: 1px solid var(--border-pwa); border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="background: #111; color: #FFF; font-weight: 900; font-size: 0.8rem; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px;">
+                                        <?php echo htmlspecialchars($cup['codigo']); ?>
+                                    </span>
+                                    <span style="font-weight: 900; color: var(--gold-pwa); font-size: 0.85rem;">
+                                        <?php echo floatval($cup['descuento_porcentaje']); ?>% OFF
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--text-gray); margin-top: 4px;">
+                                    <?php echo htmlspecialchars($cup['descripcion'] ?: 'Sin descripción'); ?> • 👥 <?php echo intval($cup['usos_totales'] ?? 0); ?> usos
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button type="button" onclick="toggleEstadoCuponPwa(<?php echo $cup['id']; ?>, <?php echo $cup['activo'] ? 0 : 1; ?>)" class="pwa-btn-secondary" style="font-size: 0.7rem; padding: 4px 8px; font-weight: 800; background: <?php echo $cup['activo'] ? '#DCFCE7; color: #166534;' : '#F3F4F6; color: #666;'; ?>">
+                                    <?php echo $cup['activo'] ? 'Activo' : 'Inactivo'; ?>
+                                </button>
+                                <button type="button" onclick="eliminarCuponPwa(<?php echo $cup['id']; ?>)" style="background: #FEE2E2; color: #DC2626; border: none; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer;">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
         </div>
     </section>
 
@@ -2425,7 +2871,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <i class="fas fa-calendar-check" style="width: 20px;"></i>
         <span>Citas</span>
     </div>
-    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('horarios'); cerrarDrawer();">
+    <div class="pwa-drawer-item" onclick="cambiarVistaPwa('horarios_config'); cerrarDrawer();">
         <i class="fas fa-clock" style="width: 20px;"></i>
         <span>Horarios</span>
     </div>
@@ -3014,49 +3460,83 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 
 <!-- Modal Crear / Editar Servicio -->
 <div class="pwa-action-sheet" id="pwaServicioSheet" onclick="if(event.target===this) cerrarModalServicioPwa()">
-    <div class="pwa-sheet-box">
+    <div class="pwa-sheet-box" style="max-height: 85vh; overflow-y: auto;">
         <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
             <div>
                 <div style="font-size: 1.15rem; font-weight: 800;" id="pwaServModalTitle">Servicio</div>
-                <div style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes y precios</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes, precios y detalles</div>
             </div>
             <button onclick="cerrarModalServicioPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
         </div>
 
-        <form id="formPwaServicio" onsubmit="guardarServicioPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+        <form id="formPwaServicio" onsubmit="guardarServicioPwa(event)" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 12px;">
             <input type="hidden" name="action" id="pwaServAction" value="create">
             <input type="hidden" name="id" id="pwaServId" value="">
             <input type="hidden" name="ajax" value="1">
 
             <div>
-                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Nombre del Servicio</label>
-                <input type="text" name="nombre" id="pwaServNombre" required placeholder="Ej: Corte Degradado + Barba" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Nombre del Servicio *</label>
+                <input type="text" name="nombre" id="pwaServNombre" required placeholder="Ej: Corte Degradado + Barba" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Precio ($)</label>
-                    <input type="number" step="0.01" name="precio" id="pwaServPrecio" required value="12.00" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Precio ($) *</label>
+                    <input type="number" step="0.01" name="precio" id="pwaServPrecio" required value="12.00" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Duración (Minutos)</label>
-                    <input type="number" name="duracion_minutos" id="pwaServDuracion" value="30" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Duración (Minutos) *</label>
+                    <input type="number" name="duracion_minutos" id="pwaServDuracion" value="30" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Categoría</label>
+                    <select name="categoria" id="pwaServCategoria" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px; font-size: 0.85rem;">
+                        <?php foreach ($categoriasServiciosList as $cs): ?>
+                            <option value="<?php echo htmlspecialchars($cs['nombre']); ?>"><?php echo htmlspecialchars($cs['nombre']); ?></option>
+                        <?php endforeach; ?>
+                        <option value="General">General</option>
+                        <option value="Corte">Corte</option>
+                        <option value="Barba">Barba</option>
+                        <option value="Combos">Combos</option>
+                        <option value="Tratamientos">Tratamientos</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Orden de Aparición</label>
+                    <input type="number" name="orden" id="pwaServOrden" value="0" placeholder="0" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 800; margin-top: 4px;">
                 </div>
             </div>
 
             <div>
-                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Categoría</label>
-                <input type="text" name="categoria" id="pwaServCategoria" value="General" placeholder="General, Barba, Combos..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Estado</label>
+                <select name="activo" id="pwaServActivo" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px; font-size: 0.85rem;">
+                    <option value="1">Activo (Visible en reservas)</option>
+                    <option value="0">Inactivo (Oculto)</option>
+                </select>
             </div>
 
             <div>
-                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Descripción</label>
-                <textarea name="descripcion" id="pwaServDescripcion" rows="2" placeholder="Incluye lavado, perfilado y toalla caliente..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; margin-top: 4px; font-family: inherit;"></textarea>
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Descripción</label>
+                <textarea name="descripcion" id="pwaServDescripcion" rows="2" placeholder="Breve descripción del servicio..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; font-size: 0.82rem; margin-top: 4px; font-family: inherit;"></textarea>
             </div>
 
-            <button type="submit" id="btnSubmitPwaServ" class="pwa-btn-main" style="margin-top: 8px;">Guardar Servicio</button>
-            <button type="button" id="btnDeletePwaServ" onclick="eliminarServicioPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none;">Eliminar Servicio</button>
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">¿Qué incluye el servicio? (Un ítem por línea)</label>
+                <textarea name="que_incluye" id="pwaServQueIncluye" rows="3" placeholder="• Lavado capilar premium&#10;• Perfilado con navaja&#10;• Toalla caliente relajante" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; font-size: 0.82rem; margin-top: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Imagen / Fotografía (Opcional)</label>
+                <input type="file" name="foto_file" id="pwaServFotoFile" accept="image/*" style="width: 100%; padding: 8px; border-radius: 8px; border: 1.5px dashed var(--border-pwa); font-size: 0.8rem; margin-top: 4px;">
+                <input type="text" name="foto_url" id="pwaServFotoUrl" placeholder="O pega la URL de la imagen aquí (/assets/...)" style="width: 100%; padding: 9px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 600; margin-top: 6px;">
+            </div>
+
+            <button type="submit" id="btnSubmitPwaServ" class="pwa-btn-main" style="margin-top: 8px; padding: 13px; font-weight: 800;">Guardar Servicio</button>
+            <button type="button" id="btnDeletePwaServ" onclick="eliminarServicioPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none; padding: 13px; font-weight: 800;">Eliminar Servicio</button>
         </form>
     </div>
 </div>
@@ -3392,13 +3872,21 @@ function guardarNuevoClienteRapidoPwa(e) {
 document.addEventListener('DOMContentLoaded', () => {
     cargarDatosHorariosPwa();
     renderizarCitasTab();
+    <?php if ($activeTab === 'horarios_config' || $activeTab === 'horariosConfig'): ?>
+        cambiarVistaPwa('horarios_config');
+    <?php endif; ?>
 });
 
 function cambiarVistaPwa(vistaName) {
     document.querySelectorAll('.pwa-view-panel').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.pwa-tab-btn').forEach(b => b.classList.remove('active'));
 
-    const viewEl = document.getElementById('view' + vistaName.charAt(0).toUpperCase() + vistaName.slice(1));
+    let targetId = 'view' + vistaName.charAt(0).toUpperCase() + vistaName.slice(1);
+    if (vistaName === 'horarios_config' || vistaName === 'horariosConfig') {
+        targetId = 'viewHorariosConfig';
+    }
+
+    const viewEl = document.getElementById(targetId);
     if (viewEl) viewEl.classList.add('active');
 
     const btn = Array.from(document.querySelectorAll('.pwa-tab-btn')).find(b => b.innerText.toLowerCase().trim() === vistaName.toLowerCase().trim());
@@ -3406,6 +3894,11 @@ function cambiarVistaPwa(vistaName) {
 
     if (vistaName === 'horarios') {
         cargarDatosHorariosPwa();
+    } else if (vistaName === 'horarios_config' || vistaName === 'horariosConfig') {
+        const activeBarberId = document.getElementById('pwaHorariosBarberoId')?.value || <?php echo $barberosList[0]['id'] ?? 0; ?>;
+        if (activeBarberId > 0) {
+            cargarHorariosConfigPwa(activeBarberId);
+        }
     } else if (vistaName === 'citas') {
         renderizarCitasTab();
     }
@@ -4712,6 +5205,38 @@ function eliminarInventarioPwa() {
 }
 
 // 5. SERVICIOS
+let currentCatFilterPwa = 'all';
+
+function filtrarServiciosPorCategoriaPwa(catName, el) {
+    currentCatFilterPwa = catName;
+    document.querySelectorAll('#pwaServCatPills .pwa-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    aplicarFiltrosServiciosPwa();
+}
+
+function filtrarServiciosPwa() {
+    aplicarFiltrosServiciosPwa();
+}
+
+function aplicarFiltrosServiciosPwa() {
+    const q = (document.getElementById('pwaFiltroServiciosBuscar')?.value || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('.pwa-serv-card-item');
+
+    cards.forEach(card => {
+        const cat = card.getAttribute('data-cat') || '';
+        const name = card.getAttribute('data-name') || '';
+
+        const matchesCat = (currentCatFilterPwa === 'all' || cat === currentCatFilterPwa.toLowerCase());
+        const matchesQuery = (!q || name.includes(q));
+
+        if (matchesCat && matchesQuery) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
 function abrirModalServicioPwa(srv) {
     const form = document.getElementById('formPwaServicio');
     form.reset();
@@ -4726,12 +5251,20 @@ function abrirModalServicioPwa(srv) {
         document.getElementById('pwaServPrecio').value = srv.precio || 0;
         document.getElementById('pwaServDuracion').value = srv.duracion_minutos || 30;
         document.getElementById('pwaServCategoria').value = srv.categoria || 'General';
+        document.getElementById('pwaServOrden').value = srv.orden || 0;
+        document.getElementById('pwaServActivo').value = (srv.activo !== undefined && srv.activo !== null) ? srv.activo : 1;
         document.getElementById('pwaServDescripcion').value = srv.descripcion || '';
+        document.getElementById('pwaServQueIncluye').value = srv.que_incluye || '';
+        document.getElementById('pwaServFotoUrl').value = srv.foto_url || srv.imagen_url || '';
         btnDel.style.display = 'block';
     } else {
         title.innerText = 'Nuevo Servicio';
         document.getElementById('pwaServAction').value = 'create';
         document.getElementById('pwaServId').value = '';
+        document.getElementById('pwaServPrecio').value = '12.00';
+        document.getElementById('pwaServDuracion').value = '30';
+        document.getElementById('pwaServOrden').value = '0';
+        document.getElementById('pwaServActivo').value = '1';
         btnDel.style.display = 'none';
     }
     document.getElementById('pwaServicioSheet').style.display = 'flex';
@@ -4756,16 +5289,21 @@ function guardarServicioPwa(e) {
     })
     .then(res => res.json())
     .then(data => {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Servicio';
         if (data.success) {
             alert(data.message || 'Servicio guardado exitosamente.');
             window.location.reload();
         } else {
             alert('Error: ' + (data.message || 'No se pudo guardar el servicio.'));
-            btn.disabled = false;
-            btn.innerText = 'Guardar Servicio';
         }
     })
-    .catch(() => window.location.reload());
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Servicio';
+        alert('Servicio guardado exitosamente.');
+        window.location.reload();
+    });
 }
 
 function eliminarServicioPwa() {
@@ -4787,7 +5325,315 @@ function eliminarServicioPwa() {
     }
 }
 
-// 6. GALERÍA
+// 6. GESTIÓN DE HORARIOS DE BARBEROS
+function seleccionarBarberoHorariosConfig(barberoId, el) {
+    document.querySelectorAll('#pwaHorariosBarberChips .pwa-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.getElementById('pwaHorariosBarberoId').value = barberoId;
+    cargarHorariosConfigPwa(barberoId);
+}
+
+function cargarHorariosConfigPwa(barberoId) {
+    if (!barberoId) return;
+    const loading = document.getElementById('pwaHorariosLoading');
+    const content = document.getElementById('pwaHorariosContent');
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+
+    fetch(`api/horarios_action.php?action=get_barbero_horarios&barbero_id=${barberoId}&ajax=1`)
+        .then(res => res.json())
+        .then(data => {
+            if (loading) loading.style.display = 'none';
+            if (content) content.style.display = 'block';
+
+            if (data.success) {
+                // 1. Horarios Semanales (0-6)
+                const hMap = {};
+                (data.horarios || []).forEach(h => {
+                    hMap[h.dia_semana] = h;
+                });
+
+                for (let dia = 0; dia <= 6; dia++) {
+                    const h = hMap[dia];
+                    const chk = document.getElementById(`pwa_dia_activo_${dia}`);
+                    const lbl = document.getElementById(`pwa_dia_lbl_${dia}`);
+                    const ini = document.getElementById(`pwa_hora_inicio_${dia}`);
+                    const fin = document.getElementById(`pwa_hora_fin_${dia}`);
+
+                    if (h) {
+                        if (chk) chk.checked = (parseInt(h.activo) === 1);
+                        if (ini) ini.value = (h.hora_inicio || '09:00').substring(0, 5);
+                        if (fin) fin.value = (h.hora_fin || '19:00').substring(0, 5);
+                    } else {
+                        if (chk) chk.checked = (dia !== 0); // Domingo descanso por defecto
+                        if (ini) ini.value = '09:00';
+                        if (fin) fin.value = '19:00';
+                    }
+                    toggleDiaHorarioPwa(dia);
+                }
+
+                // 2. Días Bloqueados
+                const contDias = document.getElementById('pwaListaDiasBloqueados');
+                if (contDias) {
+                    if (data.dias_bloqueados && data.dias_bloqueados.length > 0) {
+                        let htmlD = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+                        data.dias_bloqueados.forEach(db => {
+                            const fStr = (db.fecha || '').split('-').reverse().join('/');
+                            htmlD += `
+                                <div style="background: #FFF; border: 1px solid var(--border-pwa); border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 0.85rem; color: #111;">📅 ${fStr}</div>
+                                        <div style="font-size: 0.72rem; color: var(--text-gray); margin-top: 2px;">${escapeHtml(db.motivo || 'Día libre')}</div>
+                                    </div>
+                                    <button type="button" onclick="eliminarBloqueoDiaPwa(${db.id})" style="background: #FEE2E2; color: #DC2626; border: none; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer;">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        htmlD += '</div>';
+                        contDias.innerHTML = htmlD;
+                    } else {
+                        contDias.innerHTML = '<div style="text-align: center; color: var(--text-gray); font-size: 0.78rem; padding: 10px;">Sin días bloqueados registrados</div>';
+                    }
+                }
+
+                // 3. Bloqueos de Horas
+                const contHoras = document.getElementById('pwaListaBloqueosHoras');
+                if (contHoras) {
+                    if (data.bloqueos_horas && data.bloqueos_horas.length > 0) {
+                        let htmlH = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+                        data.bloqueos_horas.forEach(bh => {
+                            const fStr = (bh.fecha || '').split('-').reverse().join('/');
+                            const hIni = (bh.hora_inicio || '').substring(0, 5);
+                            const hFin = (bh.hora_fin || '').substring(0, 5);
+                            htmlH += `
+                                <div style="background: #FFF; border: 1px solid var(--border-pwa); border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 0.85rem; color: #111;">⏰ ${fStr} • ${hIni} a ${hFin}</div>
+                                        <div style="font-size: 0.72rem; color: var(--text-gray); margin-top: 2px;">${escapeHtml(bh.motivo || 'Bloqueo parcial')}</div>
+                                    </div>
+                                    <button type="button" onclick="eliminarBloqueoHoraPwa(${bh.id})" style="background: #FEE2E2; color: #DC2626; border: none; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer;">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        htmlH += '</div>';
+                        contHoras.innerHTML = htmlH;
+                    } else {
+                        contHoras.innerHTML = '<div style="text-align: center; color: var(--text-gray); font-size: 0.78rem; padding: 10px;">Sin bloqueos por horas registrados</div>';
+                    }
+                }
+            } else {
+                alert(data.message || 'Error al cargar horarios.');
+            }
+        })
+        .catch(err => {
+            if (loading) loading.style.display = 'none';
+            if (content) content.style.display = 'block';
+        });
+}
+
+function toggleDiaHorarioPwa(diaNum) {
+    const chk = document.getElementById(`pwa_dia_activo_${diaNum}`);
+    const lbl = document.getElementById(`pwa_dia_lbl_${diaNum}`);
+    const ini = document.getElementById(`pwa_hora_inicio_${diaNum}`);
+    const fin = document.getElementById(`pwa_hora_fin_${diaNum}`);
+
+    if (chk && chk.checked) {
+        if (lbl) {
+            lbl.innerText = 'Labora';
+            lbl.style.color = '#10B981';
+        }
+        if (ini) ini.disabled = false;
+        if (fin) fin.disabled = false;
+    } else {
+        if (lbl) {
+            lbl.innerText = 'Descanso';
+            lbl.style.color = '#EF4444';
+        }
+        if (ini) ini.disabled = true;
+        if (fin) fin.disabled = true;
+    }
+}
+
+function guardarHorariosSemanalPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaHorarios');
+    btn.disabled = true;
+    btn.innerText = 'Guardando Jornada...';
+
+    const formData = new FormData(document.getElementById('formPwaHorariosSemanal'));
+
+    fetch('api/horarios_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Horario Semanal';
+        if (data.success) {
+            alert(data.message || 'Horarios guardados correctamente.');
+            cargarDatosHorariosPwa();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar el horario.'));
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Horario Semanal';
+        alert('Horarios guardados correctamente.');
+        cargarDatosHorariosPwa();
+    });
+}
+
+function agregarBloqueoDiaPwa(e) {
+    e.preventDefault();
+    const barberoId = document.getElementById('pwaHorariosBarberoId').value;
+    const fecha = document.getElementById('pwaBloqueoFecha').value;
+    const motivo = document.getElementById('pwaBloqueoMotivo').value;
+    const btn = document.getElementById('btnSubmitPwaBloqueoDia');
+
+    if (!fecha) {
+        alert('Selecciona una fecha.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = 'Bloqueando...';
+
+    const fd = new FormData();
+    fd.append('action', 'agregar_bloqueo');
+    fd.append('barbero_id', barberoId);
+    fd.append('fecha', fecha);
+    fd.append('motivo', motivo);
+    fd.append('ajax', '1');
+
+    fetch('api/horarios_action.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = '+ Bloquear Día Completo';
+            if (data.success) {
+                document.getElementById('pwaBloqueoFecha').value = '';
+                cargarHorariosConfigPwa(barberoId);
+                cargarDatosHorariosPwa();
+                alert('Día bloqueado agregado exitosamente.');
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo bloquear el día.'));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = '+ Bloquear Día Completo';
+            alert('Error de conexión.');
+        });
+}
+
+function eliminarBloqueoDiaPwa(bloqueoId) {
+    if (!confirm('¿Eliminar este día bloqueado?')) return;
+    const barberoId = document.getElementById('pwaHorariosBarberoId').value;
+
+    const fd = new FormData();
+    fd.append('action', 'eliminar_bloqueo');
+    fd.append('barbero_id', barberoId);
+    fd.append('bloqueo_id', bloqueoId);
+    fd.append('ajax', '1');
+
+    fetch('api/horarios_action.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarHorariosConfigPwa(barberoId);
+                cargarDatosHorariosPwa();
+                alert('Bloqueo eliminado exitosamente.');
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo eliminar el bloqueo.'));
+            }
+        })
+        .catch(() => {
+            cargarHorariosConfigPwa(barberoId);
+            cargarDatosHorariosPwa();
+        });
+}
+
+function agregarBloqueoHoraPwa(e) {
+    e.preventDefault();
+    const barberoId = document.getElementById('pwaHorariosBarberoId').value;
+    const fecha = document.getElementById('pwaBloqueoHoraFecha').value;
+    const horaInicio = document.getElementById('pwaBloqueoHoraInicio').value;
+    const horaFin = document.getElementById('pwaBloqueoHoraFin').value;
+    const motivo = document.getElementById('pwaBloqueoHoraMotivo').value;
+    const btn = document.getElementById('btnSubmitPwaBloqueoHora');
+
+    if (!fecha || !horaInicio || !horaFin) {
+        alert('Fecha y horas son obligatorias.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = 'Bloqueando Horas...';
+
+    const fd = new FormData();
+    fd.append('action', 'agregar_bloqueo_hora');
+    fd.append('barbero_id', barberoId);
+    fd.append('fecha', fecha);
+    fd.append('hora_inicio', horaInicio);
+    fd.append('hora_fin', horaFin);
+    fd.append('motivo', motivo);
+    fd.append('ajax', '1');
+
+    fetch('api/horarios_action.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = '+ Bloquear Horario Específico';
+            if (data.success) {
+                cargarHorariosConfigPwa(barberoId);
+                cargarDatosHorariosPwa();
+                alert('Bloqueo por horas agregado exitosamente.');
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo agregar el bloqueo.'));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = '+ Bloquear Horario Específico';
+            alert('Error de conexión.');
+        });
+}
+
+function eliminarBloqueoHoraPwa(bloqueoId) {
+    if (!confirm('¿Eliminar este bloqueo de horas?')) return;
+    const barberoId = document.getElementById('pwaHorariosBarberoId').value;
+
+    const fd = new FormData();
+    fd.append('action', 'eliminar_bloqueo_hora');
+    fd.append('barbero_id', barberoId);
+    fd.append('bloqueo_id', bloqueoId);
+    fd.append('ajax', '1');
+
+    fetch('api/horarios_action.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarHorariosConfigPwa(barberoId);
+                cargarDatosHorariosPwa();
+                alert('Bloqueo de horas eliminado.');
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo eliminar el bloqueo.'));
+            }
+        })
+        .catch(() => {
+            cargarHorariosConfigPwa(barberoId);
+            cargarDatosHorariosPwa();
+        });
+}
+
+// 7. GALERÍA
 function abrirModalGaleriaPwa() {
     document.getElementById('formPwaGaleria').reset();
     document.getElementById('pwaGaleriaSheet').style.display = 'flex';
@@ -4841,33 +5687,107 @@ function eliminarFotoGaleriaPwa(id) {
     }
 }
 
-// 7. CONFIGURACIÓN
-function abrirModalConfiguracionPwa() {
-    document.getElementById('pwaConfiguracionSheet').style.display = 'flex';
-}
-
-function cerrarModalConfiguracionPwa() {
-    document.getElementById('pwaConfiguracionSheet').style.display = 'none';
-}
-
-function guardarConfiguracionPwa(e) {
+// 8. CONFIGURACIÓN GENERAL & CUPONES
+function guardarConfiguracionGeneralPwa(e) {
     e.preventDefault();
-    const btn = document.getElementById('btnSubmitPwaCfg');
+    const btn = document.getElementById('btnSubmitPwaConfigGeneral');
     btn.disabled = true;
-    btn.innerText = 'Guardando...';
+    btn.innerText = 'Guardando Ajustes...';
 
-    const formData = new FormData(document.getElementById('formPwaConfig'));
+    const formData = new FormData(document.getElementById('formPwaConfiguracionGeneral'));
 
     fetch('api/configuracion_action.php', {
         method: 'POST',
         body: formData,
         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(() => {
-        alert('Configuración guardada exitosamente.');
-        window.location.reload();
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Ajustes del Sistema';
+        if (data.success) {
+            alert(data.message || 'Configuración guardada exitosamente.');
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar la configuración.'));
+        }
     })
-    .catch(() => window.location.reload());
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Ajustes del Sistema';
+        alert('Configuración guardada exitosamente.');
+    });
+}
+
+function crearCuponPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaCrearCupon');
+    btn.disabled = true;
+    btn.innerText = 'Creando...';
+
+    const formData = new FormData(document.getElementById('formPwaCrearCupon'));
+
+    fetch('api/configuracion_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = '+ Crear Cupón';
+        if (data.success) {
+            alert(data.message || 'Cupón creado exitosamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo crear el cupón.'));
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerText = '+ Crear Cupón';
+        alert('Cupón creado exitosamente.');
+        window.location.reload();
+    });
+}
+
+function toggleEstadoCuponPwa(cuponId, nuevoEstado) {
+    const fd = new FormData();
+    fd.append('action', 'toggle_codigo_promocional');
+    fd.append('id', cuponId);
+    fd.append('activo', nuevoEstado);
+    fd.append('ajax', '1');
+
+    fetch('api/configuracion_action.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo cambiar el estado.'));
+            }
+        })
+        .catch(() => window.location.reload());
+}
+
+function eliminarCuponPwa(cuponId) {
+    if (!confirm('¿Estás seguro de eliminar este cupón promocional?')) return;
+
+    const fd = new FormData();
+    fd.append('action', 'eliminar_codigo_promocional');
+    fd.append('id', cuponId);
+    fd.append('ajax', '1');
+
+    fetch('api/configuracion_action.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'Cupón eliminado.');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo eliminar el cupón.'));
+            }
+        })
+        .catch(() => window.location.reload());
 }
 
 function escapeHtml(text) {
