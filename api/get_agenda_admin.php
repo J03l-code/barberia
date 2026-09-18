@@ -277,8 +277,11 @@ try {
                     ];
                 }
 
-                // Generar slots libres cada 30 min
-                $slotDuration = 30 * 60; // 30 min
+                // Generar slots libres de horas completas (60 min) en punto (ej: 10:00, 11:00, 12:00, ...)
+                // Idéntico al sistema de reservas web (get_disponibilidad.php)
+                $slotDuration = 60 * 60; // 60 min completos
+                $startMin = ceil(strtotime("$fechaLoop $horaInicioStr") / 3600) * 3600;
+                $endMin = strtotime("$fechaLoop $horaFinStr");
                 $nowTs = time();
 
                 for ($t = $startMin; $t + $slotDuration <= $endMin; $t += $slotDuration) {
