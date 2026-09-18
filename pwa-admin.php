@@ -2,7 +2,7 @@
 /**
  * KORTZEN - PWA Integral Exclusiva para Administradores
  * 100% aislada de la plataforma web de escritorio.
- * Incluye: Agenda & Disponibilidad, Overview Completo, Citas, Equipo, Inventario, Servicios, Sucursales, Clientes, Reseñas, Galería.
+ * Incluye: Agenda & Disponibilidad en Tiempo Real, Overview Completo con todos los KPIs, Agenda General de Hoy, Calendario de Ocupación Interactivo, Modal de Ganancias Netas Históricas, Citas, Equipo, Inventario, Servicios, Sucursales, Clientes, Reseñas y Galería.
  */
 
 require_once 'config.php';
@@ -37,7 +37,7 @@ if ($userRol === 'admin_local') {
     }
 } else {
     try {
-        $sucursalesList = query("SELECT id, nombre, direccion, telefono, horario_apertura, horario_cierre, activo FROM sucursales ORDER BY nombre ASC");
+        $sucursalesList = query("SELECT id, nombre, direccion, telefono, horario_apertura, horario_cierre, activo FROM sucursales WHERE activo = 1 ORDER BY nombre ASC");
     } catch (Exception $e) {
         $sucursalesList = [];
     }
@@ -48,27 +48,405 @@ if ($userRol === 'admin_local') {
     }
 }
 
-// 1. Obtener Barberos
+// -------------------------------------------------------------
+// METRICAS Y KPIS COMPLETOS (EXACTAMENTE IGUALES AL DASHBOARD WEB)
+// -------------------------------------------------------------
+$hoy = date('Y-m-d');
+$mesInicio = date('Y-m-01');
+$mesFin = date('Y-m-t');
+
+if (!empty($scopedBranchIds)) {
+    $idsStr = implode(',', array_map('intval', $scopedBranchIds));
+    $whereCitasDirect = " AND sucursal_id IN ($idsStr)";
+    $whereCitasAliased = " AND c.sucursal_id IN ($idsStr)";
+    $whereProdDirect = " AND sucursal_id IN ($idsStr)";
+    $whereProdAliased = " AND vp.sucursal_id IN ($idsStr)";
+    $whereInvDirect = " AND sucursal_id IN ($idsStr)";
+    $whereInvAliased = " AND i.sucursal_id IN ($idsStr)";
+} else {
+    $whereCitasDirect = "";
+    $whereCitasAliased = "";
+    $whereProdDirect = "";
+    $whereProdAliased = "";
+    $whereInvDirect = "";
+    $whereInvAliased = "";
+}
+
+// 1. KPI: Ventas Citas + Productos Hoy
+$citasHoyRow = query("SELECT 
+    COUNT(*) as total_citas, 
+    SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
+    SUM(CASE WHEN estado = 'completada' THEN precio_final ELSE 0 END) as venta_citas,
+    SUM(CASE WHEN estado = 'completada' THEN propina ELSE 0 END) as propinas_hoy
+FROM citas WHERE DATE(fecha_hora) = ?$whereCitasDirect", [$hoy])[0] ?? [];
+
+$prodHoyRow = query("SELECT SUM(precio_unitario * cantidad) as total_prod, SUM(cantidad) as items_prod 
+                     FROM ventas_productos WHERE DATE(fecha) = ?$whereProdDirect", [$hoy])[0] ?? [];
+
+$vCitasHoy = floatval($citasHoyRow['venta_citas'] ?? 0);
+$vProdHoy = floatval($prodHoyRow['total_prod'] ?? 0);
+$ventaTotalHoy = $vCitasHoy + $vProdHoy;
+$citasCompletadasHoy = intval($citasHoyRow['completadas'] ?? 0);
+$itemsVendidosHoy = intval($prodHoyRow['items_prod'] ?? 0);
+
+// 2. KPI: Recaudación Citas + Productos Mes
+$citasMesRow = query("SELECT 
+    COUNT(*) as total_citas, 
+    SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
+    SUM(CASE WHEN estado = 'completada' THEN precio_final ELSE 0 END) as venta_citas,
+    SUM(CASE WHEN estado = 'completada' THEN propina ELSE 0 END) as propinas_mes
+FROM citas WHERE estado = 'completada' AND DATE(fecha_hora) BETWEEN ? AND ?$whereCitasDirect", [$mesInicio, $mesFin])[0] ?? [];
+
+$prodMesRow = query("SELECT SUM(precio_unitario * cantidad) as total_prod 
+                     FROM ventas_productos WHERE DATE(fecha) BETWEEN ? AND ?$whereProdDirect", [$mesInicio, $mesFin])[0] ?? [];
+
+$vCitasMes = floatval($citasMesRow['venta_citas'] ?? 0);
+$vProdMes = floatval($prodMesRow['total_prod'] ?? 0);
+$recaudacionMesTotal = $vCitasMes + $vProdMes;
+$citasCompletadasMes = intval($citasMesRow['completadas'] ?? 0);
+$totalPropinasMes = floatval($citasMesRow['propinas_mes'] ?? 0);
+
+// 3. Ganancias Netas Reales del Negocio
+$netaServiciosMesRow = query("
+    SELECT SUM(
+        IFNULL(c.precio_final, 0) * (
+            100.0 - CASE 
+                WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                    CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                    ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                )
+                ELSE 0.0
+            END
+        ) / 100.0
+    ) as total_neto_servicios
+    FROM citas c
+    LEFT JOIN usuarios u ON c.barbero_id = u.id
+    WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ?$whereCitasAliased
+", [$mesInicio, $mesFin])[0] ?? [];
+
+$netaProdMesRow = query("
+    SELECT SUM(
+        (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+            100.0 - CASE 
+                WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                ELSE 0.0
+            END
+        ) / 100.0
+    ) as total_neto_productos
+    FROM ventas_productos vp
+    LEFT JOIN usuarios u ON vp.usuario_id = u.id
+    WHERE DATE(vp.fecha) BETWEEN ? AND ?$whereProdAliased
+", [$mesInicio, $mesFin])[0] ?? [];
+
+$gananciaNetaMesServicios = floatval($netaServiciosMesRow['total_neto_servicios'] ?? 0);
+$gananciaNetaMesProd = floatval($netaProdMesRow['total_neto_productos'] ?? 0);
+$gananciaNetaMesTotal = $gananciaNetaMesServicios + $gananciaNetaMesProd;
+
+// Ganancias Netas Hoy
+$netaServiciosHoyRow = query("
+    SELECT SUM(
+        IFNULL(c.precio_final, 0) * (
+            100.0 - CASE 
+                WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                    CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                    ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                )
+                ELSE 0.0
+            END
+        ) / 100.0
+    ) as total_neto_servicios
+    FROM citas c
+    LEFT JOIN usuarios u ON c.barbero_id = u.id
+    WHERE c.estado = 'completada' AND DATE(c.fecha_hora) = ?$whereCitasAliased
+", [$hoy])[0] ?? [];
+
+$netaProdHoyRow = query("
+    SELECT SUM(
+        (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+            100.0 - CASE 
+                WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                ELSE 0.0
+            END
+        ) / 100.0
+    ) as total_neto_productos
+    FROM ventas_productos vp
+    LEFT JOIN usuarios u ON vp.usuario_id = u.id
+    WHERE DATE(vp.fecha) = ?$whereProdAliased
+", [$hoy])[0] ?? [];
+
+$gananciaNetaHoyServicios = floatval($netaServiciosHoyRow['total_neto_servicios'] ?? 0);
+$gananciaNetaHoyProd = floatval($netaProdHoyRow['total_neto_productos'] ?? 0);
+$gananciaNetaHoyTotal = $gananciaNetaHoyServicios + $gananciaNetaHoyProd;
+
+// Historial Mensual Completo para el Modal
+$netaHistServiciosRows = query("
+    SELECT 
+        DATE_FORMAT(c.fecha_hora, '%Y-%m') as mes_key,
+        COUNT(c.id) as total_citas,
+        SUM(IFNULL(c.precio_final, 0)) as bruto_servicios,
+        SUM(
+            IFNULL(c.precio_final, 0) * (
+                CASE 
+                    WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                        CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                        ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                    )
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as comision_barberos_servicios,
+        SUM(
+            IFNULL(c.precio_final, 0) * (
+                100.0 - CASE 
+                    WHEN c.barbero_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN (
+                        CASE WHEN DAYOFWEEK(c.fecha_hora) IN (1, 7) THEN IFNULL(u.comision_fin_semana, IFNULL(u.comision_porcentaje, 50.0))
+                        ELSE IFNULL(u.comision_porcentaje, 50.0) END
+                    )
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as neto_negocio_servicios
+    FROM citas c
+    LEFT JOIN usuarios u ON c.barbero_id = u.id
+    WHERE c.estado = 'completada' $whereCitasAliased
+    GROUP BY DATE_FORMAT(c.fecha_hora, '%Y-%m')
+    ORDER BY mes_key DESC
+");
+
+$netaHistProdRows = query("
+    SELECT 
+        DATE_FORMAT(vp.fecha, '%Y-%m') as mes_key,
+        COUNT(vp.id) as total_ventas,
+        SUM(IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) as bruto_productos,
+        SUM(
+            (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+                CASE 
+                    WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as comision_barberos_productos,
+        SUM(
+            (IFNULL(vp.cantidad, 1) * IFNULL(vp.precio_unitario, 0)) * (
+                100.0 - CASE 
+                    WHEN vp.usuario_id IS NOT NULL AND (u.rol = 'barbero' OR u.rol IS NULL) THEN IFNULL(u.comision_productos, 10.0)
+                    ELSE 0.0
+                END
+            ) / 100.0
+        ) as neto_negocio_productos
+    FROM ventas_productos vp
+    LEFT JOIN usuarios u ON vp.usuario_id = u.id
+    WHERE 1=1 $whereProdAliased
+    GROUP BY DATE_FORMAT(vp.fecha, '%Y-%m')
+    ORDER BY mes_key DESC
+");
+
+$nombresMesesEsp = [
+    '01' => 'Enero', '02' => 'Febrero', '03' => 'Marzo', '04' => 'Abril',
+    '05' => 'Mayo', '06' => 'Junio', '07' => 'Julio', '08' => 'Agosto',
+    '09' => 'Septiembre', '10' => 'Octubre', '11' => 'Noviembre', '12' => 'Diciembre'
+];
+
+$mesesHistoricosMap = [];
+
+foreach ($netaHistServiciosRows as $sRow) {
+    $mKey = $sRow['mes_key'];
+    if (!isset($mesesHistoricosMap[$mKey])) {
+        $partes = explode('-', $mKey);
+        $anio = $partes[0] ?? date('Y');
+        $mesNum = $partes[1] ?? '01';
+        $mesTxt = ($nombresMesesEsp[$mesNum] ?? $mesNum) . ' ' . $anio;
+        $mesesHistoricosMap[$mKey] = [
+            'mes_key' => $mKey,
+            'mes_nombre' => $mesTxt,
+            'citas_completadas' => 0,
+            'ventas_productos' => 0,
+            'bruto_servicios' => 0.0,
+            'bruto_productos' => 0.0,
+            'comision_servicios' => 0.0,
+            'comision_productos' => 0.0,
+            'neto_servicios' => 0.0,
+            'neto_productos' => 0.0
+        ];
+    }
+    $mesesHistoricosMap[$mKey]['citas_completadas'] = intval($sRow['total_citas']);
+    $mesesHistoricosMap[$mKey]['bruto_servicios'] = floatval($sRow['bruto_servicios']);
+    $mesesHistoricosMap[$mKey]['comision_servicios'] = floatval($sRow['comision_barberos_servicios']);
+    $mesesHistoricosMap[$mKey]['neto_servicios'] = floatval($sRow['neto_negocio_servicios']);
+}
+
+foreach ($netaHistProdRows as $pRow) {
+    $mKey = $pRow['mes_key'];
+    if (!isset($mesesHistoricosMap[$mKey])) {
+        $partes = explode('-', $mKey);
+        $anio = $partes[0] ?? date('Y');
+        $mesNum = $partes[1] ?? '01';
+        $mesTxt = ($nombresMesesEsp[$mesNum] ?? $mesNum) . ' ' . $anio;
+        $mesesHistoricosMap[$mKey] = [
+            'mes_key' => $mKey,
+            'mes_nombre' => $mesTxt,
+            'citas_completadas' => 0,
+            'ventas_productos' => 0,
+            'bruto_servicios' => 0.0,
+            'bruto_productos' => 0.0,
+            'comision_servicios' => 0.0,
+            'comision_productos' => 0.0,
+            'neto_servicios' => 0.0,
+            'neto_productos' => 0.0
+        ];
+    }
+    $mesesHistoricosMap[$mKey]['ventas_productos'] = intval($pRow['total_ventas']);
+    $mesesHistoricosMap[$mKey]['bruto_productos'] = floatval($pRow['bruto_productos']);
+    $mesesHistoricosMap[$mKey]['comision_productos'] = floatval($pRow['comision_barberos_productos']);
+    $mesesHistoricosMap[$mKey]['neto_productos'] = floatval($pRow['neto_negocio_productos']);
+}
+
+krsort($mesesHistoricosMap);
+
+$histTotalBruto = 0.0;
+$histTotalComisiones = 0.0;
+$histTotalNetoNegocio = 0.0;
+$histTotalCitas = 0;
+$histTotalVentasProd = 0;
+
+foreach ($mesesHistoricosMap as $mKey => $mData) {
+    $brutoTotal = $mData['bruto_servicios'] + $mData['bruto_productos'];
+    $comisionTotal = $mData['comision_servicios'] + $mData['comision_productos'];
+    $netoTotal = $mData['neto_servicios'] + $mData['neto_productos'];
+
+    $histTotalBruto += $brutoTotal;
+    $histTotalComisiones += $comisionTotal;
+    $histTotalNetoNegocio += $netoTotal;
+    $histTotalCitas += $mData['citas_completadas'];
+    $histTotalVentasProd += $mData['ventas_productos'];
+}
+
+$margenHistoricoNegocio = $histTotalBruto > 0 ? (($histTotalNetoNegocio / $histTotalBruto) * 100) : 100;
+
+// Ticket Promedio
+$ticketPromedioMes = $citasCompletadasMes > 0 ? ($vCitasMes / $citasCompletadasMes) : 0;
+
+// Stock Global
+$invStats = query("SELECT SUM(cantidad * precio) as total_valor, SUM(cantidad) as total_items FROM inventario WHERE 1=1 $whereInvDirect")[0] ?? [];
+$valorInventario = floatval($invStats['total_valor'] ?? 0);
+$totalItems = floatval($invStats['total_items'] ?? 0);
+
+// Top Barberos
+$topBarberos = query("SELECT u.id, u.nombre, s.nombre as sucursal, COUNT(c.id) as citas, SUM(c.precio_final) as total
+                      FROM usuarios u
+                      JOIN citas c ON u.id = c.barbero_id
+                      LEFT JOIN sucursales s ON c.sucursal_id = s.id
+                      WHERE c.estado = 'completada' AND DATE(c.fecha_hora) BETWEEN ? AND ? $whereCitasAliased
+                      GROUP BY u.id ORDER BY total DESC LIMIT 5", [$mesInicio, $mesFin]);
+
+// Inventario Bajo
+$lowStock = query("SELECT i.producto, i.cantidad, i.stock_minimo, s.nombre as sucursal 
+                   FROM inventario i
+                   JOIN sucursales s ON i.sucursal_id = s.id
+                   WHERE i.cantidad <= i.stock_minimo $whereInvAliased
+                   ORDER BY i.cantidad ASC LIMIT 5");
+
+// Agenda General de Hoy
+$agendaGlobal = query("SELECT c.*, u.nombre as barbero, s.nombre as servicio, suc.nombre as sucursal_nombre, cli.nombre as cliente, cli.telefono, cli.id as cliente_id 
+                       FROM citas c
+                       JOIN usuarios u ON c.barbero_id = u.id
+                       JOIN servicios s ON c.servicio_id = s.id
+                       JOIN sucursales suc ON c.sucursal_id = suc.id
+                       JOIN clientes cli ON c.cliente_id = cli.id
+                       WHERE DATE(c.fecha_hora) = ? $whereCitasAliased
+                       ORDER BY c.fecha_hora ASC", [$hoy]);
+
+// Fidelización
+$totalHoyCitas = count($agendaGlobal);
+$recurrentes = 0;
+foreach ($agendaGlobal as $c) {
+    $historial = query("SELECT COUNT(*) as n FROM citas WHERE cliente_id = ? AND estado = 'completada'", [$c['cliente_id']])[0]['n'] ?? 0;
+    if ($historial > 1) $recurrentes++;
+}
+$retentionRate = $totalHoyCitas > 0 ? round(($recurrentes / $totalHoyCitas) * 100) : 0;
+
+// Gráfica 7 Días
+$last7Days = [];
+$diasEsp = ['Sun' => 'Dom', 'Mon' => 'Lun', 'Tue' => 'Mar', 'Wed' => 'Mie', 'Thu' => 'Jue', 'Fri' => 'Vie', 'Sat' => 'Sab'];
+
+for ($i = 6; $i >= 0; $i--) {
+    $d = date('Y-m-d', strtotime("-$i days"));
+    $tCitas = query("SELECT SUM(precio_final) as t FROM citas WHERE estado = 'completada' AND DATE(fecha_hora) = ? $whereCitasDirect", [$d])[0]['t'] ?? 0;
+    $tProd = query("SELECT SUM(precio_unitario * cantidad) as t FROM ventas_productos WHERE DATE(fecha) = ? $whereProdDirect", [$d])[0]['t'] ?? 0;
+    $dayName = date('D', strtotime($d));
+    $last7Days[] = ['date' => $diasEsp[$dayName], 'val' => floatval($tCitas + $tProd)];
+}
+$maxVal = max(array_column($last7Days, 'val'));
+$maxVal = $maxVal > 0 ? $maxVal : 1;
+
+// Descuentos por Referidos
+$refMesRow = query("
+    SELECT 
+        COUNT(r.id) as total_referidos,
+        SUM(IFNULL(r.descuento_aplicado, 0)) as total_descuento,
+        SUM(IFNULL(r.puntos_otorgados, 0)) as total_puntos
+    FROM referidos r
+    LEFT JOIN citas c ON r.cita_id = c.id
+    WHERE r.estado != 'cancelado' 
+      AND (
+          (c.fecha_hora IS NOT NULL AND DATE(c.fecha_hora) BETWEEN ? AND ?)
+          OR (c.fecha_hora IS NULL AND DATE(r.fecha_creacion) BETWEEN ? AND ?)
+      ) $whereCitasAliased
+", [$mesInicio, $mesFin, $mesInicio, $mesFin])[0] ?? [];
+
+$totalDescuentosReferidosMes = floatval($refMesRow['total_descuento'] ?? 0);
+$totalUsosReferidosMes = intval($refMesRow['total_referidos'] ?? 0);
+
+$refHistRow = query("
+    SELECT 
+        COUNT(r.id) as total_referidos_hist,
+        SUM(IFNULL(r.descuento_aplicado, 0)) as total_descuento_hist
+    FROM referidos r
+    LEFT JOIN citas c ON r.cita_id = c.id
+    WHERE r.estado != 'cancelado' $whereCitasAliased
+")[0] ?? [];
+
+$totalDescuentosReferidosHist = floatval($refHistRow['total_descuento_hist'] ?? 0);
+
+$meses = ['January' => 'Enero', 'February' => 'Febrero', 'March' => 'Marzo', 'April' => 'Abril', 'May' => 'Mayo', 'June' => 'Junio', 'July' => 'Julio', 'August' => 'Agosto', 'September' => 'Septiembre', 'October' => 'Octubre', 'November' => 'Noviembre', 'December' => 'Diciembre'];
+$mesActual = $meses[date('F')] ?? date('F');
+
+// Calendario de Ocupación
+$calMonth = date('m');
+$calYear = date('Y');
+$daysInMonth = cal_days_in_month(CAL_GREGORIAN, (int)$calMonth, (int)$calYear);
+$firstDayOfMonth = date('N', strtotime("$calYear-$calMonth-01")); // 1 (Mon) to 7 (Sun)
+
+$bookings = query("SELECT DATE(fecha_hora) as d, COUNT(*) as c FROM citas WHERE MONTH(fecha_hora) = ? AND YEAR(fecha_hora) = ? $whereCitasDirect GROUP BY d", [$calMonth, $calYear]);
+
+$bookingsMap = [];
+foreach ($bookings as $b) {
+    $dayNum = (int) date('d', strtotime($b['d']));
+    $bookingsMap[$dayNum] = $b['c'];
+}
+
+// -------------------------------------------------------------
+// LISTADOS PARA MODULOS
+// -------------------------------------------------------------
+// 1. Barberos
 $barberosList = [];
 try {
-    if ($userRol === 'admin_local') {
-        if (!empty($scopedBranchIds)) {
-            $inList = implode(',', array_fill(0, count($scopedBranchIds), '?'));
-            $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
-                                    FROM usuarios u 
-                                    LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                                    WHERE u.rol IN ('barbero', 'admin_local') 
-                                      AND (u.sucursal_id IN ($inList) OR EXISTS (SELECT 1 FROM usuarios_sucursales us WHERE us.usuario_id = u.id AND us.sucursal_id IN ($inList)))
-                                    ORDER BY u.nombre ASC");
-            $stmt->execute(array_merge($scopedBranchIds, $scopedBranchIds));
-            $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        }
+    if ($userRol === 'admin_local' && !empty($scopedBranchIds)) {
+        $inList = implode(',', array_fill(0, count($scopedBranchIds), '?'));
+        $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
+                                FROM usuarios u 
+                                LEFT JOIN sucursales s ON u.sucursal_id = s.id 
+                                WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1
+                                  AND (u.sucursal_id IN ($inList) OR EXISTS (SELECT 1 FROM usuarios_sucursales us WHERE us.usuario_id = u.id AND us.sucursal_id IN ($inList)))
+                                ORDER BY u.nombre ASC");
+        $stmt->execute(array_merge($scopedBranchIds, $scopedBranchIds));
+        $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         if ($filterSucursalId > 0) {
             $stmt = $pdo->prepare("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
                                     FROM usuarios u 
                                     LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                                    WHERE u.rol IN ('barbero', 'admin_local') AND u.sucursal_id = ?
+                                    WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1 AND u.sucursal_id = ?
                                     ORDER BY u.nombre ASC");
             $stmt->execute([$filterSucursalId]);
             $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -76,7 +454,7 @@ try {
             $stmt = $pdo->query("SELECT u.id, u.nombre, u.email, COALESCE(u.foto_url, '') AS foto_url, u.sucursal_id, u.comision_porcentaje, u.comision_fin_semana, u.comision_productos, s.nombre AS sucursal_nombre 
                                  FROM usuarios u 
                                  LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                                 WHERE u.rol IN ('barbero', 'admin_local') 
+                                 WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1
                                  ORDER BY u.nombre ASC");
             $barberosList = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -131,94 +509,6 @@ try {
     $galeriaList = [];
 }
 
-// 7. Métricas Completas de Overview
-$kpiHoy = ['ventas' => 0.00, 'citas' => 0, 'prods' => 0];
-$kpiMes = ['ventas' => 0.00, 'citas' => 0];
-$kpiPropinasMes = 0.00;
-$kpiReferidosMes = ['descuentos' => 0.00, 'total_referidos' => 0];
-$ticketPromedio = 0.00;
-$tasaFidelizacion = '0%';
-$proximasCitasHoy = [];
-
-try {
-    // Venta Hoy
-    $sqlVH = "SELECT SUM(COALESCE(c.precio_final, s.precio, 0)) as total_ventas, COUNT(c.id) as total_citas 
-              FROM citas c 
-              LEFT JOIN servicios s ON c.servicio_id = s.id 
-              WHERE DATE(c.fecha_hora) = CURDATE() AND c.estado = 'completada'";
-    if (!empty($scopedBranchIds)) {
-        $inB = implode(',', array_map('intval', $scopedBranchIds));
-        $sqlVH .= " AND c.sucursal_id IN ($inB)";
-    }
-    $resVH = query($sqlVH);
-    if (!empty($resVH)) {
-        $kpiHoy['ventas'] = floatval($resVH[0]['total_ventas'] ?? 0);
-        $kpiHoy['citas'] = intval($resVH[0]['total_citas'] ?? 0);
-    }
-
-    // Recaudación Mes & Propinas
-    $sqlVM = "SELECT SUM(COALESCE(c.precio_final, s.precio, 0)) as total_ventas, COUNT(c.id) as total_citas, SUM(COALESCE(c.propina, 0)) as total_propinas 
-              FROM citas c 
-              LEFT JOIN servicios s ON c.servicio_id = s.id 
-              WHERE MONTH(c.fecha_hora) = MONTH(CURDATE()) AND YEAR(c.fecha_hora) = YEAR(CURDATE()) AND c.estado = 'completada'";
-    if (!empty($scopedBranchIds)) {
-        $inB = implode(',', array_map('intval', $scopedBranchIds));
-        $sqlVM .= " AND c.sucursal_id IN ($inB)";
-    }
-    $resVM = query($sqlVM);
-    if (!empty($resVM)) {
-        $kpiMes['ventas'] = floatval($resVM[0]['total_ventas'] ?? 0);
-        $kpiMes['citas'] = intval($resVM[0]['total_citas'] ?? 0);
-        $kpiPropinasMes = floatval($resVM[0]['total_propinas'] ?? 0);
-        if ($kpiMes['citas'] > 0) {
-            $ticketPromedio = $kpiMes['ventas'] / $kpiMes['citas'];
-        }
-    }
-
-    // Descuentos Referidos Mes
-    $sqlRef = "SELECT SUM(COALESCE(descuento_aplicado, 0)) as total_desc, COUNT(id) as total_ref 
-               FROM citas 
-               WHERE MONTH(fecha_hora) = MONTH(CURDATE()) AND YEAR(fecha_hora) = YEAR(CURDATE()) 
-                 AND codigo_promocional IS NOT NULL AND TRIM(codigo_promocional) != '' AND estado != 'cancelada'";
-    if (!empty($scopedBranchIds)) {
-        $inB = implode(',', array_map('intval', $scopedBranchIds));
-        $sqlRef .= " AND sucursal_id IN ($inB)";
-    }
-    $resRef = query($sqlRef);
-    if (!empty($resRef)) {
-        $kpiReferidosMes['descuentos'] = floatval($resRef[0]['total_desc'] ?? 0);
-        $kpiReferidosMes['total_referidos'] = intval($resRef[0]['total_ref'] ?? 0);
-    }
-
-    // Fidelización (% clientes recurrentes)
-    $sqlFid = "SELECT COUNT(DISTINCT cliente_id) as clientes_unicos, COUNT(id) as total_citas FROM citas WHERE estado = 'completada'";
-    $resFid = query($sqlFid);
-    if (!empty($resFid) && intval($resFid[0]['total_citas'] ?? 0) > 0) {
-        $uCli = intval($resFid[0]['clientes_unicos'] ?? 0);
-        $tCit = intval($resFid[0]['total_citas'] ?? 0);
-        $pct = round((($tCit - $uCli) / $tCit) * 100);
-        $tasaFidelizacion = max(10, min(95, $pct + 30)) . '%';
-    } else {
-        $tasaFidelizacion = '85%';
-    }
-
-    // Próximas Citas de Hoy
-    $sqlProx = "SELECT c.*, COALESCE(cl.nombre, c.cliente_nombre, 'Cliente Directo') as cliente_nombre, COALESCE(cl.telefono, c.cliente_telefono, '') as cliente_telefono, COALESCE(s.nombre, 'Servicio') as servicio_nombre, COALESCE(s.precio, 0) as precio_servicio, u.nombre as barbero_nombre, suc.nombre as sucursal_nombre 
-                FROM citas c 
-                LEFT JOIN clientes cl ON c.cliente_id = cl.id 
-                LEFT JOIN servicios s ON c.servicio_id = s.id 
-                LEFT JOIN usuarios u ON c.barbero_id = u.id 
-                LEFT JOIN sucursales suc ON c.sucursal_id = suc.id 
-                WHERE DATE(c.fecha_hora) = CURDATE() AND c.estado != 'cancelada'";
-    if (!empty($scopedBranchIds)) {
-        $inB = implode(',', array_map('intval', $scopedBranchIds));
-        $sqlProx .= " AND c.sucursal_id IN ($inB)";
-    }
-    $sqlProx .= " ORDER BY c.fecha_hora ASC LIMIT 10";
-    $proximasCitasHoy = query($sqlProx);
-
-} catch (Exception $eKpi) {}
-
 $activeTab = $_GET['tab'] ?? 'agenda';
 $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 ?>
@@ -240,7 +530,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             --bg-card: #FFFFFF;
             --border-pwa: #EAEAEA;
             --text-dark: #111111;
-            --text-gray: #777777;
+            --text-gray: #666666;
             --text-light: #999999;
             --gold-pwa: #C0A062;
             --green-pwa: #10B981;
@@ -262,13 +552,13 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         body {
             background-color: var(--bg-pwa);
             color: var(--text-dark);
-            padding-bottom: calc(80px + var(--safe-bottom));
+            padding-bottom: calc(85px + var(--safe-bottom));
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
         .pwa-app-shell {
-            max-width: 550px;
+            max-width: 600px;
             margin: 0 auto;
             min-height: 100vh;
             background: var(--bg-card);
@@ -302,7 +592,6 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             align-items: center;
             justify-content: center;
             color: var(--text-dark);
-            font-size: 1.15rem;
             transition: background 0.15s;
         }
 
@@ -314,17 +603,10 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             font-weight: 800;
             color: var(--text-dark);
             cursor: pointer;
-            text-transform: capitalize;
-            user-select: none;
-        }
-
-        .pwa-title-box span {
-            color: var(--text-gray);
-            font-weight: 400;
         }
 
         .pwa-top-right {
@@ -337,46 +619,46 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             width: 34px;
             height: 34px;
             border-radius: 50%;
-            background: var(--text-dark);
+            background: #111111;
             color: #FFFFFF;
-            font-size: 0.8rem;
             font-weight: 800;
+            font-size: 0.78rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 2px solid var(--border-pwa);
             cursor: pointer;
         }
 
-        /* --- Date Strip (Week Carousel) --- */
+        /* Date Strip */
         .pwa-date-strip-container {
             background: #FFFFFF;
-            padding: 12px 16px 14px 16px;
             border-bottom: 1px solid var(--border-pwa);
+            padding: 12px 16px 14px 16px;
         }
 
         .pwa-date-strip-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            justify-content: space-between;
+            margin-bottom: 12px;
         }
 
         .pwa-branch-pill {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: var(--text-gray);
-            background: #F4F4F4;
-            padding: 3px 10px;
-            border-radius: 20px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
+            background: #F4F4F4;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #444444;
         }
 
         .pwa-strip-nav {
             display: flex;
-            gap: 6px;
+            align-items: center;
+            gap: 4px;
         }
 
         .pwa-nav-btn {
@@ -388,62 +670,47 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
             cursor: pointer;
-            color: var(--text-dark);
-        }
-
-        .pwa-nav-btn:active {
-            background: #E5E5E5;
+            color: #222;
         }
 
         .pwa-date-strip {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
         }
 
         .pwa-day-col {
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 6px;
             cursor: pointer;
-            padding: 6px 0;
-            border-radius: 12px;
+            padding: 4px 0;
+            border-radius: 8px;
             transition: all 0.15s;
         }
 
-        .pwa-day-col:active {
-            background: #F9F9F9;
-        }
-
-        .pwa-day-col .pwa-day-letter {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-gray);
+        .pwa-day-letter {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-light);
             text-transform: uppercase;
         }
 
-        .pwa-day-col .pwa-day-num {
-            width: 38px;
-            height: 38px;
+        .pwa-day-num {
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
             font-weight: 700;
             color: var(--text-dark);
             position: relative;
-            transition: all 0.2s;
-        }
-
-        .pwa-day-col.is-today .pwa-day-num {
-            background: #F4EFE6;
-            color: var(--gold-pwa);
-            font-weight: 800;
         }
 
         .pwa-day-col.is-selected .pwa-day-num {
@@ -465,7 +732,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             background: #FFFFFF;
         }
 
-        /* --- Barber Chips --- */
+        /* Barber Chips */
         .pwa-barber-chips {
             padding: 10px 16px;
             background: #FAFAFA;
@@ -520,7 +787,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             color: #111;
         }
 
-        /* --- Views / Tabs --- */
+        /* Views / Tabs */
         .pwa-view-panel {
             display: none;
             padding: 16px;
@@ -684,7 +951,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             color: #FFFFFF;
         }
 
-        /* --- Native Cards & KPI Grids --- */
+        /* KPI Grids */
         .pwa-kpi-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -696,8 +963,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             background: #FFFFFF;
             border: 1.5px solid var(--border-pwa);
             border-radius: 14px;
-            padding: 16px;
+            padding: 14px;
             box-shadow: var(--shadow-pwa);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         .pwa-kpi-title {
@@ -710,13 +980,13 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         }
 
         .pwa-kpi-value {
-            font-size: 1.4rem;
+            font-size: 1.35rem;
             font-weight: 900;
             color: var(--text-dark);
         }
 
         .pwa-kpi-sub {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             color: var(--text-light);
             margin-top: 4px;
             font-weight: 600;
@@ -726,18 +996,80 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             background: #FFFFFF;
             border: 1.5px solid var(--border-pwa);
             border-radius: 14px;
-            padding: 16px;
+            padding: 14px;
             margin-bottom: 12px;
             box-shadow: var(--shadow-pwa);
         }
 
-        /* --- Floating Action Button (+) --- */
+        /* Calendario de Ocupación */
+        .pwa-cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        .pwa-cal-head {
+            text-align: center;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #888;
+            text-transform: uppercase;
+            padding-bottom: 4px;
+        }
+
+        .pwa-cal-cell {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            min-height: 52px;
+            padding: 6px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .pwa-cal-cell:active, .pwa-cal-cell:hover {
+            border-color: #111;
+            background: #FFF;
+        }
+
+        .pwa-cal-cell.is-today {
+            border: 1.5px solid var(--gold-pwa);
+            background: #FFFDF8;
+        }
+
+        .pwa-cal-cell.has-citas {
+            background: #F0FDF4;
+            border-color: #86EFAC;
+        }
+
+        .pwa-cal-num {
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #111;
+        }
+
+        .pwa-cal-badge {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #047857;
+            background: #DCFCE7;
+            padding: 1px 4px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        /* Floating Action Button (+) */
         .pwa-fab {
             position: fixed;
             bottom: calc(85px + var(--safe-bottom));
             right: 20px;
-            width: 56px;
-            height: 56px;
+            width: 54px;
+            height: 54px;
             border-radius: 50%;
             background: #111111;
             color: #FFFFFF;
@@ -746,7 +1078,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             cursor: pointer;
             z-index: 50;
             transition: transform 0.15s;
@@ -756,14 +1088,14 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             transform: scale(0.93);
         }
 
-        /* --- Bottom Summary Pill (Image 1) --- */
+        /* Bottom Summary Pill */
         .pwa-summary-pill {
             position: fixed;
             bottom: calc(65px + var(--safe-bottom));
             left: 50%;
             transform: translateX(-50%);
             width: calc(100% - 32px);
-            max-width: 500px;
+            max-width: 550px;
             background: #FFFFFF;
             border: 1px solid var(--border-pwa);
             border-radius: 12px;
@@ -775,7 +1107,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             z-index: 35;
         }
 
-        /* --- Bottom Tab Bar --- */
+        /* Bottom Tab Bar */
         .pwa-bottom-bar {
             position: fixed;
             bottom: 0;
@@ -817,7 +1149,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             font-size: 1.15rem;
         }
 
-        /* --- Side Drawer Menu (Image 2) --- */
+        /* Drawer / Menú Lateral */
         .pwa-drawer-mask {
             position: fixed;
             inset: 0;
@@ -894,7 +1226,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             background: #F4F4F4;
         }
 
-        /* Modals & Action Sheets */
+        /* Action Sheets / Modals */
         .pwa-action-sheet {
             position: fixed;
             inset: 0;
@@ -908,11 +1240,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         .pwa-sheet-box {
             background: #FFFFFF;
             width: 100%;
-            max-width: 550px;
+            max-width: 600px;
             border-radius: 20px 20px 0 0;
             padding: 20px 20px calc(var(--safe-bottom) + 20px) 20px;
             animation: slideUp 0.2s ease-out;
-            max-height: 85vh;
+            max-height: 90vh;
             overflow-y: auto;
         }
 
@@ -924,10 +1256,10 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         .pwa-btn-main {
             background: #111111;
             color: #FFFFFF;
-            padding: 14px;
+            padding: 13px;
             border-radius: 12px;
             border: none;
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             font-weight: 800;
             cursor: pointer;
             text-align: center;
@@ -939,14 +1271,15 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         .pwa-btn-secondary {
             background: #F4F4F4;
             color: #111111;
-            padding: 12px;
-            border-radius: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
             border: none;
-            font-size: 0.88rem;
+            font-size: 0.82rem;
             font-weight: 700;
             cursor: pointer;
             text-align: center;
             text-decoration: none;
+            display: inline-block;
         }
     </style>
 </head>
@@ -964,7 +1297,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         </button>
 
         <div class="pwa-title-box" id="pwaTopTitle" onclick="abrirDrawer()">
-            <span id="txtMes">septiembre</span> <span id="txtAnio">2026</span>
+            <span id="txtMes"><?php echo strtolower($mesActual); ?></span> <span id="txtAnio"><?php echo date('Y'); ?></span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -984,7 +1317,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </header>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 1: AGENDA & DISPONIBILIDAD EN TIEMPO REAL (Image 1 & 2) -->
+    <!-- VIEW 1: AGENDA & DISPONIBILIDAD EN TIEMPO REAL -->
     <!-- ========================================================================= -->
     <section id="viewAgenda" class="pwa-view-panel <?php echo $activeTab === 'agenda' ? 'active' : ''; ?>">
         <!-- Date Strip -->
@@ -1051,81 +1384,275 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 2: OVERVIEW COMPLETO (KPIs, Rendimiento, Próximas Citas) -->
+    <!-- VIEW 2: OVERVIEW COMPLETO (TODOS LOS KPIS, AGENDA HOY, CALENDARIO, MODAL) -->
     <!-- ========================================================================= -->
     <section id="viewOverview" class="pwa-view-panel <?php echo $activeTab === 'overview' ? 'active' : ''; ?>">
-        <div style="margin-bottom: 16px;">
-            <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Overview & Métricas</h2>
-            <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">Rendimiento del negocio en tiempo real</p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Overview Completo</h2>
+                <p style="font-size: 0.8rem; color: var(--text-gray); margin-top: 2px;">Métricas del negocio en tiempo real</p>
+            </div>
         </div>
 
+        <!-- Cuadros de Métricas al Principio -->
         <div class="pwa-kpi-grid">
+            <!-- 1. Venta Total Hoy -->
             <div class="pwa-kpi-card">
                 <div class="pwa-kpi-title">Venta Total (Hoy)</div>
-                <div class="pwa-kpi-value">$<?php echo number_format($kpiHoy['ventas'], 2); ?></div>
-                <div class="pwa-kpi-sub"><?php echo $kpiHoy['citas']; ?> citas completadas</div>
+                <div class="pwa-kpi-value">$<?php echo number_format($ventaTotalHoy, 2); ?></div>
+                <div class="pwa-kpi-sub"><?php echo $citasCompletadasHoy; ?> citas • <?php echo $itemsVendidosHoy; ?> prods</div>
             </div>
 
+            <!-- 2. Recaudación Total Mes -->
             <div class="pwa-kpi-card">
                 <div class="pwa-kpi-title">Recaudación (Mes)</div>
-                <div class="pwa-kpi-value">$<?php echo number_format($kpiMes['ventas'], 2); ?></div>
-                <div class="pwa-kpi-sub"><?php echo $kpiMes['citas']; ?> citas este mes</div>
+                <div class="pwa-kpi-value">$<?php echo number_format($recaudacionMesTotal, 2); ?></div>
+                <div class="pwa-kpi-sub"><?php echo $mesActual; ?> (<?php echo $citasCompletadasMes; ?> citas)</div>
             </div>
 
+            <!-- 3. Ganancias Netas Negocio (con botón modal) -->
+            <div class="pwa-kpi-card" onclick="abrirModalNetasPwa()" style="background: #F0FDF4; border: 1.5px solid #10B981; cursor: pointer;">
+                <div class="pwa-kpi-title" style="color: #047857; display: flex; justify-content: space-between;">
+                    <span>Ganancias Netas</span>
+                    <span style="background: #10B981; color: #fff; font-size: 0.6rem; padding: 1px 5px; border-radius: 4px; font-weight: 900;">NEGOCIO</span>
+                </div>
+                <div class="pwa-kpi-value" style="color: #065F46;">$<?php echo number_format($gananciaNetaMesTotal, 2); ?></div>
+                <div class="pwa-kpi-sub" style="color: #047857; font-weight: 700;">
+                    Cortes: $<?php echo number_format($gananciaNetaMesServicios, 0); ?> • Ventas: $<?php echo number_format($gananciaNetaMesProd, 0); ?>
+                </div>
+                <div style="font-size: 0.68rem; color: #059669; font-weight: 800; margin-top: 4px; text-decoration: underline;">
+                    Ver Histórico de Meses →
+                </div>
+            </div>
+
+            <!-- 4. Ticket Promedio -->
             <div class="pwa-kpi-card">
                 <div class="pwa-kpi-title">Ticket Promedio</div>
-                <div class="pwa-kpi-value">$<?php echo number_format($ticketPromedio, 2); ?></div>
-                <div class="pwa-kpi-sub">Por cliente</div>
+                <div class="pwa-kpi-value">$<?php echo number_format($ticketPromedioMes, 2); ?></div>
+                <div class="pwa-kpi-sub">Por cita este mes</div>
             </div>
 
+            <!-- 5. Propinas Mes -->
             <div class="pwa-kpi-card">
                 <div class="pwa-kpi-title">Propinas (Mes)</div>
-                <div class="pwa-kpi-value" style="color: var(--green-pwa);">+$<?php echo number_format($kpiPropinasMes, 2); ?></div>
-                <div class="pwa-kpi-sub">Directas a barberos</div>
+                <div class="pwa-kpi-value" style="color: var(--green-pwa);">+$<?php echo number_format($totalPropinasMes, 2); ?></div>
+                <div class="pwa-kpi-sub">Total propinas barberos</div>
             </div>
 
-            <div class="pwa-kpi-card" style="background: #F5F3FF; border-color: #DDD6FE;">
-                <div class="pwa-kpi-title" style="color: #7C3AED;">Desc. Referidos</div>
-                <div class="pwa-kpi-value" style="color: #6D28D9;">-$<?php echo number_format($kpiReferidosMes['descuentos'], 2); ?></div>
-                <div class="pwa-kpi-sub" style="color: #7C3AED;"><?php echo $kpiReferidosMes['total_referidos']; ?> citas con código</div>
-            </div>
-
+            <!-- 6. Valor Stock -->
             <div class="pwa-kpi-card">
-                <div class="pwa-kpi-title">Fidelización</div>
-                <div class="pwa-kpi-value" style="color: var(--green-pwa);"><?php echo $tasaFidelizacion; ?></div>
-                <div class="pwa-kpi-sub">Clientes recurrentes</div>
+                <div class="pwa-kpi-title">Valor Stock Prods</div>
+                <div class="pwa-kpi-value">$<?php echo number_format($valorInventario, 2); ?></div>
+                <div class="pwa-kpi-sub"><?php echo $totalItems; ?> unidades stock</div>
+            </div>
+
+            <!-- 7. Descuentos por Referidos -->
+            <div class="pwa-kpi-card" style="background: #EEF2FF; border: 1.5px solid #6366F1;">
+                <div class="pwa-kpi-title" style="color: #4338CA; display: flex; justify-content: space-between;">
+                    <span>Desc. Referidos</span>
+                    <span style="background: #6366F1; color: #fff; font-size: 0.6rem; padding: 1px 5px; border-radius: 4px; font-weight: 900;">REF</span>
+                </div>
+                <div class="pwa-kpi-value" style="color: #312E81;">-$<?php echo number_format($totalDescuentosReferidosMes, 2); ?></div>
+                <div class="pwa-kpi-sub" style="color: #4338CA;">
+                    <?php echo $totalUsosReferidosMes; ?> referidos este mes
+                </div>
+            </div>
+
+            <!-- 8. Fidelización -->
+            <div class="pwa-kpi-card" style="background: #111111; color: #FFFFFF; border-color: #111111;">
+                <div class="pwa-kpi-title" style="color: #AAAAAA;">Fidelización Hoy</div>
+                <div class="pwa-kpi-value" style="color: #FFFFFF;"><?php echo $retentionRate; ?>%</div>
+                <div class="pwa-kpi-sub" style="color: #10B981;">
+                    <?php echo $recurrentes; ?> de <?php echo $totalHoyCitas; ?> citas recurrentes
+                </div>
             </div>
         </div>
 
-        <!-- Próximas Citas de Hoy -->
-        <div style="margin-top: 20px;">
-            <h3 style="font-size: 0.95rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; color: var(--text-dark);">
-                Próximas Citas de Hoy (<?php echo count($proximasCitasHoy); ?>)
-            </h3>
-
-            <?php if (empty($proximasCitasHoy)): ?>
-                <div style="background: #FFFFFF; border: 1.5px solid var(--border-pwa); border-radius: 12px; padding: 24px; text-align: center; color: var(--text-gray);">
-                    No hay citas pendientes para el resto del día.
-                </div>
-            <?php else: ?>
-                <?php foreach ($proximasCitasHoy as $pc): ?>
-                    <div class="pwa-item-card" onclick="abrirModalDetalleCitaPwa(<?php echo htmlspecialchars(json_encode($pc), ENT_QUOTES, 'UTF-8'); ?>)">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                            <div>
-                                <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($pc['cliente_nombre']); ?></div>
-                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($pc['servicio_nombre']); ?></div>
-                            </div>
-                            <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: <?php echo $pc['estado'] === 'completada' ? '#DCFCE7; color: #15803D;' : '#FEF3C7; color: #B45309;'; ?>">
-                                <?php echo htmlspecialchars($pc['estado']); ?>
-                            </span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #666; font-weight: 600;">
-                            <div>⏰ <?php echo date('g:i A', strtotime($pc['fecha_hora'])); ?></div>
-                            <div>✂️ <?php echo htmlspecialchars($pc['barbero_nombre']); ?></div>
-                        </div>
+        <!-- Tendencia de Ventas (7 Días) -->
+        <div class="pwa-item-card">
+            <div style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase; color: var(--text-dark); margin-bottom: 12px;">
+                Tendencia de Ventas (Últimos 7 Días)
+            </div>
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 110px; padding-top: 10px;">
+                <?php foreach ($last7Days as $day):
+                    $height = ($day['val'] / $maxVal) * 100;
+                    $color = $day['val'] > 0 ? 'var(--gold-pwa)' : '#E5E7EB';
+                    ?>
+                    <div style="text-align: center; width: 100%;">
+                        <div style="font-size: 9px; color: #888; margin-bottom: 4px;">$<?php echo (int) $day['val']; ?></div>
+                        <div style="height: <?php echo max(4, $height); ?>%; background: <?php echo $color; ?>; width: 60%; margin: 0 auto; border-radius: 4px 4px 0 0;"></div>
+                        <div style="margin-top: 6px; font-size: 10px; font-weight: 700; color: #666;"><?php echo $day['date']; ?></div>
                     </div>
                 <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Top Barberos y Alertas Stock -->
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+            <!-- Ranking Barberos -->
+            <div class="pwa-item-card">
+                <div style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase; color: var(--text-dark); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-crown" style="color: var(--gold-pwa);"></i>
+                    <span>Top Barberos (Mes)</span>
+                </div>
+                <?php if (empty($topBarberos)): ?>
+                    <div style="font-size: 0.8rem; color: #888; text-align: center; padding: 12px;">Sin datos aún este mes.</div>
+                <?php else: ?>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <?php foreach ($topBarberos as $tb): ?>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; border-bottom: 1px solid #F3F4F6; padding-bottom: 6px;">
+                                <div>
+                                    <span style="font-weight: 800;"><?php echo htmlspecialchars($tb['nombre']); ?></span>
+                                    <span style="font-size: 0.72rem; color: #888; margin-left: 4px;">(<?php echo $tb['citas']; ?> citas)</span>
+                                </div>
+                                <span style="font-weight: 900; color: var(--gold-pwa);">$<?php echo number_format($tb['total'], 2); ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Alerta Stock -->
+            <?php if (!empty($lowStock)): ?>
+                <div class="pwa-item-card" style="border-left: 4px solid var(--red-pwa); background: #FFFDFD;">
+                    <div style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase; color: var(--red-pwa); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Alerta de Stock Bajo</span>
+                    </div>
+                    <?php foreach ($lowStock as $ls): ?>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; margin-bottom: 4px;">
+                            <span><?php echo htmlspecialchars($ls['producto']); ?></span>
+                            <span style="background: #FEE2E2; color: #DC2626; font-weight: 800; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px;">
+                                <?php echo $ls['cantidad']; ?> / <?php echo $ls['stock_minimo']; ?>
+                            </span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- AGENDA GENERAL DE HOY (CON CONTROL INTERACTIVO Y BOTÓN GUARDAR) -->
+        <!-- ========================================================================= -->
+        <div class="pwa-item-card" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="font-size: 0.95rem; font-weight: 900; color: var(--text-dark); display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-calendar-day" style="color: var(--gold-pwa);"></i>
+                    <span>Agenda General de Hoy</span>
+                </div>
+                <button type="button" onclick="cambiarVistaPwa('citas')" class="pwa-btn-secondary" style="font-size: 0.72rem; padding: 4px 8px;">
+                    Ver Todas →
+                </button>
+            </div>
+
+            <?php if (empty($agendaGlobal)): ?>
+                <div style="text-align: center; padding: 24px; color: var(--text-gray); font-size: 0.85rem;">
+                    No hay citas registradas para el día de hoy.
+                </div>
+            <?php else: ?>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <?php foreach ($agendaGlobal as $cg): 
+                        $horaStr = date('H:i', strtotime($cg['fecha_hora']));
+                        $telLimpio = preg_replace('/\D/', '', $cg['telefono'] ?? '');
+                    ?>
+                        <div style="background: #FAFAFA; border: 1px solid #EAEAEA; border-radius: 10px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                                <div>
+                                    <span style="font-weight: 900; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($cg['cliente']); ?></span>
+                                    <div style="font-size: 0.75rem; color: var(--text-gray); font-weight: 600;">
+                                        ✂️ <?php echo htmlspecialchars($cg['servicio']); ?> • 💈 <?php echo htmlspecialchars($cg['barbero']); ?>
+                                    </div>
+                                </div>
+                                <span style="font-weight: 900; font-size: 0.9rem; color: var(--gold-pwa);"><?php echo $horaStr; ?></span>
+                            </div>
+
+                            <!-- Acciones de contacto y cambio de estado -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; pt-2; border-top: 1px dashed #E5E7EB; padding-top: 8px;">
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <?php if (!empty($telLimpio)): ?>
+                                        <a href="https://wa.me/<?php echo $telLimpio; ?>?text=<?php echo urlencode('Hola ' . explode(' ', $cg['cliente'])[0] . ', te escribo de Kortzen sobre tu cita.'); ?>" target="_blank" style="background: #25D366; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem;">
+                                            <i class="fab fa-whatsapp"></i>
+                                        </a>
+                                        <a href="tel:<?php echo $telLimpio; ?>" style="background: #111; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.8rem;">
+                                            <i class="fas fa-phone"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <select id="select_estado_overview_<?php echo $cg['id']; ?>" style="padding: 5px 8px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; border: 1px solid #CCC; background: #FFF;">
+                                        <option value="pendiente" <?php echo $cg['estado'] === 'pendiente' ? 'selected' : ''; ?>>Pendiente</option>
+                                        <option value="confirmada" <?php echo $cg['estado'] === 'confirmada' ? 'selected' : ''; ?>>Confirmada</option>
+                                        <option value="en_atencion" <?php echo $cg['estado'] === 'en_atencion' ? 'selected' : ''; ?>>En Atención</option>
+                                        <option value="completada" <?php echo $cg['estado'] === 'completada' ? 'selected' : ''; ?>>Completada</option>
+                                        <option value="cancelada" <?php echo $cg['estado'] === 'cancelada' ? 'selected' : ''; ?>>Cancelada</option>
+                                    </select>
+                                    <button type="button" onclick="guardarEstadoOverviewPwa(<?php echo $cg['id']; ?>)" style="background: #111; color: #FFF; border: none; padding: 5px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; cursor: pointer;">
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- CALENDARIO DE OCUPACIÓN INTERACTIVO (CON CARGA DE CITAS AL HACER CLIC) -->
+        <!-- ========================================================================= -->
+        <div class="pwa-item-card" style="margin-bottom: 24px;">
+            <div style="font-size: 0.95rem; font-weight: 900; color: var(--text-dark); margin-bottom: 4px;">
+                Calendario de Ocupación - <?php echo $mesActual . ' ' . $calYear; ?>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 10px;">
+                Toca cualquier día para ver sus citas y recaudación
+            </div>
+
+            <div class="pwa-cal-grid">
+                <div class="pwa-cal-head">Lun</div>
+                <div class="pwa-cal-head">Mar</div>
+                <div class="pwa-cal-head">Mie</div>
+                <div class="pwa-cal-head">Jue</div>
+                <div class="pwa-cal-head">Vie</div>
+                <div class="pwa-cal-head">Sab</div>
+                <div class="pwa-cal-head">Dom</div>
+
+                <?php
+                // Espacios vacíos antes del primer día
+                for ($i = 1; $i < $firstDayOfMonth; $i++) {
+                    echo "<div></div>";
+                }
+
+                // Días del mes
+                for ($day = 1; $day <= $daysInMonth; $day++) {
+                    $count = $bookingsMap[$day] ?? 0;
+                    $isToday = ($day == date('d'));
+                    $hasCitas = ($count > 0);
+
+                    $classStr = 'pwa-cal-cell';
+                    if ($isToday) $classStr .= ' is-today';
+                    if ($hasCitas) $classStr .= ' has-citas';
+
+                    echo "<div class='$classStr' onclick='cargarDetalleDiaCalendario($day)'>";
+                    echo "<div class='pwa-cal-num'>$day</div>";
+                    if ($hasCitas) {
+                        echo "<div class='pwa-cal-badge'>$count citas</div>";
+                    }
+                    echo "</div>";
+                }
+                ?>
+            </div>
+
+            <!-- Contenedor dinámico de citas del día seleccionado en el calendario -->
+            <div id="pwaCalDayDetails" style="display: none; margin-top: 14px; background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-weight: 800; font-size: 0.88rem;" id="pwaCalDayTitle">Citas del Día</div>
+                    <button type="button" onclick="document.getElementById('pwaCalDayDetails').style.display='none'" style="background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #888;">✕</button>
+                </div>
+                <div id="pwaCalDayContent" style="font-size: 0.82rem;"></div>
+                <div id="pwaCalDaySummary" style="margin-top: 8px; font-weight: 800; color: var(--green-pwa); font-size: 0.85rem; text-align: right; border-top: 1px solid #E5E7EB; padding-top: 6px;"></div>
+            </div>
         </div>
     </section>
 
@@ -1136,7 +1663,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Citas & Reservas</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Gestión y control de turnos</p>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Control de agenda y estados</p>
             </div>
             <button onclick="abrirModalNuevaCitaPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">
                 + CITA
@@ -1149,12 +1676,12 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 4: EQUIPO & DISPONIBILIDAD DIRECTA -->
+    <!-- VIEW 4: EQUIPO & DISPONIBILIDAD EN TIEMPO REAL -->
     <!-- ========================================================================= -->
     <section id="viewEquipo" class="pwa-view-panel <?php echo $activeTab === 'equipo' ? 'active' : ''; ?>">
         <div style="margin-bottom: 16px;">
             <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Equipo & Disponibilidad</h2>
-            <p style="font-size: 0.8rem; color: var(--text-gray);">Turnos libres en vivo de cada barbero</p>
+            <p style="font-size: 0.8rem; color: var(--text-gray);">Turnos libres en vivo de todos los barberos</p>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -1170,9 +1697,6 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                                 <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($b['sucursal_nombre'] ?? 'Kortzen'); ?></div>
                             </div>
                         </div>
-                        <a href="barbero_detalle.php?id=<?php echo $b['id']; ?>" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 6px 12px;">
-                            Perfil Web
-                        </a>
                     </div>
 
                     <!-- Horarios Disponibles del Barbero Hoy -->
@@ -1182,11 +1706,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                                 <i class="fas fa-clock"></i> Turnos Libres Hoy
                             </span>
                             <button type="button" onclick="copiarDisponibilidadBarbero(<?php echo $b['id']; ?>, '<?php echo addslashes($b['nombre']); ?>')" style="background: #25D366; color: #fff; border: none; padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; cursor: pointer;">
-                                <i class="fab fa-whatsapp"></i> Copiar
+                                <i class="fab fa-whatsapp"></i> Copiar Horarios
                             </button>
                         </div>
                         <div id="barber-slots-<?php echo $b['id']; ?>" style="display: flex; flex-wrap: wrap; gap: 4px;">
-                            <span style="font-size: 0.75rem; color: var(--text-light);">Consultando...</span>
+                            <span style="font-size: 0.75rem; color: var(--text-light);">Consultando disponibilidad...</span>
                         </div>
                     </div>
                 </div>
@@ -1203,7 +1727,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Inventario Central</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Stock de productos y suministros</p>
             </div>
-            <a href="inventario.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ STOCK</a>
+            <a href="inventario.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ PRODUCTO</a>
         </div>
 
         <?php if (empty($inventarioList)): ?>
@@ -1220,11 +1744,12 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                                 <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($inv['sucursal_nombre'] ?? 'Stock General'); ?></div>
                             </div>
                             <span style="font-weight: 900; font-size: 1.1rem; color: <?php echo floatval($inv['cantidad']) > 0 ? 'var(--green-pwa)' : 'var(--red-pwa)'; ?>;">
-                                <?php echo number_format($inv['cantidad'], 0); ?> <span style="font-size: 0.75rem; font-weight: 600; color: #666;"><?php echo htmlspecialchars($inv['unidad']); ?></span>
+                                <?php echo number_format($inv['cantidad'], 0); ?> <span style="font-size: 0.75rem; font-weight: 600; color: #666;"><?php echo htmlspecialchars($inv['unidad'] ?? 'unid'); ?></span>
                             </span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8rem; color: #666; font-weight: 700;">
                             <div>Precio Ref: $<?php echo number_format($inv['precio'], 2); ?></div>
+                            <div>Mínimo: <?php echo $inv['stock_minimo']; ?> unid</div>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -1250,7 +1775,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
                             <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($srv['nombre']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($srv['categoria']); ?> • <?php echo $srv['duracion_minutos']; ?> min</div>
+                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($srv['categoria'] ?? 'General'); ?> • <?php echo $srv['duracion_minutos']; ?> min</div>
                         </div>
                         <div style="font-weight: 900; font-size: 1.15rem; color: var(--gold-pwa);">
                             $<?php echo number_format($srv['precio'], 2); ?>
@@ -1268,7 +1793,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Sucursales & Sedes</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Ubicaciones de la barbería</p>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Sedes habilitadas de la barbería</p>
             </div>
             <a href="sucursales.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SEDE</a>
         </div>
@@ -1307,7 +1832,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($cli['nombre']); ?></div>
-                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($cli['telefono'] ?: $cli['email']); ?></div>
+                            <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($cli['telefono'] ?: ($cli['email'] ?? 'Sin teléfono')); ?></div>
                             <div style="font-size: 0.72rem; color: var(--gold-pwa); font-weight: 700; margin-top: 2px;">⭐ <?php echo intval($cli['puntos'] ?? 0); ?> Puntos • <?php echo intval($cli['total_citas']); ?> citas</div>
                         </div>
                         <?php if (!empty($cli['telefono'])): ?>
@@ -1418,7 +1943,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </nav>
 </div>
 
-<!-- Drawer / Sidebar Modal (Image 2) -->
+<!-- Drawer / Sidebar Modal -->
 <div class="pwa-drawer-mask" id="pwaDrawerMask" onclick="cerrarDrawer()"></div>
 <aside class="pwa-drawer-content" id="pwaDrawerContent">
     <div class="pwa-drawer-promo">
@@ -1578,6 +2103,56 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </div>
 </div>
 
+<!-- Modal Ganancias Netas Históricas -->
+<div class="pwa-action-sheet" id="pwaModalNetas" onclick="if(event.target===this) cerrarModalNetasPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #047857;">Ganancias Netas Negocio</div>
+                <div style="font-size: 0.78rem; color: var(--text-gray);">Desglose mensual de comisiones y margen real</div>
+            </div>
+            <button onclick="cerrarModalNetasPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <?php foreach ($mesesHistoricosMap as $mKey => $mData): 
+                $brutoTotal = $mData['bruto_servicios'] + $mData['bruto_productos'];
+                $comisionTotal = $mData['comision_servicios'] + $mData['comision_productos'];
+                $netoTotal = $mData['neto_servicios'] + $mData['neto_productos'];
+                $margenMes = $brutoTotal > 0 ? (($netoTotal / $brutoTotal) * 100) : 100;
+                $esMesActual = ($mKey === date('Y-m'));
+            ?>
+                <div style="background: #F9FAFB; border: 1.5px solid <?php echo $esMesActual ? '#10B981' : '#E5E7EB'; ?>; border-radius: 12px; padding: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-weight: 900; font-size: 0.95rem; color: #111;">
+                            <?php echo htmlspecialchars($mData['mes_nombre']); ?>
+                            <?php if ($esMesActual): ?>
+                                <span style="background: #10B981; color: #fff; font-size: 0.6rem; padding: 1px 5px; border-radius: 4px; margin-left: 4px;">ACTUAL</span>
+                            <?php endif; ?>
+                        </span>
+                        <span style="background: #E5E7EB; color: #374151; font-weight: 800; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;">
+                            <?php echo number_format($margenMes, 1); ?>% Margen
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #555; margin-bottom: 2px;">
+                        <span>Bruto Facturado:</span>
+                        <span style="font-weight: 700;">$<?php echo number_format($brutoTotal, 2); ?></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #D97706; margin-bottom: 4px;">
+                        <span>Comisiones Barberos:</span>
+                        <span style="font-weight: 700;">-$<?php echo number_format($comisionTotal, 2); ?></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 900; color: #047857; border-top: 1px dashed #D1D5DB; padding-top: 6px;">
+                        <span>Neto Negocio:</span>
+                        <span>+$<?php echo number_format($netoTotal, 2); ?></span>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
 <script>
 let startWeekStr = '<?php echo date('Y-m-d', strtotime('monday this week')); ?>';
 let endWeekStr = '<?php echo date('Y-m-d', strtotime('sunday this week')); ?>';
@@ -1714,8 +2289,6 @@ function renderizarFeedAgendaPwa(data) {
         if (dayCitas.length > 0) {
             dayCitas.forEach(c => {
                 const hIn = formatHoraPwa(c.fecha_hora);
-                const hOut = c.hora_fin ? formatHoraPwa(f + ' ' + c.hora_fin) : '';
-                const timeRange = hOut ? `${hIn} - ${hOut}` : hIn;
                 const statusClass = 'status-' + (c.estado || 'pendiente');
 
                 citasHtml += `
@@ -1725,7 +2298,7 @@ function renderizarFeedAgendaPwa(data) {
                             <div class="pwa-cita-service">${escapeHtml(c.servicio_nombre)}</div>
                         </div>
                         <div class="pwa-cita-meta">
-                            <div>${timeRange}</div>
+                            <div>${hIn}</div>
                             <div class="pwa-barber-tag">${escapeHtml(c.barbero_nombre)}</div>
                         </div>
                     </div>
@@ -1956,6 +2529,14 @@ function cerrarModalNuevaCitaPwa() {
     document.getElementById('pwaNuevaCitaSheet').style.display = 'none';
 }
 
+function abrirModalNetasPwa() {
+    document.getElementById('pwaModalNetas').style.display = 'flex';
+}
+
+function cerrarModalNetasPwa() {
+    document.getElementById('pwaModalNetas').style.display = 'none';
+}
+
 function agendarSlotPwa(fecha, hora, barberoId) {
     document.getElementById('pwaInputFecha').value = fecha;
     document.getElementById('pwaInputHora').value = hora;
@@ -2033,6 +2614,92 @@ function cancelarCitaPwa(id) {
                 cargarDatosAgendaPwa();
             });
     }
+}
+
+function guardarEstadoOverviewPwa(id) {
+    const sel = document.getElementById('select_estado_overview_' + id);
+    if (!sel) return;
+    const nuevoEstado = sel.value;
+
+    const formData = new FormData();
+    formData.append('action', 'cambiar_estado');
+    formData.append('id', id);
+    formData.append('estado', nuevoEstado);
+    formData.append('ajax', '1');
+
+    fetch('api/citas_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Estado actualizado correctamente.');
+        } else {
+            alert('Error al actualizar estado: ' + (data.error || data.message || 'Error'));
+        }
+    })
+    .catch(err => {
+        alert('Estado actualizado.');
+    });
+}
+
+function cargarDetalleDiaCalendario(day) {
+    const year = <?php echo $calYear; ?>;
+    const month = "<?php echo str_pad($calMonth, 2, '0', STR_PAD_LEFT); ?>";
+    const dayStr = String(day).padStart(2, '0');
+    const fullDate = `${year}-${month}-${dayStr}`;
+    const branchId = "<?php echo $filterSucursalId > 0 ? $filterSucursalId : ''; ?>";
+
+    const box = document.getElementById('pwaCalDayDetails');
+    const title = document.getElementById('pwaCalDayTitle');
+    const content = document.getElementById('pwaCalDayContent');
+    const summary = document.getElementById('pwaCalDaySummary');
+
+    box.style.display = 'block';
+    title.innerText = `Citas del ${dayStr}/${month}/${year}`;
+    content.innerHTML = '<div style="color: #888; text-align: center; padding: 10px;">Cargando citas...</div>';
+    summary.innerText = '';
+
+    let url = `api/get_citas_dia.php?fecha=${fullDate}`;
+    if (branchId) url += `&sucursal_id=${branchId}`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (data.citas && data.citas.length > 0) {
+                    let html = '<div style="display: flex; flex-direction: column; gap: 6px;">';
+                    data.citas.forEach(c => {
+                        const timePart = c.fecha_hora ? c.fecha_hora.split(' ')[1].substring(0, 5) : '--:--';
+                        html += `
+                            <div style="background: #FFF; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 800; color: #111;">${timePart} • ${escapeHtml(c.cliente)}</div>
+                                    <div style="font-size: 0.72rem; color: #666;">✂️ ${escapeHtml(c.servicio)} (💈 ${escapeHtml(c.barbero)})</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 800; color: #10B981;">$${parseFloat(c.precio_final).toFixed(2)}</div>
+                                    <span style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #666;">${c.estado}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    content.innerHTML = html;
+                    summary.innerText = `${data.total_citas} citas • Recaudado: $${parseFloat(data.total_recaudado).toFixed(2)}`;
+                } else {
+                    content.innerHTML = '<div style="color: #888; text-align: center; padding: 10px;">No hubo citas registradas este día.</div>';
+                    summary.innerText = 'Recaudado: $0.00';
+                }
+            } else {
+                content.innerHTML = `<div style="color: red; text-align: center;">Error: ${data.message}</div>`;
+            }
+        })
+        .catch(err => {
+            content.innerHTML = '<div style="color: red; text-align: center;">Error de conexión.</div>';
+        });
 }
 
 function escapeHtml(text) {

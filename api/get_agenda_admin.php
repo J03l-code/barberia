@@ -69,27 +69,39 @@ try {
 
     // 2. Obtener Barberos
     $paramsBarberos = [];
-    $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, COALESCE(u.foto_url, '') AS foto_url, u.almuerzo_inicio, u.almuerzo_fin, u.almuerzo_activo, s.nombre AS sucursal_nombre 
-                    FROM usuarios u 
-                    LEFT JOIN sucursales s ON u.sucursal_id = s.id 
-                    WHERE u.rol IN ('barbero', 'admin_local')";
+    $whereBarberExtra = "";
     
     if (!empty($allowedSucursalIds)) {
         $inPlaceholders = implode(',', array_fill(0, count($allowedSucursalIds), '?'));
-        $sqlBarberos .= " AND (u.sucursal_id IN ($inPlaceholders) OR EXISTS (SELECT 1 FROM usuarios_sucursales us WHERE us.usuario_id = u.id AND us.sucursal_id IN ($inPlaceholders)))";
+        $whereBarberExtra .= " AND (u.sucursal_id IN ($inPlaceholders) OR EXISTS (SELECT 1 FROM usuarios_sucursales us WHERE us.usuario_id = u.id AND us.sucursal_id IN ($inPlaceholders)))";
         $paramsBarberos = array_merge($paramsBarberos, $allowedSucursalIds, $allowedSucursalIds);
     }
     
     if ($barberoId > 0) {
-        $sqlBarberos .= " AND u.id = ?";
+        $whereBarberExtra .= " AND u.id = ?";
         $paramsBarberos[] = $barberoId;
     }
     
-    $sqlBarberos .= " ORDER BY u.nombre ASC";
-    
-    $stmtB = $pdo->prepare($sqlBarberos);
-    $stmtB->execute($paramsBarberos);
-    $barberos = $stmtB->fetchAll(PDO::FETCH_ASSOC);
+    $whereBarberExtra .= " ORDER BY u.nombre ASC";
+
+    $barberos = [];
+    try {
+        $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, COALESCE(u.foto_url, '') AS foto_url, u.almuerzo_inicio, u.almuerzo_fin, u.almuerzo_activo, s.nombre AS sucursal_nombre 
+                        FROM usuarios u 
+                        LEFT JOIN sucursales s ON u.sucursal_id = s.id 
+                        WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1" . $whereBarberExtra;
+        $stmtB = $pdo->prepare($sqlBarberos);
+        $stmtB->execute($paramsBarberos);
+        $barberos = $stmtB->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $eB) {
+        $sqlBarberos = "SELECT u.id, u.nombre, u.email, u.sucursal_id, COALESCE(u.foto_url, '') AS foto_url, s.nombre AS sucursal_nombre 
+                        FROM usuarios u 
+                        LEFT JOIN sucursales s ON u.sucursal_id = s.id 
+                        WHERE u.rol IN ('barbero', 'admin_local', 'admin') AND u.activo = 1" . $whereBarberExtra;
+        $stmtB = $pdo->prepare($sqlBarberos);
+        $stmtB->execute($paramsBarberos);
+        $barberos = $stmtB->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     $barberosMap = [];
     $barberosIds = [];
@@ -108,17 +120,17 @@ try {
                 c.fecha_hora,
                 c.estado,
                 c.precio_final,
-                c.propina,
+                COALESCE(c.propina, 0.00) AS propina,
                 c.notas,
                 c.cliente_id,
                 c.barbero_id,
                 c.sucursal_id,
-                c.codigo_promocional,
-                c.descuento_aplicado,
-                c.puntos_ganados,
-                COALESCE(cl.nombre, c.cliente_nombre, 'Cliente Directo') AS cliente_nombre,
-                COALESCE(cl.telefono, c.cliente_telefono, '') AS cliente_telefono,
-                COALESCE(cl.email, c.cliente_email, '') AS cliente_email,
+                COALESCE(ref.codigo_usado, '') AS codigo_promocional,
+                COALESCE(ref.descuento_aplicado, 0.00) AS descuento_aplicado,
+                COALESCE(ref.puntos_otorgados, 0) AS puntos_ganados,
+                COALESCE(cl.nombre, 'Cliente Directo') AS cliente_nombre,
+                COALESCE(cl.telefono, '') AS cliente_telefono,
+                COALESCE(cl.email, '') AS cliente_email,
                 COALESCE(cl.foto_perfil, '') AS cliente_foto,
                 COALESCE(s.nombre, 'Servicio General') AS servicio_nombre,
                 COALESCE(s.duracion_minutos, 45) AS duracion_minutos,
@@ -130,6 +142,7 @@ try {
             LEFT JOIN servicios s ON c.servicio_id = s.id
             LEFT JOIN usuarios u ON c.barbero_id = u.id
             LEFT JOIN sucursales suc ON c.sucursal_id = suc.id
+            LEFT JOIN referidos ref ON c.id = ref.cita_id
             WHERE c.barbero_id IN ($inBarbers)
               AND c.fecha_hora >= ?
               AND c.fecha_hora <= ?
