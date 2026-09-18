@@ -517,7 +517,7 @@ try {
 // 6. Reseñas (Moderación, publicación y métricas)
 $resenasList = [];
 try {
-    $resenasList = query("SELECT * FROM resenas ORDER BY COALESCE(fecha, created_at) DESC, id DESC LIMIT 100");
+    $resenasList = query("SELECT * FROM resenas ORDER BY COALESCE(fecha, id) DESC, id DESC LIMIT 100");
 } catch (Exception $e) {
     try {
         $resenasList = query("SELECT * FROM resenas ORDER BY id DESC LIMIT 100");

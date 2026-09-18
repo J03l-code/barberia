@@ -252,6 +252,47 @@ function getConnection()
 
                 try {
                     $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS `resenas` (
+                            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                            `cliente_nombre` VARCHAR(100) NOT NULL DEFAULT 'Cliente',
+                            `comentario` TEXT NOT NULL,
+                            `calificacion` TINYINT UNSIGNED NOT NULL DEFAULT 5,
+                            `fecha` DATE DEFAULT CURRENT_DATE,
+                            `visible` TINYINT(1) NOT NULL DEFAULT 1,
+                            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            PRIMARY KEY (`id`),
+                            INDEX idx_resena_visible (`visible`)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    ");
+                } catch (Throwable $e_res) {}
+
+                try {
+                    $colsRStmt = $pdo->query("SHOW COLUMNS FROM resenas");
+                    $colsR = $colsRStmt ? $colsRStmt->fetchAll(PDO::FETCH_COLUMN) : [];
+                    if (!empty($colsR)) {
+                        if (!in_array('cliente_nombre', $colsR)) {
+                            try { $pdo->exec("ALTER TABLE resenas ADD COLUMN cliente_nombre VARCHAR(100) NOT NULL DEFAULT 'Cliente'"); } catch (Throwable $e) {}
+                        }
+                        if (!in_array('comentario', $colsR)) {
+                            try { $pdo->exec("ALTER TABLE resenas ADD COLUMN comentario TEXT NULL"); } catch (Throwable $e) {}
+                        }
+                        if (!in_array('calificacion', $colsR)) {
+                            try { $pdo->exec("ALTER TABLE resenas ADD COLUMN calificacion TINYINT UNSIGNED NOT NULL DEFAULT 5"); } catch (Throwable $e) {}
+                        }
+                        if (!in_array('fecha', $colsR)) {
+                            try { $pdo->exec("ALTER TABLE resenas ADD COLUMN fecha DATE DEFAULT CURRENT_DATE"); } catch (Throwable $e) {}
+                        }
+                        if (!in_array('visible', $colsR)) {
+                            try { $pdo->exec("ALTER TABLE resenas ADD COLUMN visible TINYINT(1) NOT NULL DEFAULT 1"); } catch (Throwable $e) {}
+                        }
+                        if (!in_array('created_at', $colsR)) {
+                            try { $pdo->exec("ALTER TABLE resenas ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); } catch (Throwable $e) {}
+                        }
+                    }
+                } catch (Throwable $e_r_cols) {}
+
+                try {
+                    $pdo->exec("
                         CREATE TABLE IF NOT EXISTS referidos (
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             referente_id INT UNSIGNED NULL,
@@ -1003,7 +1044,7 @@ function canManageGallery()
  */
 function canManageReviews()
 {
-    return isAdminTecnico();
+    return isAdminTecnico() || isAdminLocal() || in_array(getCurrentUserRole(), ['admin', 'admin_local', 'superadmin', 'administrador']);
 }
 
 /**
