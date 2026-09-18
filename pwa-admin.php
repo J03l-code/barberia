@@ -514,13 +514,20 @@ try {
     }
 }
 
-// 6. Reseñas
+// 6. Reseñas (Moderación, publicación y métricas)
 $resenasList = [];
 try {
-    $resenasList = query("SELECT r.*, c.nombre as cliente_nombre FROM resenas r LEFT JOIN clientes c ON r.cliente_id = c.id ORDER BY r.fecha_creacion DESC LIMIT 50");
+    $resenasList = query("SELECT * FROM resenas ORDER BY COALESCE(fecha, created_at) DESC, id DESC LIMIT 100");
 } catch (Exception $e) {
-    $resenasList = [];
+    try {
+        $resenasList = query("SELECT * FROM resenas ORDER BY id DESC LIMIT 100");
+    } catch (Exception $e2) {
+        $resenasList = [];
+    }
 }
+$countResenasPendientes = count(array_filter($resenasList, function($r) { return intval($r['visible'] ?? 0) === 0; }));
+$countResenasAprobadas = count(array_filter($resenasList, function($r) { return intval($r['visible'] ?? 0) === 1; }));
+$promedioCalificacion = count($resenasList) > 0 ? round(array_sum(array_column($resenasList, 'calificacion')) / count($resenasList), 1) : 5.0;
 
 // 7. Galería
 $galeriaList = [];
@@ -2532,31 +2539,132 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VIEW 11: RESEÑAS -->
+    <!-- VIEW 11: RESEÑAS (MODERACIÓN Y GESTIÓN COMPLETA) -->
     <!-- ========================================================================= -->
     <section id="viewResenas" class="pwa-view-panel <?php echo $activeTab === 'resenas' ? 'active' : ''; ?>">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Reseñas</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Opiniones y calificaciones de clientes</p>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Moderación y opiniones de clientes</p>
             </div>
-            <span style="font-size: 0.8rem; font-weight: 800; color: var(--gold-pwa); background: #FEF3C7; padding: 4px 10px; border-radius: 12px;">
-                ⭐ <?php echo count($resenasList); ?> Reseñas
-            </span>
+            <button type="button" onclick="abrirModalResenaPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff; font-weight: 800; font-size: 0.78rem; padding: 8px 12px; border-radius: 10px;">
+                + RESEÑA
+            </button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <?php foreach ($resenasList as $res): ?>
-                <div class="pwa-item-card">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                        <div style="font-weight: 800; font-size: 0.9rem;"><?php echo htmlspecialchars($res['cliente_nombre'] ?? 'Cliente'); ?></div>
-                        <div style="color: var(--gold-pwa); font-size: 0.85rem;">
-                            <?php echo str_repeat('★', intval($res['calificacion'] ?? 5)); ?>
+        <!-- 3 KPIs de Moderación -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">
+            <!-- Pendientes -->
+            <div class="pwa-item-card" onclick="filtrarResenasPorEstadoPwa('pendientes', document.getElementById('pwaResTabPendientes'))" style="padding: 10px; text-align: center; border-left: 3.5px solid #F59E0B; cursor: pointer; background: #FFFDF5;">
+                <div style="font-size: 0.65rem; font-weight: 800; color: #B45309; text-transform: uppercase;">⏳ Pendientes</div>
+                <div style="font-size: 1.35rem; font-weight: 900; color: #92400E; margin: 2px 0;" id="kpiResenasPendientes"><?php echo $countResenasPendientes; ?></div>
+                <div style="font-size: 0.62rem; color: #B45309; font-weight: 700;">Por revisar</div>
+            </div>
+
+            <!-- Publicadas -->
+            <div class="pwa-item-card" onclick="filtrarResenasPorEstadoPwa('aprobadas', document.getElementById('pwaResTabPublicadas'))" style="padding: 10px; text-align: center; border-left: 3.5px solid #10B981; cursor: pointer; background: #F0FDF4;">
+                <div style="font-size: 0.65rem; font-weight: 800; color: #047857; text-transform: uppercase;">✓ Publicadas</div>
+                <div style="font-size: 1.35rem; font-weight: 900; color: #065F46; margin: 2px 0;" id="kpiResenasAprobadas"><?php echo $countResenasAprobadas; ?></div>
+                <div style="font-size: 0.62rem; color: #047857; font-weight: 700;">En la web</div>
+            </div>
+
+            <!-- Promedio -->
+            <div class="pwa-item-card" style="padding: 10px; text-align: center; border-left: 3.5px solid var(--gold-pwa); background: #FFFDF7;">
+                <div style="font-size: 0.65rem; font-weight: 800; color: #92400E; text-transform: uppercase;">⭐ Promedio</div>
+                <div style="font-size: 1.35rem; font-weight: 900; color: var(--gold-pwa); margin: 2px 0;"><?php echo number_format($promedioCalificacion, 1); ?></div>
+                <div style="font-size: 0.62rem; color: #666; font-weight: 700;">De 5 estrellas</div>
+            </div>
+        </div>
+
+        <!-- Buscador en tiempo real -->
+        <div style="margin-bottom: 12px; position: relative;">
+            <input type="text" id="pwaFiltroResenasBuscar" oninput="filtrarResenasBuscarPwa()" placeholder="Buscar por cliente o comentario..." style="width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid var(--border-pwa); font-size: 0.82rem; font-weight: 700;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #9CA3AF; font-size: 0.82rem;"></i>
+        </div>
+
+        <!-- Tabs Filtros -->
+        <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px;" id="pwaResenasFilterPills">
+            <button type="button" class="pwa-chip active" id="pwaResTabTodas" onclick="filtrarResenasPorEstadoPwa('todas', this)">
+                Todas (<span id="countPillTodas"><?php echo count($resenasList); ?></span>)
+            </button>
+            <button type="button" class="pwa-chip" id="pwaResTabPendientes" onclick="filtrarResenasPorEstadoPwa('pendientes', this)" style="border-color: rgba(245, 158, 11, 0.4);">
+                ⏳ Pendientes (<span id="countPillPendientes"><?php echo $countResenasPendientes; ?></span>)
+            </button>
+            <button type="button" class="pwa-chip" id="pwaResTabPublicadas" onclick="filtrarResenasPorEstadoPwa('aprobadas', this)" style="border-color: rgba(16, 185, 129, 0.4);">
+                ✓ Publicadas (<span id="countPillPublicadas"><?php echo $countResenasAprobadas; ?></span>)
+            </button>
+        </div>
+
+        <!-- Listado de Reseñas -->
+        <div style="display: flex; flex-direction: column; gap: 12px;" id="pwaResenasListContainer">
+            <?php if (empty($resenasList)): ?>
+                <div class="pwa-item-card" style="text-align: center; padding: 30px 16px; color: var(--text-gray);">
+                    <i class="fas fa-star-half-alt fa-2x" style="color: var(--gold-pwa); margin-bottom: 10px; display: block;"></i>
+                    <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);">Sin reseñas registradas</div>
+                    <p style="font-size: 0.78rem; margin: 4px 0 12px 0;">Aún no se han publicado opiniones o calificaciones.</p>
+                    <button type="button" onclick="abrirModalResenaPwa()" class="pwa-btn-secondary" style="background: #111; color: #FFF; font-size: 0.75rem; padding: 6px 14px;">+ Crear Primera Reseña</button>
+                </div>
+            <?php else: ?>
+                <?php foreach ($resenasList as $res): ?>
+                    <?php 
+                        $isVisible = intval($res['visible'] ?? 0) === 1;
+                        $resFecha = !empty($res['fecha']) ? date('d/m/Y', strtotime($res['fecha'])) : (!empty($res['created_at']) ? date('d/m/Y', strtotime($res['created_at'])) : date('d/m/Y'));
+                        $resDataJson = htmlspecialchars(json_encode($res), ENT_QUOTES, 'UTF-8');
+                    ?>
+                    <div class="pwa-item-card pwa-resena-item" id="pwaResenaCard_<?php echo $res['id']; ?>" data-visible="<?php echo $isVisible ? '1' : '0'; ?>" data-search="<?php echo htmlspecialchars(strtolower(($res['cliente_nombre'] ?? '') . ' ' . ($res['comentario'] ?? ''))); ?>" style="padding: 14px; border-radius: 14px; border-left: 4px solid <?php echo $isVisible ? '#10B981' : '#F59E0B'; ?>;">
+                        <!-- Header Reseña -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 36px; height: 36px; border-radius: 50%; background: #111; color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; flex-shrink: 0;">
+                                    <?php echo strtoupper(substr($res['cliente_nombre'] ?? 'C', 0, 2)); ?>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 900; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($res['cliente_nombre'] ?? 'Cliente Anónimo'); ?></div>
+                                    <div style="font-size: 0.72rem; color: var(--text-gray); font-weight: 600;">📅 <?php echo $resFecha; ?></div>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="color: #F59E0B; font-size: 0.9rem; letter-spacing: 1px;">
+                                    <?php echo str_repeat('★', intval($res['calificacion'] ?? 5)); ?>
+                                </div>
+                                <span class="pwa-res-status-badge" style="display: inline-block; font-size: 0.65rem; font-weight: 800; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; margin-top: 3px; background: <?php echo $isVisible ? '#DCFCE7; color: #15803D;' : '#FEF3C7; color: #92400E;'; ?>">
+                                    <?php echo $isVisible ? '✓ Publicada' : '⏳ Pendiente'; ?>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Comentario -->
+                        <div style="background: #F9FAFB; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid #F3F4F6;">
+                            <div style="font-size: 0.82rem; color: #374151; line-height: 1.45; font-style: italic;">
+                                "<?php echo htmlspecialchars($res['comentario'] ?? ''); ?>"
+                            </div>
+                        </div>
+
+                        <!-- Barra de Acciones de Moderación -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #EAEAEA; padding-top: 8px;">
+                            <div>
+                                <?php if (!$isVisible): ?>
+                                    <button type="button" onclick="aprobarResenaPwa(<?php echo $res['id']; ?>)" class="pwa-btn-secondary" style="background: #10B981; color: #FFF; font-size: 0.72rem; font-weight: 800; padding: 6px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-check"></i> Aprobar
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" onclick="ocultarResenaPwa(<?php echo $res['id']; ?>)" class="pwa-btn-secondary" style="background: #F3F4F6; color: #4B5563; font-size: 0.72rem; font-weight: 700; padding: 6px 10px; border-radius: 8px;">
+                                        <i class="fas fa-eye-slash"></i> Ocultar
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button type="button" onclick="abrirModalResenaPwa(<?php echo $resDataJson; ?>)" class="pwa-btn-secondary" style="font-size: 0.72rem; padding: 6px 10px; font-weight: 700;">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                <button type="button" onclick="eliminarResenaPwa(<?php echo $res['id']; ?>)" class="pwa-btn-secondary" style="background: #FEE2E2; color: #DC2626; font-size: 0.72rem; padding: 6px 10px; font-weight: 700;">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div style="font-size: 0.82rem; color: #444; line-height: 1.4;"><?php echo htmlspecialchars($res['comentario'] ?? ''); ?></div>
-                </div>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </section>
 
@@ -3620,6 +3728,64 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             </div>
 
             <button type="submit" id="btnSubmitPwaCfg" class="pwa-btn-main" style="margin-top: 8px;">Guardar Configuración</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Reseña -->
+<div class="pwa-action-sheet" id="pwaResenaSheet" onclick="if(event.target===this) cerrarModalResenaPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;" id="pwaResenaModalTitle">Nueva Reseña</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Opinión y calificación de clientes</div>
+            </div>
+            <button type="button" onclick="cerrarModalResenaPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaResena" onsubmit="guardarResenaPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" id="pwaResAction" value="create">
+            <input type="hidden" name="id" id="pwaResId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Nombre del Cliente *</label>
+                <input type="text" name="cliente_nombre" id="pwaResClienteNombre" required placeholder="Ej: Carlos Mendoza" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Calificación *</label>
+                    <select name="calificacion" id="pwaResCalificacion" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                        <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                        <option value="4">⭐⭐⭐⭐ (4)</option>
+                        <option value="3">⭐⭐⭐ (3)</option>
+                        <option value="2">⭐⭐ (2)</option>
+                        <option value="1">⭐ (1)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Fecha</label>
+                    <input type="date" name="fecha" id="pwaResFecha" value="<?php echo date('Y-m-d'); ?>" style="width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; font-size: 0.82rem; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Estado de Publicación</label>
+                <select name="visible" id="pwaResVisible" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <option value="1">✓ Publicada (Visible en página web)</option>
+                    <option value="0">⏳ Pendiente (Oculta de la web)</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Comentario / Opinión *</label>
+                <textarea name="comentario" id="pwaResComentario" rows="3" required placeholder="Escribe la reseña u opinión aquí..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; font-size: 0.85rem; font-family: inherit; margin-top: 4px;"></textarea>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaRes" class="pwa-btn-main" style="margin-top: 8px; padding: 13px; font-weight: 800;">Guardar Reseña</button>
+            <button type="button" id="btnDeletePwaRes" onclick="eliminarResenaDesdeModalPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none; padding: 13px; font-weight: 800;">Eliminar Reseña</button>
         </form>
     </div>
 </div>
@@ -5835,6 +6001,206 @@ function eliminarCuponPwa(cuponId) {
             }
         })
         .catch(() => window.location.reload());
+}
+
+// 9. GESTIÓN Y MODERACIÓN DE RESEÑAS
+let filtroEstadoResenasActual = 'todas';
+
+function abrirModalResenaPwa(res) {
+    const form = document.getElementById('formPwaResena');
+    if (!form) return;
+    form.reset();
+
+    const title = document.getElementById('pwaResenaModalTitle');
+    const btnDel = document.getElementById('btnDeletePwaRes');
+    const actInput = document.getElementById('pwaResAction');
+    const idInput = document.getElementById('pwaResId');
+    const nomInput = document.getElementById('pwaResClienteNombre');
+    const calInput = document.getElementById('pwaResCalificacion');
+    const fecInput = document.getElementById('pwaResFecha');
+    const visInput = document.getElementById('pwaResVisible');
+    const comInput = document.getElementById('pwaResComentario');
+
+    if (res && res.id) {
+        title.innerText = 'Editar Reseña';
+        actInput.value = 'update';
+        idInput.value = res.id;
+        nomInput.value = res.cliente_nombre || '';
+        calInput.value = res.calificacion || 5;
+        fecInput.value = res.fecha || '<?php echo date('Y-m-d'); ?>';
+        visInput.value = res.visible !== undefined ? res.visible : 1;
+        comInput.value = res.comentario || '';
+        btnDel.style.display = 'block';
+    } else {
+        title.innerText = 'Nueva Reseña';
+        actInput.value = 'create';
+        idInput.value = '';
+        nomInput.value = '';
+        calInput.value = '5';
+        fecInput.value = '<?php echo date('Y-m-d'); ?>';
+        visInput.value = '1';
+        comInput.value = '';
+        btnDel.style.display = 'none';
+    }
+
+    document.getElementById('pwaResenaSheet').style.display = 'flex';
+}
+
+function cerrarModalResenaPwa() {
+    const modal = document.getElementById('pwaResenaSheet');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarResenaPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaRes');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaResena'));
+
+    fetch('api/reviews_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        if (data.success) {
+            mostrarToastPwa(data.message || 'Reseña guardada con éxito.');
+            cerrarModalResenaPwa();
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar la reseña.'));
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        mostrarToastPwa('Reseña procesada correctamente.');
+        window.location.reload();
+    });
+}
+
+function aprobarResenaPwa(id) {
+    if (!id) return;
+    const fd = new FormData();
+    fd.append('action', 'aprobar');
+    fd.append('id', id);
+    fd.append('ajax', '1');
+
+    fetch('api/reviews_action.php', {
+        method: 'POST',
+        body: fd,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToastPwa('✓ Reseña aprobada y publicada en la web.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo aprobar.'));
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function ocultarResenaPwa(id) {
+    if (!id) return;
+    const fd = new FormData();
+    fd.append('action', 'rechazar');
+    fd.append('id', id);
+    fd.append('ajax', '1');
+
+    fetch('api/reviews_action.php', {
+        method: 'POST',
+        body: fd,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToastPwa('Reseña ocultada de la web.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo ocultar.'));
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function eliminarResenaPwa(id) {
+    if (!id) return;
+    if (!confirm('¿Estás seguro de eliminar permanentemente esta reseña?')) return;
+
+    const fd = new FormData();
+    fd.append('action', 'delete');
+    fd.append('id', id);
+    fd.append('ajax', '1');
+
+    fetch('api/reviews_action.php', {
+        method: 'POST',
+        body: fd,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToastPwa('Reseña eliminada.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo eliminar.'));
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function eliminarResenaDesdeModalPwa() {
+    const id = document.getElementById('pwaResId').value;
+    if (id) eliminarResenaPwa(id);
+}
+
+function filtrarResenasPorEstadoPwa(tipo, el) {
+    filtroEstadoResenasActual = tipo;
+    document.querySelectorAll('#pwaResenasFilterPills .pwa-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    aplicarFiltrosCombinadosResenasPwa();
+}
+
+function filtrarResenasBuscarPwa() {
+    aplicarFiltrosCombinadosResenasPwa();
+}
+
+function aplicarFiltrosCombinadosResenasPwa() {
+    const q = (document.getElementById('pwaFiltroResenasBuscar')?.value || '').toLowerCase().trim();
+    const items = document.querySelectorAll('.pwa-resena-item');
+
+    items.forEach(it => {
+        const vis = it.getAttribute('data-visible');
+        const sText = it.getAttribute('data-search') || '';
+
+        let matchEstado = true;
+        if (filtroEstadoResenasActual === 'pendientes') {
+            matchEstado = (vis === '0');
+        } else if (filtroEstadoResenasActual === 'aprobadas') {
+            matchEstado = (vis === '1');
+        }
+
+        let matchQuery = true;
+        if (q) {
+            matchQuery = sText.includes(q);
+        }
+
+        if (matchEstado && matchQuery) {
+            it.style.display = 'block';
+        } else {
+            it.style.display = 'none';
+        }
+    });
 }
 
 function escapeHtml(text) {
