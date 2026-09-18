@@ -215,7 +215,7 @@
                         <div class="user-role"><?php echo getRolDisplayName($currentUser['rol']); ?></div>
                     </div>
                 </div>
-                <form method="GET" action="logout.php" style="margin: 0;">
+                <form method="GET" action="logout.php" onsubmit="if(window.cerrarSesionPwa){ event.preventDefault(); window.cerrarSesionPwa('/login.php'); }" style="margin: 0;">
                     <button type="submit" class="btn-logout">Cerrar Sesión</button>
                 </form>
             </div>
@@ -235,7 +235,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                 <span>Horarios</span>
             </a>
-            <a href="logout.php" class="pwa-bottom-nav__item">
+            <a href="logout.php" onclick="if(window.cerrarSesionPwa){ event.preventDefault(); window.cerrarSesionPwa('/login.php'); }" class="pwa-bottom-nav__item">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                 <span>Salir</span>
             </a>

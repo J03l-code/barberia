@@ -37,6 +37,11 @@ function initPwaCore() {
       .then(data => {
         if (data.success && data.redirect) {
           window.location.href = data.redirect;
+        } else {
+          // Token inválido o revocado: limpiar para evitar intentos infinitos
+          localStorage.removeItem('kortzen_pwa_token');
+          localStorage.removeItem('kortzen_pwa_client_id');
+          localStorage.removeItem('kortzen_pwa_user_id');
         }
       })
       .catch(e => {});
@@ -516,5 +521,39 @@ function initPullToRefresh() {
     hasTriggeredHaptic = false;
   }
 }
+
+// Cierre de sesión global para PWA y Web
+window.cerrarSesionPwa = function(redirectUrl) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('kortzen_pwa_token');
+      localStorage.removeItem('kortzen_pwa_client_id');
+      localStorage.removeItem('kortzen_pwa_user_id');
+      localStorage.removeItem('kortzen_pwa_admin_active_tab');
+      localStorage.clear();
+    }
+  } catch (e) {}
+
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.clear();
+    }
+  } catch (e) {}
+
+  try {
+    var cookies = document.cookie.split(";");
+    for (var i = 0; i < cookies.length; i++) {
+      var cookie = cookies[i];
+      var eqPos = cookie.indexOf("=");
+      var name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + window.location.hostname;
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=." + window.location.hostname;
+    }
+  } catch (e) {}
+
+  const target = redirectUrl ? ('/logout.php?redirect=' + encodeURIComponent(redirectUrl)) : '/logout.php';
+  window.location.replace(target);
+};
 
 

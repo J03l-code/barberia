@@ -124,7 +124,16 @@
      * Cerrar sesión directamente
      */
     function logoutClient() {
-        window.location.href = '/logout.php';
+        if (typeof window.cerrarSesionPwa === 'function') {
+            window.cerrarSesionPwa('/cliente-login.php');
+        } else {
+            try {
+                localStorage.removeItem('kortzen_pwa_token');
+                localStorage.removeItem('kortzen_pwa_client_id');
+                localStorage.clear();
+            } catch(e) {}
+            window.location.href = '/logout.php';
+        }
     }
 
     // Exponer globalmente

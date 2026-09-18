@@ -2883,7 +2883,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <i class="fas fa-cog" style="width: 20px;"></i>
         <span>Configuración</span>
     </div>
-    <a href="logout.php" class="pwa-drawer-item" style="color: #EF4444; margin-top: 10px; border-top: 1px solid var(--border-pwa); padding-top: 14px;">
+    <a href="logout.php" onclick="if(window.cerrarSesionPwa){ event.preventDefault(); window.cerrarSesionPwa('/login.php'); }" class="pwa-drawer-item" style="color: #EF4444; margin-top: 10px; border-top: 1px solid var(--border-pwa); padding-top: 14px;">
         <i class="fas fa-sign-out-alt" style="width: 20px;"></i>
         <span>Cerrar Sesión</span>
     </a>
