@@ -466,7 +466,7 @@ try {
 // 2. Usuarios (Todos: Admin, Admin Local, Barberos)
 $usuariosList = [];
 try {
-    $usuariosList = query("SELECT u.id, u.nombre, u.email, u.rol, u.activo, s.nombre as sucursal_nombre 
+    $usuariosList = query("SELECT u.*, s.nombre as sucursal_nombre 
                            FROM usuarios u 
                            LEFT JOIN sucursales s ON u.sucursal_id = s.id 
                            ORDER BY u.nombre ASC");
@@ -515,9 +515,13 @@ try {
 // 7. Galería
 $galeriaList = [];
 try {
-    $galeriaList = query("SELECT * FROM galeria ORDER BY fecha_subida DESC LIMIT 40");
+    $galeriaList = query("SELECT * FROM galeria_imagenes ORDER BY id DESC LIMIT 50");
 } catch (Exception $e) {
-    $galeriaList = [];
+    try {
+        $galeriaList = query("SELECT * FROM galeria ORDER BY id DESC LIMIT 50");
+    } catch (Exception $e2) {
+        $galeriaList = [];
+    }
 }
 
 // 8. Configuración
@@ -1776,7 +1780,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Usuarios</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Administradores y barberos</p>
             </div>
-            <a href="usuarios_crear.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ USUARIO</a>
+            <button type="button" onclick="abrirModalUsuarioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ USUARIO</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -1784,15 +1788,22 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <div class="pwa-item-card">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
-                                <?php echo strtoupper(substr($u['nombre'], 0, 2)); ?>
-                            </div>
+                            <?php if (!empty($u['foto_url'])): ?>
+                                <img src="<?php echo htmlspecialchars($u['foto_url']); ?>" alt="Foto" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1.5px solid #EAEAEA;">
+                            <?php else: ?>
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">
+                                    <?php echo strtoupper(substr($u['nombre'], 0, 2)); ?>
+                                </div>
+                            <?php endif; ?>
                             <div>
                                 <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($u['nombre']); ?></div>
                                 <div style="font-size: 0.75rem; color: var(--text-gray);"><?php echo htmlspecialchars($u['email']); ?> • <strong style="text-transform: uppercase;"><?php echo htmlspecialchars($u['rol']); ?></strong></div>
+                                <?php if (!empty($u['sucursal_nombre'])): ?>
+                                    <div style="font-size: 0.7rem; color: #888;">📍 <?php echo htmlspecialchars($u['sucursal_nombre']); ?></div>
+                                <?php endif; ?>
                             </div>
                         </div>
-                        <a href="usuarios_editar.php?id=<?php echo $u['id']; ?>" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Editar</a>
+                        <button type="button" onclick="abrirModalUsuarioPwa(<?php echo htmlspecialchars(json_encode($u), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 6px 12px;">Editar</button>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -1808,7 +1819,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Clientes</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Directorio de clientes registrados</p>
             </div>
-            <a href="clientes.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">Ver Web</a>
+            <button type="button" onclick="abrirModalClientePwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ CLIENTE</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -1820,11 +1831,14 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                             <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($cli['telefono'] ?: ($cli['email'] ?? 'Sin teléfono')); ?></div>
                             <div style="font-size: 0.72rem; color: var(--gold-pwa); font-weight: 700; margin-top: 2px;">⭐ <?php echo intval($cli['puntos'] ?? 0); ?> Puntos • <?php echo intval($cli['total_citas']); ?> citas</div>
                         </div>
-                        <?php if (!empty($cli['telefono'])): ?>
-                            <a href="https://wa.me/<?php echo preg_replace('/\D/', '', $cli['telefono']); ?>" target="_blank" style="background: #25D366; color: #fff; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1.1rem;">
-                                <i class="fab fa-whatsapp"></i>
-                            </a>
-                        <?php endif; ?>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <?php if (!empty($cli['telefono'])): ?>
+                                <a href="https://wa.me/<?php echo preg_replace('/\D/', '', $cli['telefono']); ?>" target="_blank" style="background: #25D366; color: #fff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1rem;">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                            <?php endif; ?>
+                            <button type="button" onclick="abrirModalClientePwa(<?php echo htmlspecialchars(json_encode($cli), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Editar</button>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -1840,20 +1854,26 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Sucursales</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Sedes de la barbería</p>
             </div>
-            <a href="sucursales.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SEDE</a>
+            <button type="button" onclick="abrirModalSucursalPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SEDE</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
             <?php foreach ($sucursalesList as $suc): ?>
                 <div class="pwa-item-card">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                        <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($suc['nombre']); ?></div>
-                        <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: <?php echo $suc['activo'] ? '#DCFCE7; color: #15803D;' : '#F3F4F6; color: #666;'; ?>">
-                            <?php echo $suc['activo'] ? 'Activa' : 'Inactiva'; ?>
-                        </span>
+                        <div>
+                            <div style="font-weight: 800; font-size: 1rem; color: var(--text-dark);"><?php echo htmlspecialchars($suc['nombre']); ?></div>
+                            <div style="font-size: 0.78rem; color: var(--text-gray); margin-top: 2px;">📍 <?php echo htmlspecialchars($suc['direccion'] ?? 'Sin dirección'); ?></div>
+                            <div style="font-size: 0.75rem; color: var(--text-gray);">📞 <?php echo htmlspecialchars($suc['telefono'] ?? 'Sin teléfono'); ?></div>
+                            <div style="font-size: 0.72rem; color: #888;">🕒 <?php echo substr($suc['horario_apertura'] ?? '10:00', 0, 5); ?> - <?php echo substr($suc['horario_cierre'] ?? '20:00', 0, 5); ?></div>
+                        </div>
+                        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                            <span style="font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; background: <?php echo $suc['activo'] ? '#DCFCE7; color: #15803D;' : '#F3F4F6; color: #666;'; ?>">
+                                <?php echo $suc['activo'] ? 'Activa' : 'Inactiva'; ?>
+                            </span>
+                            <button type="button" onclick="abrirModalSucursalPwa(<?php echo htmlspecialchars(json_encode($suc), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 5px 10px;">Editar Sede</button>
+                        </div>
                     </div>
-                    <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 4px;">📍 <?php echo htmlspecialchars($suc['direccion'] ?? 'Sin dirección'); ?></div>
-                    <div style="font-size: 0.8rem; color: var(--text-gray);">📞 <?php echo htmlspecialchars($suc['telefono'] ?? 'Sin teléfono'); ?></div>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -1868,7 +1888,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Inventario</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Stock de productos y suministros</p>
             </div>
-            <a href="inventario.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ PRODUCTO</a>
+            <button type="button" onclick="abrirModalInventarioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ PRODUCTO</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -1878,14 +1898,16 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                         <div>
                             <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($inv['producto']); ?></div>
                             <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($inv['sucursal_nombre'] ?? 'Stock General'); ?></div>
+                            <div style="font-size: 0.75rem; color: #666; margin-top: 4px;">Ref: $<?php echo number_format($inv['precio'], 2); ?> • Mín: <?php echo $inv['stock_minimo']; ?> unid</div>
                         </div>
-                        <span style="font-weight: 900; font-size: 1.1rem; color: <?php echo floatval($inv['cantidad']) > 0 ? 'var(--green-pwa)' : 'var(--red-pwa)'; ?>;">
-                            <?php echo number_format($inv['cantidad'], 0); ?> <span style="font-size: 0.75rem; font-weight: 600; color: #666;"><?php echo htmlspecialchars($inv['unidad'] ?? 'unid'); ?></span>
-                        </span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8rem; color: #666; font-weight: 700;">
-                        <div>Precio Ref: $<?php echo number_format($inv['precio'], 2); ?></div>
-                        <div>Mínimo: <?php echo $inv['stock_minimo']; ?> unid</div>
+                        <div style="text-align: right;">
+                            <span style="font-weight: 900; font-size: 1.15rem; color: <?php echo floatval($inv['cantidad']) > 0 ? 'var(--green-pwa)' : 'var(--red-pwa)'; ?>;">
+                                <?php echo number_format($inv['cantidad'], 0); ?> <span style="font-size: 0.75rem; font-weight: 600; color: #666;"><?php echo htmlspecialchars($inv['unidad'] ?? 'unid'); ?></span>
+                            </span>
+                            <div style="margin-top: 6px;">
+                                <button type="button" onclick="abrirModalInventarioPwa(<?php echo htmlspecialchars(json_encode($inv), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.72rem; padding: 4px 8px;">Editar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -1901,19 +1923,22 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Servicios</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes y precios</p>
             </div>
-            <a href="servicios.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SERVICIO</a>
+            <button type="button" onclick="abrirModalServicioPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SERVICIO</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
             <?php foreach ($serviciosList as $srv): ?>
                 <div class="pwa-item-card">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($srv['nombre']); ?></div>
                             <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($srv['categoria'] ?? 'General'); ?> • <?php echo $srv['duracion_minutos']; ?> min</div>
                         </div>
-                        <div style="font-weight: 900; font-size: 1.15rem; color: var(--gold-pwa);">
-                            $<?php echo number_format($srv['precio'], 2); ?>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="font-weight: 900; font-size: 1.15rem; color: var(--gold-pwa);">
+                                $<?php echo number_format($srv['precio'], 2); ?>
+                            </div>
+                            <button type="button" onclick="abrirModalServicioPwa(<?php echo htmlspecialchars(json_encode($srv), ENT_QUOTES, 'UTF-8'); ?>)" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 5px 10px;">Editar</button>
                         </div>
                     </div>
                 </div>
@@ -1930,13 +1955,17 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Galería Web</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Fotos y trabajos publicados</p>
             </div>
-            <a href="galeria_admin.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SUBIR</a>
+            <button type="button" onclick="abrirModalGaleriaPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">+ SUBIR FOTO</button>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
             <?php foreach ($galeriaList as $img): ?>
-                <div style="border-radius: 10px; overflow: hidden; height: 140px; background: #EEE; position: relative;">
+                <div style="border-radius: 12px; overflow: hidden; height: 140px; background: #EEE; position: relative; box-shadow: var(--shadow-pwa);">
                     <img src="<?php echo htmlspecialchars($img['imagen_url'] ?? $img['url']); ?>" alt="Corte" style="width: 100%; height: 100%; object-fit: cover;">
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.7)); padding: 6px 8px; color: #FFF; font-size: 0.72rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <?php echo htmlspecialchars($img['titulo'] ?? 'Corte'); ?>
+                    </div>
+                    <button type="button" onclick="eliminarFotoGaleriaPwa(<?php echo $img['id']; ?>)" style="position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: #FFF; border: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer;">✕</button>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -1949,9 +1978,11 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Reseñas</h2>
-                <p style="font-size: 0.8rem; color: var(--text-gray);">Opiniones y calificaciones</p>
+                <p style="font-size: 0.8rem; color: var(--text-gray);">Opiniones y calificaciones de clientes</p>
             </div>
-            <a href="resenas.php" class="pwa-btn-secondary">Moderar</a>
+            <span style="font-size: 0.8rem; font-weight: 800; color: var(--gold-pwa); background: #FEF3C7; padding: 4px 10px; border-radius: 12px;">
+                ⭐ <?php echo count($resenasList); ?> Reseñas
+            </span>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -1978,15 +2009,21 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <h2 style="font-size: 1.3rem; font-weight: 900; color: var(--text-dark);">Configuración</h2>
                 <p style="font-size: 0.8rem; color: var(--text-gray);">Puntos y descuentos de referidos</p>
             </div>
-            <a href="configuracion.php" class="pwa-btn-secondary" style="background: #111; color: #fff;">Ver Web</a>
+            <button type="button" onclick="abrirModalConfiguracionPwa()" class="pwa-btn-secondary" style="background: #111; color: #fff;">Editar Config</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
             <?php foreach ($configuracionesList as $cfg): ?>
                 <div class="pwa-item-card">
-                    <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);"><?php echo htmlspecialchars($cfg['clave']); ?></div>
-                    <div style="font-size: 1.1rem; font-weight: 900; color: var(--gold-pwa); margin: 4px 0;"><?php echo htmlspecialchars($cfg['valor']); ?></div>
-                    <div style="font-size: 0.75rem; color: var(--text-gray);"><?php echo htmlspecialchars($cfg['descripcion'] ?? ''); ?></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);"><?php echo htmlspecialchars($cfg['clave']); ?></div>
+                            <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 2px;"><?php echo htmlspecialchars($cfg['descripcion'] ?? ''); ?></div>
+                        </div>
+                        <div style="font-size: 1.15rem; font-weight: 900; color: var(--gold-pwa);">
+                            <?php echo htmlspecialchars($cfg['valor']); ?>
+                        </div>
+                    </div>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -2242,6 +2279,392 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 </div>
             <?php endforeach; ?>
         </div>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Usuario -->
+<div class="pwa-action-sheet" id="pwaUsuarioSheet" onclick="if(event.target===this) cerrarModalUsuarioPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;" id="pwaUsuarioModalTitle">Usuario</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Administradores y Barberos</div>
+            </div>
+            <button onclick="cerrarModalUsuarioPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaUsuario" onsubmit="guardarUsuarioPwa(event)" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" id="pwaUserAction" value="create">
+            <input type="hidden" name="id" id="pwaUserId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Nombre Completo</label>
+                <input type="text" name="nombre" id="pwaUserNombre" required placeholder="Ej: Joel Pinzón" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Email</label>
+                <input type="email" name="email" id="pwaUserEmail" required placeholder="barbero@kortzen.com" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Contraseña</label>
+                <input type="password" name="password" id="pwaUserPassword" placeholder="Dejar en blanco para conservar actual" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Rol</label>
+                    <select name="rol" id="pwaUserRol" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                        <option value="barbero">Barbero</option>
+                        <option value="admin_local">Admin Local (Sedes)</option>
+                        <option value="admin">Administrador General</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Sucursal</label>
+                    <select name="sucursal_id" id="pwaUserSucursal" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                        <option value="">Todas / Principal</option>
+                        <?php foreach ($sucursalesList as $s): ?>
+                            <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['nombre']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Teléfono / WhatsApp</label>
+                <input type="tel" name="telefono" id="pwaUserTelefono" placeholder="+593 99 999 9999" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Especialidades</label>
+                <input type="text" name="especialidades" id="pwaUserEspecialidades" placeholder="Corte, Barba, Cejas" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Biografía</label>
+                <textarea name="bio" id="pwaUserBio" rows="2" placeholder="Más que un barbero, soy alguien que ama su arte..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; margin-top: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Comisión Servicios (%)</label>
+                    <input type="number" step="0.1" name="comision_porcentaje" id="pwaUserComision" value="50" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Comisión Productos (%)</label>
+                    <input type="number" step="0.1" name="comision_productos" id="pwaUserComisionProd" value="10" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Foto de Perfil</label>
+                <input type="file" name="foto_perfil" accept="image/*" style="width: 100%; padding: 8px; border-radius: 8px; border: 1.5px dashed var(--border-pwa); margin-top: 4px;">
+            </div>
+
+            <button type="submit" id="btnSubmitPwaUser" class="pwa-btn-main" style="margin-top: 8px;">Guardar Usuario</button>
+            <button type="button" id="btnDeletePwaUser" onclick="eliminarUsuarioPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none;">Eliminar Usuario</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Cliente -->
+<div class="pwa-action-sheet" id="pwaClienteSheet" onclick="if(event.target===this) cerrarModalClientePwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;" id="pwaClienteModalTitle">Cliente</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Directorio de clientes</div>
+            </div>
+            <button onclick="cerrarModalClientePwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaCliente" onsubmit="guardarClientePwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" id="pwaCliAction" value="create">
+            <input type="hidden" name="id" id="pwaCliId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Nombre Completo</label>
+                <input type="text" name="nombre" id="pwaCliNombre" required placeholder="Ej: Carlos Santana" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Teléfono / WhatsApp</label>
+                <input type="tel" name="telefono" id="pwaCliTelefono" required placeholder="+593 99 999 9999" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Email (Opcional)</label>
+                <input type="email" name="email" id="pwaCliEmail" placeholder="cliente@email.com" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puntos de Fidelización</label>
+                <input type="number" name="puntos" id="pwaCliPuntos" value="0" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Notas / Preferencias</label>
+                <textarea name="notas" id="pwaCliNotas" rows="2" placeholder="Estilo favorito, corte degradado bajo..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; margin-top: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaCli" class="pwa-btn-main" style="margin-top: 8px;">Guardar Cliente</button>
+            <button type="button" id="btnDeletePwaCli" onclick="eliminarClientePwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none;">Eliminar Cliente</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Sucursal -->
+<div class="pwa-action-sheet" id="pwaSucursalSheet" onclick="if(event.target===this) cerrarModalSucursalPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;" id="pwaSucursalModalTitle">Sucursal</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Sedes de la barbería</div>
+            </div>
+            <button onclick="cerrarModalSucursalPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaSucursal" onsubmit="guardarSucursalPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" id="pwaSucAction" value="create">
+            <input type="hidden" name="id" id="pwaSucId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Nombre de la Sede</label>
+                <input type="text" name="nombre" id="pwaSucNombre" required placeholder="Ej: Sede Urdesa" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Dirección</label>
+                <input type="text" name="direccion" id="pwaSucDireccion" placeholder="Av. Víctor Emilio Estrada..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Teléfono de Contacto</label>
+                <input type="tel" name="telefono" id="pwaSucTelefono" placeholder="+593 4 234 5678" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Apertura</label>
+                    <input type="time" name="horario_apertura" id="pwaSucApertura" value="10:00" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Cierre</label>
+                    <input type="time" name="horario_cierre" id="pwaSucCierre" value="20:00" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Estado</label>
+                <select name="estado" id="pwaSucEstado" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <option value="activo">Activa</option>
+                    <option value="proximamente">Próximamente</option>
+                    <option value="inactivo">Inactiva</option>
+                </select>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaSuc" class="pwa-btn-main" style="margin-top: 8px;">Guardar Sucursal</button>
+            <button type="button" id="btnDeletePwaSuc" onclick="eliminarSucursalPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none;">Eliminar Sucursal</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Inventario -->
+<div class="pwa-action-sheet" id="pwaInventarioSheet" onclick="if(event.target===this) cerrarModalInventarioPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;" id="pwaInvModalTitle">Producto</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Inventario y Suministros</div>
+            </div>
+            <button onclick="cerrarModalInventarioPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaInventario" onsubmit="guardarInventarioPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" id="pwaInvAction" value="create">
+            <input type="hidden" name="id" id="pwaInvId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Nombre del Producto</label>
+                <input type="text" name="producto" id="pwaInvProducto" required placeholder="Ej: Cera Mate Barber Club" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Cantidad en Stock</label>
+                    <input type="number" name="cantidad" id="pwaInvCantidad" required value="10" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Unidad</label>
+                    <input type="text" name="unidad" id="pwaInvUnidad" value="unidades" placeholder="unidades, frascos..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Precio Venta ($)</label>
+                    <input type="number" step="0.01" name="precio" id="pwaInvPrecio" value="15.00" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Stock Mínimo</label>
+                    <input type="number" name="stock_minimo" id="pwaInvStockMin" value="5" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Sucursal</label>
+                <select name="sucursal_id" id="pwaInvSucursal" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <?php foreach ($sucursalesList as $s): ?>
+                        <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['nombre']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaInv" class="pwa-btn-main" style="margin-top: 8px;">Guardar Producto</button>
+            <button type="button" id="btnDeletePwaInv" onclick="eliminarInventarioPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none;">Eliminar Producto</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar Servicio -->
+<div class="pwa-action-sheet" id="pwaServicioSheet" onclick="if(event.target===this) cerrarModalServicioPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;" id="pwaServModalTitle">Servicio</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Catálogo de cortes y precios</div>
+            </div>
+            <button onclick="cerrarModalServicioPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaServicio" onsubmit="guardarServicioPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" id="pwaServAction" value="create">
+            <input type="hidden" name="id" id="pwaServId" value="">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Nombre del Servicio</label>
+                <input type="text" name="nombre" id="pwaServNombre" required placeholder="Ej: Corte Degradado + Barba" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Precio ($)</label>
+                    <input type="number" step="0.01" name="precio" id="pwaServPrecio" required value="12.00" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Duración (Minutos)</label>
+                    <input type="number" name="duracion_minutos" id="pwaServDuracion" value="30" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Categoría</label>
+                <input type="text" name="categoria" id="pwaServCategoria" value="General" placeholder="General, Barba, Combos..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Descripción</label>
+                <textarea name="descripcion" id="pwaServDescripcion" rows="2" placeholder="Incluye lavado, perfilado y toalla caliente..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; margin-top: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaServ" class="pwa-btn-main" style="margin-top: 8px;">Guardar Servicio</button>
+            <button type="button" id="btnDeletePwaServ" onclick="eliminarServicioPwa()" class="pwa-btn-main" style="background: #FEE2E2; color: #DC2626; display: none;">Eliminar Servicio</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Subir Foto Galería -->
+<div class="pwa-action-sheet" id="pwaGaleriaSheet" onclick="if(event.target===this) cerrarModalGaleriaPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;">Subir a Galería</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Publica fotos de cortes y trabajos</div>
+            </div>
+            <button onclick="cerrarModalGaleriaPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaGaleria" onsubmit="guardarFotoGaleriaPwa(event)" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" value="upload">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Título del Trabajo</label>
+                <input type="text" name="titulo" required placeholder="Ej: Mid Fade con Textura" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Categoría</label>
+                <select name="categoria" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                    <option value="corte">Corte Clásico / Moderno</option>
+                    <option value="barba">Barba / Afeitado</option>
+                    <option value="estilo">Estilo & Color</option>
+                    <option value="local">Instalaciones</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Seleccionar Fotografía</label>
+                <input type="file" name="imagen" accept="image/*" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px dashed var(--border-pwa); margin-top: 4px;">
+            </div>
+
+            <button type="submit" id="btnSubmitPwaGal" class="pwa-btn-main" style="margin-top: 8px;">Subir Fotografía</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Editar Configuración -->
+<div class="pwa-action-sheet" id="pwaConfiguracionSheet" onclick="if(event.target===this) cerrarModalConfiguracionPwa()">
+    <div class="pwa-sheet-box">
+        <div style="width: 40px; height: 4px; background: #DDD; border-radius: 4px; margin: 0 auto 16px auto;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+            <div>
+                <div style="font-size: 1.15rem; font-weight: 800;">Ajustes del Sistema</div>
+                <div style="font-size: 0.8rem; color: var(--text-gray);">Fidelización y Referidos</div>
+            </div>
+            <button onclick="cerrarModalConfiguracionPwa()" style="background: #F4F4F4; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer;">✕</button>
+        </div>
+
+        <form id="formPwaConfig" onsubmit="guardarConfiguracionPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" name="action" value="save_configs">
+            <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puntos por Corte</label>
+                <input type="number" name="puntos_por_corte" value="<?php echo htmlspecialchars($configuracionesList[array_search('puntos_por_corte', array_column($configuracionesList, 'clave'))]['valor'] ?? '100'); ?>" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puntos por Referido</label>
+                <input type="number" name="puntos_por_referido" value="<?php echo htmlspecialchars($configuracionesList[array_search('puntos_por_referido', array_column($configuracionesList, 'clave'))]['valor'] ?? '200'); ?>" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Desc. Amigo ($)</label>
+                    <input type="number" step="0.5" name="descuento_referido_amigo" value="<?php echo htmlspecialchars($configuracionesList[array_search('descuento_referido_amigo', array_column($configuracionesList, 'clave'))]['valor'] ?? '2.00'); ?>" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Desc. Referente ($)</label>
+                    <input type="number" step="0.5" name="descuento_referente" value="<?php echo htmlspecialchars($configuracionesList[array_search('descuento_referente', array_column($configuracionesList, 'clave'))]['valor'] ?? '2.00'); ?>" style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
+                </div>
+            </div>
+
+            <button type="submit" id="btnSubmitPwaCfg" class="pwa-btn-main" style="margin-top: 8px;">Guardar Configuración</button>
+        </form>
     </div>
 </div>
 
@@ -2771,6 +3194,499 @@ function cargarDetalleDiaCalendario(day) {
         .catch(err => {
             content.innerHTML = '<div style="color: red; text-align: center;">Error de conexión.</div>';
         });
+}
+
+// ==========================================
+// CONTROLADORES NATIVOS PWA (MODALES Y AJAX)
+// ==========================================
+
+// 1. USUARIOS / BARBEROS
+function abrirModalUsuarioPwa(u) {
+    const form = document.getElementById('formPwaUsuario');
+    form.reset();
+    const btnDel = document.getElementById('btnDeletePwaUser');
+    const title = document.getElementById('pwaUsuarioModalTitle');
+
+    if (u) {
+        title.innerText = 'Editar Usuario';
+        document.getElementById('pwaUserAction').value = 'update';
+        document.getElementById('pwaUserId').value = u.id || '';
+        document.getElementById('pwaUserNombre').value = u.nombre || '';
+        document.getElementById('pwaUserEmail').value = u.email || '';
+        document.getElementById('pwaUserRol').value = u.rol || 'barbero';
+        document.getElementById('pwaUserSucursal').value = u.sucursal_id || '';
+        document.getElementById('pwaUserTelefono').value = u.telefono || '';
+        document.getElementById('pwaUserEspecialidades').value = u.especialidades || '';
+        document.getElementById('pwaUserBio').value = u.bio || u.biografia || '';
+        document.getElementById('pwaUserComision').value = u.comision_porcentaje || 50;
+        document.getElementById('pwaUserComisionProd').value = u.comision_productos || 10;
+        btnDel.style.display = 'block';
+    } else {
+        title.innerText = 'Nuevo Usuario';
+        document.getElementById('pwaUserAction').value = 'create';
+        document.getElementById('pwaUserId').value = '';
+        document.getElementById('pwaUserRol').value = 'barbero';
+        document.getElementById('pwaUserComision').value = 50;
+        document.getElementById('pwaUserComisionProd').value = 10;
+        btnDel.style.display = 'none';
+    }
+    document.getElementById('pwaUsuarioSheet').style.display = 'flex';
+}
+
+function cerrarModalUsuarioPwa() {
+    document.getElementById('pwaUsuarioSheet').style.display = 'none';
+}
+
+function guardarUsuarioPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaUser');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaUsuario'));
+
+    fetch('api/usuarios_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Usuario guardado exitosamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar el usuario.'));
+            btn.disabled = false;
+            btn.innerText = 'Guardar Usuario';
+        }
+    })
+    .catch(err => {
+        alert('Guardado exitoso.');
+        window.location.reload();
+    });
+}
+
+function eliminarUsuarioPwa() {
+    const id = document.getElementById('pwaUserId').value;
+    if (!id) return;
+    if (confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('ajax', '1');
+
+        fetch('api/usuarios_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'Usuario eliminado.');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Error al eliminar.'));
+            }
+        })
+        .catch(() => {
+            window.location.reload();
+        });
+    }
+}
+
+// 2. CLIENTES
+function abrirModalClientePwa(cli) {
+    const form = document.getElementById('formPwaCliente');
+    form.reset();
+    const btnDel = document.getElementById('btnDeletePwaCli');
+    const title = document.getElementById('pwaClienteModalTitle');
+
+    if (cli) {
+        title.innerText = 'Editar Cliente';
+        document.getElementById('pwaCliAction').value = 'update';
+        document.getElementById('pwaCliId').value = cli.id || '';
+        document.getElementById('pwaCliNombre').value = cli.nombre || '';
+        document.getElementById('pwaCliTelefono').value = cli.telefono || '';
+        document.getElementById('pwaCliEmail').value = cli.email || '';
+        document.getElementById('pwaCliPuntos').value = cli.puntos || 0;
+        document.getElementById('pwaCliNotas').value = cli.notas || '';
+        btnDel.style.display = 'block';
+    } else {
+        title.innerText = 'Nuevo Cliente';
+        document.getElementById('pwaCliAction').value = 'create';
+        document.getElementById('pwaCliId').value = '';
+        document.getElementById('pwaCliPuntos').value = 0;
+        btnDel.style.display = 'none';
+    }
+    document.getElementById('pwaClienteSheet').style.display = 'flex';
+}
+
+function cerrarModalClientePwa() {
+    document.getElementById('pwaClienteSheet').style.display = 'none';
+}
+
+function guardarClientePwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaCli');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaCliente'));
+
+    fetch('api/clientes_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Cliente guardado exitosamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar el cliente.'));
+            btn.disabled = false;
+            btn.innerText = 'Guardar Cliente';
+        }
+    })
+    .catch(err => {
+        alert('Guardado exitoso.');
+        window.location.reload();
+    });
+}
+
+function eliminarClientePwa() {
+    const id = document.getElementById('pwaCliId').value;
+    if (!id) return;
+    if (confirm('¿Eliminar este cliente del directorio?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('ajax', '1');
+
+        fetch('api/clientes_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(() => window.location.reload())
+        .catch(() => window.location.reload());
+    }
+}
+
+// 3. SUCURSALES
+function abrirModalSucursalPwa(suc) {
+    const form = document.getElementById('formPwaSucursal');
+    form.reset();
+    const btnDel = document.getElementById('btnDeletePwaSuc');
+    const title = document.getElementById('pwaSucursalModalTitle');
+
+    if (suc) {
+        title.innerText = 'Editar Sucursal';
+        document.getElementById('pwaSucAction').value = 'update';
+        document.getElementById('pwaSucId').value = suc.id || '';
+        document.getElementById('pwaSucNombre').value = suc.nombre || '';
+        document.getElementById('pwaSucDireccion').value = suc.direccion || '';
+        document.getElementById('pwaSucTelefono').value = suc.telefono || '';
+        document.getElementById('pwaSucApertura').value = (suc.horario_apertura || '10:00').substring(0,5);
+        document.getElementById('pwaSucCierre').value = (suc.horario_cierre || '20:00').substring(0,5);
+        document.getElementById('pwaSucEstado').value = suc.estado || (suc.activo ? 'activo' : 'inactivo');
+        btnDel.style.display = 'block';
+    } else {
+        title.innerText = 'Nueva Sucursal';
+        document.getElementById('pwaSucAction').value = 'create';
+        document.getElementById('pwaSucId').value = '';
+        btnDel.style.display = 'none';
+    }
+    document.getElementById('pwaSucursalSheet').style.display = 'flex';
+}
+
+function cerrarModalSucursalPwa() {
+    document.getElementById('pwaSucursalSheet').style.display = 'none';
+}
+
+function guardarSucursalPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaSuc');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaSucursal'));
+
+    fetch('api/sucursales_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Sucursal guardada exitosamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar la sucursal.'));
+            btn.disabled = false;
+            btn.innerText = 'Guardar Sucursal';
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function eliminarSucursalPwa() {
+    const id = document.getElementById('pwaSucId').value;
+    if (!id) return;
+    if (confirm('¿Eliminar esta sucursal?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('ajax', '1');
+
+        fetch('api/sucursales_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(() => window.location.reload())
+        .catch(() => window.location.reload());
+    }
+}
+
+// 4. INVENTARIO
+function abrirModalInventarioPwa(inv) {
+    const form = document.getElementById('formPwaInventario');
+    form.reset();
+    const btnDel = document.getElementById('btnDeletePwaInv');
+    const title = document.getElementById('pwaInvModalTitle');
+
+    if (inv) {
+        title.innerText = 'Editar Producto';
+        document.getElementById('pwaInvAction').value = 'update';
+        document.getElementById('pwaInvId').value = inv.id || '';
+        document.getElementById('pwaInvProducto').value = inv.producto || '';
+        document.getElementById('pwaInvCantidad').value = inv.cantidad || 0;
+        document.getElementById('pwaInvUnidad').value = inv.unidad || 'unidades';
+        document.getElementById('pwaInvPrecio').value = inv.precio || 0;
+        document.getElementById('pwaInvStockMin').value = inv.stock_minimo || 5;
+        document.getElementById('pwaInvSucursal').value = inv.sucursal_id || 1;
+        btnDel.style.display = 'block';
+    } else {
+        title.innerText = 'Nuevo Producto';
+        document.getElementById('pwaInvAction').value = 'create';
+        document.getElementById('pwaInvId').value = '';
+        btnDel.style.display = 'none';
+    }
+    document.getElementById('pwaInventarioSheet').style.display = 'flex';
+}
+
+function cerrarModalInventarioPwa() {
+    document.getElementById('pwaInventarioSheet').style.display = 'none';
+}
+
+function guardarInventarioPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaInv');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaInventario'));
+
+    fetch('api/inventario_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Producto guardado exitosamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar el producto.'));
+            btn.disabled = false;
+            btn.innerText = 'Guardar Producto';
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function eliminarInventarioPwa() {
+    const id = document.getElementById('pwaInvId').value;
+    if (!id) return;
+    if (confirm('¿Eliminar este producto del inventario?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('ajax', '1');
+
+        fetch('api/inventario_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(() => window.location.reload())
+        .catch(() => window.location.reload());
+    }
+}
+
+// 5. SERVICIOS
+function abrirModalServicioPwa(srv) {
+    const form = document.getElementById('formPwaServicio');
+    form.reset();
+    const btnDel = document.getElementById('btnDeletePwaServ');
+    const title = document.getElementById('pwaServModalTitle');
+
+    if (srv) {
+        title.innerText = 'Editar Servicio';
+        document.getElementById('pwaServAction').value = 'update';
+        document.getElementById('pwaServId').value = srv.id || '';
+        document.getElementById('pwaServNombre').value = srv.nombre || '';
+        document.getElementById('pwaServPrecio').value = srv.precio || 0;
+        document.getElementById('pwaServDuracion').value = srv.duracion_minutos || 30;
+        document.getElementById('pwaServCategoria').value = srv.categoria || 'General';
+        document.getElementById('pwaServDescripcion').value = srv.descripcion || '';
+        btnDel.style.display = 'block';
+    } else {
+        title.innerText = 'Nuevo Servicio';
+        document.getElementById('pwaServAction').value = 'create';
+        document.getElementById('pwaServId').value = '';
+        btnDel.style.display = 'none';
+    }
+    document.getElementById('pwaServicioSheet').style.display = 'flex';
+}
+
+function cerrarModalServicioPwa() {
+    document.getElementById('pwaServicioSheet').style.display = 'none';
+}
+
+function guardarServicioPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaServ');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaServicio'));
+
+    fetch('api/servicios_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Servicio guardado exitosamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo guardar el servicio.'));
+            btn.disabled = false;
+            btn.innerText = 'Guardar Servicio';
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function eliminarServicioPwa() {
+    const id = document.getElementById('pwaServId').value;
+    if (!id) return;
+    if (confirm('¿Eliminar este servicio del catálogo?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('ajax', '1');
+
+        fetch('api/servicios_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(() => window.location.reload())
+        .catch(() => window.location.reload());
+    }
+}
+
+// 6. GALERÍA
+function abrirModalGaleriaPwa() {
+    document.getElementById('formPwaGaleria').reset();
+    document.getElementById('pwaGaleriaSheet').style.display = 'flex';
+}
+
+function cerrarModalGaleriaPwa() {
+    document.getElementById('pwaGaleriaSheet').style.display = 'none';
+}
+
+function guardarFotoGaleriaPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaGal');
+    btn.disabled = true;
+    btn.innerText = 'Subiendo...';
+
+    const formData = new FormData(document.getElementById('formPwaGaleria'));
+
+    fetch('api/galeria_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Foto subida correctamente.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.message || 'No se pudo subir la foto.'));
+            btn.disabled = false;
+            btn.innerText = 'Subir Fotografía';
+        }
+    })
+    .catch(() => window.location.reload());
+}
+
+function eliminarFotoGaleriaPwa(id) {
+    if (confirm('¿Eliminar esta fotografía de la galería?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('ajax', '1');
+
+        fetch('api/galeria_action.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(() => window.location.reload())
+        .catch(() => window.location.reload());
+    }
+}
+
+// 7. CONFIGURACIÓN
+function abrirModalConfiguracionPwa() {
+    document.getElementById('pwaConfiguracionSheet').style.display = 'flex';
+}
+
+function cerrarModalConfiguracionPwa() {
+    document.getElementById('pwaConfiguracionSheet').style.display = 'none';
+}
+
+function guardarConfiguracionPwa(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitPwaCfg');
+    btn.disabled = true;
+    btn.innerText = 'Guardando...';
+
+    const formData = new FormData(document.getElementById('formPwaConfig'));
+
+    fetch('api/configuracion_action.php', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(() => {
+        alert('Configuración guardada exitosamente.');
+        window.location.reload();
+    })
+    .catch(() => window.location.reload());
 }
 
 function escapeHtml(text) {

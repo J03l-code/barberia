@@ -2,9 +2,11 @@
 require_once '../config.php';
 
 // Validar permisos (Admin Técnico, Admin Local, o Administrador)
+$isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+          (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false) ||
+          (!empty($_POST['ajax']) && $_POST['ajax'] === '1');
+
 if (!isLoggedIn() || (!isAdminTecnico() && !canManageUsers() && !in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local', 'administrador', 'superadmin']))) {
-    $isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-              (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
     if ($isJson) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Acceso no autorizado.']);
@@ -222,6 +224,11 @@ try {
             }
 
             registrarLog('CREAR', 'usuarios', $newUserId, "Usuario '$nombre' ($rol) creado exitosamente");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Usuario '$nombre' creado exitosamente", 'id' => $newUserId]);
+                exit;
+            }
             header('Location: ../usuarios.php?success=' . urlencode("Usuario '$nombre' creado exitosamente"));
             exit;
 
@@ -343,6 +350,11 @@ try {
             } catch (Exception $e_us) {}
 
             registrarLog('EDITAR', 'usuarios', $id, "Usuario '$nombre' (#$id) actualizado exitosamente");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Usuario '$nombre' actualizado exitosamente"]);
+                exit;
+            }
             header('Location: ../usuarios.php?success=' . urlencode("Usuario '$nombre' actualizado exitosamente"));
             exit;
 
@@ -394,6 +406,11 @@ try {
             $stmt->execute([$id]);
 
             registrarLog('ELIMINAR', 'usuarios', $id, "Usuario '$uNombre' fue eliminado del sistema");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Usuario '$uNombre' eliminado exitosamente"]);
+                exit;
+            }
             header('Location: ../usuarios.php?success=' . urlencode("Usuario '$uNombre' eliminado exitosamente"));
             exit;
 
@@ -403,10 +420,20 @@ try {
 
 } catch (PDOException $e) {
     error_log("Error en usuarios_action.php: " . $e->getMessage());
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Error en base de datos: ' . $e->getMessage()]);
+        exit;
+    }
     header('Location: ../usuarios.php?error=' . urlencode('Error en base de datos: ' . $e->getMessage()));
     exit;
 
 } catch (Exception $e) {
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
     header('Location: ../usuarios.php?error=' . urlencode($e->getMessage()));
     exit;
 }

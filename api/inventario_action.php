@@ -1,9 +1,11 @@
 <?php
 require_once '../config.php';
 
+$isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+          (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false) ||
+          (!empty($_POST['ajax']) && $_POST['ajax'] === '1');
+
 if (!isLoggedIn()) {
-    $isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-              (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
     if ($isJson) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'No autorizado']);
@@ -18,6 +20,11 @@ $action = $_POST['action'] ?? '';
 // Validar que solo administradores puedan crear/editar/eliminar (los barberos solo pueden retirar)
 if (in_array($action, ['create', 'update', 'delete'])) {
     if (!canManageInventory() && !isAdminTecnico() && !isAdminLocal() && !in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local', 'administrador', 'superadmin'])) {
+        if ($isJson) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'No tienes permisos suficientes para gestionar el inventario.']);
+            exit;
+        }
         header('Location: ../inventario.php?error=' . urlencode('No tienes permisos suficientes para gestionar el inventario.'));
         exit;
     }
@@ -144,7 +151,11 @@ try {
 
             $newInvId = $pdo->lastInsertId();
             registrarLog('CREAR', 'inventario', $newInvId, "Producto '$producto' agregado al inventario ($cantidad unidades)");
-
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Producto '$producto' agregado exitosamente", 'id' => $newInvId]);
+                exit;
+            }
             header('Location: ../inventario.php?success=' . urlencode("Producto '$producto' agregado exitosamente"));
             exit;
 
@@ -209,6 +220,11 @@ try {
             $stmt->execute($updateValues);
 
             registrarLog('EDITAR', 'inventario', $id, "Producto '$producto' (#$id) actualizado exitosamente");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Producto '$producto' actualizado exitosamente"]);
+                exit;
+            }
             header('Location: ../inventario.php?success=' . urlencode("Producto '$producto' actualizado exitosamente"));
             exit;
 
@@ -231,6 +247,11 @@ try {
             $stmt->execute([$id]);
 
             registrarLog('ELIMINAR', 'inventario', $id, "Producto '$prodName' (#$id) eliminado del inventario");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Producto '$prodName' eliminado exitosamente"]);
+                exit;
+            }
             header('Location: ../inventario.php?success=' . urlencode("Producto '$prodName' eliminado exitosamente"));
             exit;
 
@@ -240,10 +261,20 @@ try {
 
 } catch (PDOException $e) {
     error_log("Error en inventario_action.php: " . $e->getMessage());
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Error en base de datos: ' . $e->getMessage()]);
+        exit;
+    }
     header('Location: ../inventario.php?error=' . urlencode('Error en base de datos: ' . $e->getMessage()));
     exit;
 
 } catch (Exception $e) {
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
     header('Location: ../inventario.php?error=' . urlencode($e->getMessage()));
     exit;
 }

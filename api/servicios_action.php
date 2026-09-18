@@ -2,9 +2,11 @@
 require_once '../config.php';
 
 // Validar permisos (Solo Admin Técnico)
+$isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+          (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false) ||
+          (!empty($_POST['ajax']) && $_POST['ajax'] === '1');
+
 if (!isLoggedIn() || (!isAdminTecnico() && !canManageServices())) {
-    $isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-              (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false);
     if ($isJson) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Acceso no autorizado. Se requieren permisos de Administrador Técnico.']);
@@ -250,6 +252,11 @@ try {
             }
 
             registrarLog('CREAR', 'servicios', $servicioId, "Servicio '$nombre' creado exitosamente (Orden: #$orden, Precio: $$precio, $duracion_minutos min)");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Servicio '$nombre' creado exitosamente", 'id' => $servicioId]);
+                exit;
+            }
             header('Location: ../servicios.php?success=' . urlencode("Servicio '$nombre' creado exitosamente"));
             exit;
 
@@ -352,6 +359,11 @@ try {
             }
 
             registrarLog('EDITAR', 'servicios', $id, "Servicio '$nombre' (#$id) actualizado exitosamente");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Servicio '$nombre' actualizado exitosamente"]);
+                exit;
+            }
             header('Location: ../servicios.php?success=' . urlencode("Servicio '$nombre' actualizado exitosamente"));
             exit;
 
@@ -385,6 +397,11 @@ try {
             $stmt->execute([$id]);
 
             registrarLog('ELIMINAR', 'servicios', $id, "Servicio '$sNom' (#$id) fue eliminado del catálogo");
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Servicio '$sNom' eliminado exitosamente"]);
+                exit;
+            }
             header('Location: ../servicios.php?success=' . urlencode("Servicio '$sNom' eliminado exitosamente"));
             exit;
 
@@ -394,10 +411,20 @@ try {
 
 } catch (PDOException $e) {
     error_log("Error en servicios_action.php: " . $e->getMessage());
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Error en base de datos: ' . $e->getMessage()]);
+        exit;
+    }
     header('Location: ../servicios.php?error=' . urlencode('Error en base de datos: ' . $e->getMessage()));
     exit;
 
 } catch (Exception $e) {
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
     header('Location: ../servicios.php?error=' . urlencode($e->getMessage()));
     exit;
 }

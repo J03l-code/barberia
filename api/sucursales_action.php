@@ -2,15 +2,19 @@
 require_once '../config.php';
 
 // Asegurar que el usuario esté logueado y tenga permisos de Administrador Técnico
-$isAllowed = isLoggedIn() && (isAdminTecnico() || canManageBranches());
+$isJson = (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+          (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strpos($_SERVER['HTTP_X_REQUESTED_WITH'], 'XMLHttpRequest') !== false) ||
+          (!empty($_POST['ajax']) || !empty($_GET['ajax']));
+
+$isAllowed = isLoggedIn() && (isAdminTecnico() || canManageBranches() || in_array($_SESSION['user_rol'] ?? '', ['admin', 'admin_local', 'administrador', 'superadmin']));
 
 if (!$isAllowed) {
-    if (isset($_GET['ajax']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
+    if ($isJson) {
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Acceso denegado. Se requieren permisos de Administrador Técnico.']);
+        echo json_encode(['success' => false, 'message' => 'Acceso denegado. Se requieren permisos de Administrador.']);
         exit;
     }
-    header('Location: ../sucursales.php?error=' . urlencode('Acceso denegado. Se requieren permisos de Administrador Técnico.'));
+    header('Location: ../sucursales.php?error=' . urlencode('Acceso denegado. Se requieren permisos de Administrador.'));
     exit;
 }
 
@@ -114,6 +118,12 @@ try {
 
             $newSucId = $pdo->lastInsertId();
             registrarLog('CREAR', 'sucursales', $newSucId, "Nueva sucursal '$nombre' creada (Dirección: '$direccion', Teléfono: '$telefono', Estado: '$estado')");
+
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'Sucursal creada exitosamente', 'id' => $newSucId]);
+                exit;
+            }
 
             header('Location: ../sucursales.php?success=' . urlencode('Sucursal creada exitosamente'));
             exit;
@@ -246,6 +256,12 @@ try {
 
             registrarLog('ELIMINAR', 'sucursales', $id, "Sucursal '$sucNom' (#$id) fue eliminada del sistema");
 
+            if ($isJson) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => "Sucursal '$sucNom' eliminada exitosamente"]);
+                exit;
+            }
+
             header('Location: ../sucursales.php?success=' . urlencode('Sucursal eliminada exitosamente (incluido su inventario)'));
             exit;
 
@@ -255,10 +271,20 @@ try {
 
 } catch (PDOException $e) {
     error_log("Error en sucursales_action.php: " . $e->getMessage());
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Error de base de datos: ' . $e->getMessage()]);
+        exit;
+    }
     header('Location: ../sucursales.php?error=' . urlencode('Error de base de datos: ' . $e->getMessage()));
     exit;
 
 } catch (Exception $e) {
+    if ($isJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
     header('Location: ../sucursales.php?error=' . urlencode($e->getMessage()));
     exit;
 }
