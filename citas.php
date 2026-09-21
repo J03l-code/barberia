@@ -5,9 +5,18 @@ $currentUser = getCurrentUser();
 
 // Filtros
 $estado = $_GET['estado'] ?? '';
-$fecha = $_GET['fecha'] ?? '';
 $sucursal_id = $_GET['sucursal_id'] ?? '';
 $barbero_id = $_GET['barbero_id'] ?? '';
+
+// Filtro de fecha: Por defecto mostrar directamente solo las citas de hoy con cada barbero
+// Si el usuario especifica una fecha en GET (o '?fecha=' vacía para ver todas), se respeta
+if (isset($_GET['fecha'])) {
+    $fecha = trim($_GET['fecha']);
+} elseif (isset($_GET['todas']) || isset($_GET['limpiar'])) {
+    $fecha = '';
+} else {
+    $fecha = date('Y-m-d'); // Por defecto: Hoy
+}
 $es_hoy = ($fecha === date('Y-m-d'));
 
 // Obtener inventario para el modal de terminar cita (de todas las sucursales)
@@ -110,9 +119,11 @@ try {
     if ($fecha) {
         $sql .= " AND DATE(c.fecha_hora) = ?";
         $params[] = $fecha;
+        // Orden cronológico para el día seleccionado (mañana a noche con cada barbero)
+        $sql .= " ORDER BY c.fecha_hora ASC, u.nombre ASC";
+    } else {
+        $sql .= " ORDER BY c.fecha_hora DESC, c.id DESC";
     }
-
-    $sql .= " ORDER BY c.fecha_hora DESC";
 
     $citas = query($sql, $params);
 } catch (PDOException $e) {
@@ -125,9 +136,24 @@ include 'includes/header.php';
 ?>
 
 <div class="page-header" style="flex-wrap: wrap; gap: 14px; align-items: center;">
-    <h1 class="page-title" style="margin: 0;">
-        <?php echo $currentUser['rol'] === 'barbero' ? 'Mis Citas' : 'Gestión de Citas'; ?>
-    </h1>
+    <div>
+        <h1 class="page-title" style="margin: 0;">
+            <?php echo $currentUser['rol'] === 'barbero' ? 'Mis Citas' : 'Gestión de Citas'; ?>
+        </h1>
+        <?php if ($es_hoy): ?>
+            <span style="display: inline-block; margin-top: 4px; font-size: 0.78rem; font-weight: 800; color: #10B981; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 8px; border-radius: 6px;">
+                ● Mostrando citas de hoy (<?php echo date('d/m/Y'); ?>)
+            </span>
+        <?php elseif (!empty($fecha)): ?>
+            <span style="display: inline-block; margin-top: 4px; font-size: 0.78rem; font-weight: 800; color: #1E40AF; background: #DBEAFE; border: 1px solid #93C5FD; padding: 2px 8px; border-radius: 6px;">
+                ● Mostrando citas del <?php echo date('d/m/Y', strtotime($fecha)); ?>
+            </span>
+        <?php else: ?>
+            <span style="display: inline-block; margin-top: 4px; font-size: 0.78rem; font-weight: 700; color: #6B7280; background: #F3F4F6; padding: 2px 8px; border-radius: 6px;">
+                ● Mostrando histórico completo de todas las fechas
+            </span>
+        <?php endif; ?>
+    </div>
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <form method="GET" id="filterForm" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <?php if ($currentUser['rol'] !== 'barbero'): ?>
@@ -157,6 +183,7 @@ include 'includes/header.php';
                 <option value="">Todos los estados</option>
                 <option value="pendiente" <?php echo $estado == 'pendiente' ? 'selected' : ''; ?>>Pendiente</option>
                 <option value="confirmada" <?php echo $estado == 'confirmada' ? 'selected' : ''; ?>>Confirmada</option>
+                <option value="en_atencion" <?php echo $estado == 'en_atencion' ? 'selected' : ''; ?>>En Atención</option>
                 <option value="completada" <?php echo $estado == 'completada' ? 'selected' : ''; ?>>Completada</option>
                 <option value="cancelada" <?php echo $estado == 'cancelada' ? 'selected' : ''; ?>>Cancelada</option>
             </select>
@@ -165,7 +192,7 @@ include 'includes/header.php';
             <input type="date" name="fecha" id="filtroFecha" class="filter-date" value="<?php echo htmlspecialchars($fecha); ?>"
                 onchange="this.form.submit()">
 
-            <!-- Botón Rápido: Solo Cortes de Hoy -->
+            <!-- Botón Rápido: Solo Citas de Hoy -->
             <button type="button" class="btn <?php echo $es_hoy ? 'btn-today-active' : 'btn-today'; ?>" onclick="toggleFiltroHoy()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -173,11 +200,14 @@ include 'includes/header.php';
                     <line x1="8" y1="2" x2="8" y2="6"></line>
                     <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
-                <?php echo $es_hoy ? 'Viendo: Hoy' : 'Cortes de Hoy'; ?>
+                <?php echo $es_hoy ? 'Viendo: Hoy' : 'Citas de Hoy'; ?>
             </button>
 
-            <?php if ($estado || $fecha || $sucursal_id || $barbero_id): ?>
-                <a href="citas.php" class="btn btn-secondary">Limpiar</a>
+            <?php if (!empty($fecha)): ?>
+                <a href="citas.php?fecha=<?php echo (!empty($sucursal_id) ? '&sucursal_id='.urlencode($sucursal_id) : '') . (!empty($barbero_id) ? '&barbero_id='.urlencode($barbero_id) : '') . (!empty($estado) ? '&estado='.urlencode($estado) : ''); ?>" class="btn btn-secondary" title="Ver citas de todos los días">Ver Todos los Días</a>
+            <?php endif; ?>
+            <?php if ($estado || $sucursal_id || $barbero_id || $fecha !== ''): ?>
+                <a href="citas.php?fecha=" class="btn btn-secondary" style="color: #666;">Limpiar Filtros</a>
             <?php endif; ?>
         </form>
 

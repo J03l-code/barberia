@@ -596,7 +596,7 @@ try {
         $inSucAll = implode(',', array_map('intval', $scopedBranchIds));
         $sqlCitasAll .= " AND c.sucursal_id IN ($inSucAll)";
     }
-    $sqlCitasAll .= " ORDER BY c.fecha_hora DESC LIMIT 200";
+    $sqlCitasAll .= " ORDER BY c.fecha_hora DESC LIMIT 1000";
     $citasList = query($sqlCitasAll);
 } catch (Exception $e) {
     $citasList = [];
@@ -2127,17 +2127,17 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                     <option value="cancelada">Cancelada</option>
                 </select>
 
-                <!-- Filtro Fecha -->
-                <input type="date" id="pwaFiltroCitasFecha" onchange="filtrarCitasPwa()" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700;">
+                <!-- Filtro Fecha (Por defecto HOY) -->
+                <input type="date" id="pwaFiltroCitasFecha" value="<?php echo date('Y-m-d'); ?>" onchange="actualizarEstadoBotonHoyPwa(); filtrarCitasPwa();" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700;">
             </div>
 
-            <!-- Botones Rápidos: Cortes de Hoy / Limpiar -->
+            <!-- Botones Rápidos: Citas de Hoy / Limpiar -->
             <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
-                <button type="button" id="btnToggleHoyCitas" onclick="toggleFiltroHoyCitasPwa()" class="pwa-btn-secondary" style="font-size: 0.78rem; padding: 7px 12px; font-weight: 800; display: flex; align-items: center; gap: 6px; border-radius: 8px; background: #F3F4F6; color: #111;">
-                    <i class="far fa-calendar"></i> <span id="txtBtnHoyCitas">Cortes de Hoy</span>
+                <button type="button" id="btnToggleHoyCitas" onclick="toggleFiltroHoyCitasPwa()" class="pwa-btn-secondary" style="font-size: 0.78rem; padding: 7px 12px; font-weight: 800; display: flex; align-items: center; gap: 6px; border-radius: 8px; background: #111; color: #FFF;">
+                    <i class="far fa-calendar"></i> <span id="txtBtnHoyCitas">Viendo: Hoy</span>
                 </button>
                 <button type="button" onclick="limpiarFiltrosCitasPwa()" class="pwa-btn-secondary" style="font-size: 0.75rem; padding: 7px 10px; color: #666;">
-                    Limpiar Filtros
+                    Ver Todas las Fechas
                 </button>
             </div>
         </div>
@@ -4589,7 +4589,7 @@ function toggleFiltroHoyCitasPwa() {
     const inputFecha = document.getElementById('pwaFiltroCitasFecha');
     const txtBtn = document.getElementById('txtBtnHoyCitas');
     const btn = document.getElementById('btnToggleHoyCitas');
-    const hoyStr = new Date().toISOString().split('T')[0];
+    const hoyStr = '<?php echo date('Y-m-d'); ?>';
 
     if (inputFecha.value === hoyStr) {
         inputFecha.value = '';
@@ -4609,6 +4609,27 @@ function toggleFiltroHoyCitasPwa() {
     renderizarCitasTab();
 }
 
+function actualizarEstadoBotonHoyPwa() {
+    const inputFecha = document.getElementById('pwaFiltroCitasFecha');
+    const txtBtn = document.getElementById('txtBtnHoyCitas');
+    const btn = document.getElementById('btnToggleHoyCitas');
+    const hoyStr = '<?php echo date('Y-m-d'); ?>';
+
+    if (inputFecha && inputFecha.value === hoyStr) {
+        if (txtBtn) txtBtn.innerText = 'Viendo: Hoy';
+        if (btn) {
+            btn.style.background = '#111';
+            btn.style.color = '#FFF';
+        }
+    } else {
+        if (txtBtn) txtBtn.innerText = 'Cortes de Hoy';
+        if (btn) {
+            btn.style.background = '#F3F4F6';
+            btn.style.color = '#111';
+        }
+    }
+}
+
 function limpiarFiltrosCitasPwa() {
     if (document.getElementById('pwaFiltroCitasBuscar')) document.getElementById('pwaFiltroCitasBuscar').value = '';
     if (document.getElementById('pwaFiltroCitasSucursal')) document.getElementById('pwaFiltroCitasSucursal').value = '';
@@ -4616,13 +4637,12 @@ function limpiarFiltrosCitasPwa() {
     if (document.getElementById('pwaFiltroCitasEstado')) document.getElementById('pwaFiltroCitasEstado').value = '';
     if (document.getElementById('pwaFiltroCitasFecha')) document.getElementById('pwaFiltroCitasFecha').value = '';
 
-    const txtBtn = document.getElementById('txtBtnHoyCitas');
-    const btn = document.getElementById('btnToggleHoyCitas');
-    if (txtBtn) txtBtn.innerText = 'Cortes de Hoy';
-    if (btn) {
-        btn.style.background = '#F3F4F6';
-        btn.style.color = '#111';
-    }
+    actualizarEstadoBotonHoyPwa();
+    renderizarCitasTab();
+}
+
+function filtrarCitasPwa() {
+    actualizarEstadoBotonHoyPwa();
     renderizarCitasTab();
 }
 
@@ -4654,8 +4674,16 @@ function renderizarCitasTab() {
     });
 
     if (filtradas.length === 0) {
-        cont.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-gray); font-size: 0.9rem;">No se encontraron citas con los filtros seleccionados.</div>';
+        const msg = fechaFiltro ? `No hay citas agendadas para la fecha seleccionada (${fechaFiltro.split('-').reverse().join('/')}).` : 'No se encontraron citas con los filtros seleccionados.';
+        cont.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-gray); font-size: 0.9rem;">${msg}</div>`;
         return;
+    }
+
+    // Si es un día específico (como hoy), ordenar cronológicamente de la mañana a la noche (ASC)
+    if (fechaFiltro) {
+        filtradas.sort((a, b) => (a.fecha_hora || '').localeCompare(b.fecha_hora || ''));
+    } else {
+        filtradas.sort((a, b) => (b.fecha_hora || '').localeCompare(a.fecha_hora || ''));
     }
 
     let html = '';
