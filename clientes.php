@@ -11,6 +11,24 @@ if (isBarbero()) {
 // Búsqueda inicial
 $search = $_GET['search'] ?? '';
 
+// Auto-migrar todos los teléfonos sin +593 en la base de datos
+try {
+    $pdo = getConnection();
+    $stmtLegacy = $pdo->query("SELECT id, telefono FROM clientes WHERE telefono IS NOT NULL AND telefono != '' AND telefono NOT LIKE '+593%'");
+    $legacyPhones = $stmtLegacy->fetchAll();
+    if (!empty($legacyPhones)) {
+        $updStmt = $pdo->prepare("UPDATE clientes SET telefono = ? WHERE id = ?");
+        foreach ($legacyPhones as $lp) {
+            $formattedWa = formatPhoneForWhatsapp($lp['telefono']);
+            if (!empty($formattedWa)) {
+                $updStmt->execute(['+' . $formattedWa, $lp['id']]);
+            }
+        }
+    }
+} catch (Exception $e) {
+    // Silently continue
+}
+
 // Obtener clientes
 try {
     if ($search) {
@@ -250,12 +268,12 @@ include 'includes/header.php';
                         <td>
                             <?php if ($cliente['telefono']): ?>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-weight: 600; color: #374151; font-size: 0.88rem;"><?php echo htmlspecialchars($cliente['telefono']); ?></span>
+                                    <span style="font-weight: 600; color: #374151; font-size: 0.88rem;"><?php echo htmlspecialchars(formatPhoneDisplay($cliente['telefono'])); ?></span>
                                     <?php
-                                    $wa_phone = preg_replace('/[^0-9]/', '', $cliente['telefono']);
+                                    $wa_phone = formatPhoneForWhatsapp($cliente['telefono']);
                                     $wa_msg = urlencode("Hola " . explode(' ', $cliente['nombre'])[0] . ", te escribimos de Kortzen Barbería.");
                                     ?>
-                                    <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
+                                    <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank" rel="noopener noreferrer"
                                         title="Enviar WhatsApp"
                                         style="color: #25D366; text-decoration: none; display: flex; align-items: center; font-size: 1.1rem;">
                                         <i class="fab fa-whatsapp"></i>

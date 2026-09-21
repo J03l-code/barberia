@@ -112,11 +112,11 @@ $backText = isBarbero() ? 'Volver a mi Panel' : 'Volver a Clientes';
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1F1F1F; padding-bottom: 10px;">
                     <span style="color: #888888; font-weight: 600;">Teléfono:</span>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <strong style="color: #FFFFFF; font-weight: 700;"><?php echo $cliente['telefono'] ? htmlspecialchars($cliente['telefono']) : 'Sin registrar'; ?></strong>
+                        <strong style="color: #FFFFFF; font-weight: 700;"><?php echo $cliente['telefono'] ? htmlspecialchars(formatPhoneDisplay($cliente['telefono'])) : 'Sin registrar'; ?></strong>
                         <?php if (!empty($cliente['telefono'])): 
-                            $wa_phone = preg_replace('/[^0-9]/', '', $cliente['telefono']);
+                            $wa_phone = formatPhoneForWhatsapp($cliente['telefono']);
                         ?>
-                            <a href="https://wa.me/<?php echo $wa_phone; ?>" target="_blank" style="background: #10B981; color: #FFFFFF; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 800; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);">
+                            <a href="https://wa.me/<?php echo $wa_phone; ?>" target="_blank" rel="noopener noreferrer" style="background: #10B981; color: #FFFFFF; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 800; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);">
                                 <i class="fab fa-whatsapp" style="font-size: 0.9rem;"></i> Abrir WhatsApp
                             </a>
                         <?php endif; ?>

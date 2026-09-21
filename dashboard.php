@@ -908,7 +908,7 @@ if ($currentUser['rol'] === 'admin_local') {
                                         $raw_phone = preg_replace('/[^0-9+]/', '', $cita['telefono']);
                                     ?>
                                         <div style="font-size: 11px; margin-top: 4px; display: flex; gap: 8px; align-items: center;">
-                                            <span style="color:#888;"><?php echo htmlspecialchars($cita['telefono']); ?></span>
+                                            <span style="color:#888;"><?php echo htmlspecialchars(formatPhoneDisplay($cita['telefono'])); ?></span>
                                             
                                             <!-- WA Button -->
                                             <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank" title="Enviar WhatsApp" style="color: #25D366; text-decoration: none;">

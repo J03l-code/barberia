@@ -164,10 +164,11 @@ include 'includes/header.php';
         </div>
 
         <div class="form-group">
-            <label class="form-label">Teléfono</label>
+            <label class="form-label">Teléfono / WhatsApp</label>
             <input type="tel" name="telefono" class="form-input"
-                value="<?php echo $isEdit ? htmlspecialchars($cliente['telefono']) : ''; ?>"
-                placeholder="+34 612 345 678">
+                value="<?php echo $isEdit && !empty($cliente['telefono']) ? htmlspecialchars(formatPhoneDisplay($cliente['telefono'])) : ''; ?>"
+                placeholder="+593 99 123 4567 o 0991234567">
+            <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 4px;">Se guardará automáticamente con el código +593 de Ecuador.</small>
         </div>
 
         <div class="form-group">

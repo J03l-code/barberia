@@ -75,6 +75,13 @@ try {
             $fecha_nacimiento = !empty($_POST['fecha_nacimiento']) ? $_POST['fecha_nacimiento'] : null;
             $notas = mb_substr(trim($_POST['notas'] ?? ''), 0, 1000);
 
+            if (!empty($telefono)) {
+                $wa_formatted = formatPhoneForWhatsapp($telefono);
+                if ($wa_formatted) {
+                    $telefono = '+' . $wa_formatted;
+                }
+            }
+
             if (empty($nombre)) {
                 throw new Exception('El nombre del cliente es obligatorio.');
             }
@@ -138,6 +145,13 @@ try {
             $telefono = mb_substr(trim($_POST['telefono'] ?? ''), 0, 20);
             $fecha_nacimiento = $_POST['fecha_nacimiento'] ?? null;
             $notas = mb_substr(trim($_POST['notas'] ?? ''), 0, 1000);
+
+            if (!empty($telefono)) {
+                $wa_formatted = formatPhoneForWhatsapp($telefono);
+                if ($wa_formatted) {
+                    $telefono = '+' . $wa_formatted;
+                }
+            }
 
             if ($id <= 0) {
                 throw new Exception('ID de cliente inválido.');

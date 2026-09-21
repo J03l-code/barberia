@@ -1116,32 +1116,45 @@ function requirePermission($hasPermission, $redirectTo = 'dashboard.php')
 }
 
 /**
- * Formatear número de teléfono para WhatsApp (Ecuador)
+ * Formatear número de teléfono para WhatsApp (Ecuador +593)
  * @param string $phone
  * @return string
  */
 function formatPhoneForWhatsapp($phone)
 {
-    // 1. Eliminar todo lo que no sea número
-    $clean = preg_replace('/[^0-9]/', '', $phone);
-
-    // 2. Si está vacío, retornar vacío
-    if (empty($clean))
-        return '';
-
-    // 3. Lógica para Ecuador (empezar con 09 -> 5939)
-    // Si tiene 10 dígitos y empieza con 0, reemplazar 0 por 593
-    if (strlen($clean) === 10 && substr($clean, 0, 1) === '0') {
-        return '593' . substr($clean, 1);
-    }
-
-    // 4. Si ya empieza con 593 (ej: 593988...) se deja igual
-    // 5. Si es de 9 dígitos (sin el 0 inicial), agregar 593
-    if (strlen($clean) === 9) {
-        return '593' . $clean;
-    }
-
+    $clean = preg_replace('/[^0-9]/', '', (string)$phone);
+    if (empty($clean)) return '';
+    if (strpos($clean, '00593') === 0) $clean = substr($clean, 2);
+    if (strpos($clean, '5930') === 0 && strlen($clean) >= 12) $clean = '593' . substr($clean, 4);
+    if (strpos($clean, '593') === 0 && strlen($clean) >= 11) return $clean;
+    if (substr($clean, 0, 1) === '0') return '593' . substr($clean, 1);
+    if (strlen($clean) === 9) return '593' . $clean;
+    if (strlen($clean) <= 8) return '593' . $clean;
     return $clean;
+}
+
+/**
+ * Formatear número de teléfono para guardar en base de datos (+5939XXXXXXXX)
+ * @param string $phone
+ * @return string|null
+ */
+function formatPhoneDB($phone)
+{
+    $wa = formatPhoneForWhatsapp($phone);
+    return $wa ? ('+' . $wa) : null;
+}
+
+/**
+ * Formatear número de teléfono para mostrarlo siempre visible con +593
+ * @param string $phone
+ * @return string
+ */
+function formatPhoneDisplay($phone)
+{
+    if (empty($phone)) return '-';
+    $wa = formatPhoneForWhatsapp($phone);
+    if (empty($wa)) return htmlspecialchars($phone);
+    return '+' . $wa;
 }
 
 /**
