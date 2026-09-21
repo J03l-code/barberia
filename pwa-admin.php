@@ -1928,9 +1928,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
 
                                 <div style="display: flex; gap: 6px; align-items: center;">
                                     <select id="select_estado_overview_<?php echo $cg['id']; ?>" style="padding: 5px 8px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; border: 1px solid #CCC; background: #FFF;">
-                                        <option value="pendiente" <?php echo $cg['estado'] === 'pendiente' ? 'selected' : ''; ?>>Pendiente</option>
                                         <option value="confirmada" <?php echo $cg['estado'] === 'confirmada' ? 'selected' : ''; ?>>Confirmada</option>
-                                        <option value="en_atencion" <?php echo $cg['estado'] === 'en_atencion' ? 'selected' : ''; ?>>En Atención</option>
                                         <option value="completada" <?php echo $cg['estado'] === 'completada' ? 'selected' : ''; ?>>Completada</option>
                                         <option value="cancelada" <?php echo $cg['estado'] === 'cancelada' ? 'selected' : ''; ?>>Cancelada</option>
                                     </select>
@@ -2120,9 +2118,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <!-- Filtro Estado -->
                 <select id="pwaFiltroCitasEstado" onchange="filtrarCitasPwa()" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-size: 0.78rem; font-weight: 700; background: #FFF;">
                     <option value="">Todos los estados</option>
-                    <option value="pendiente">Pendiente</option>
                     <option value="confirmada">Confirmada</option>
-                    <option value="en_atencion">En Atención</option>
                     <option value="completada">Completada</option>
                     <option value="cancelada">Cancelada</option>
                 </select>
@@ -3258,9 +3254,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Estado</label>
                     <select name="estado" id="pwaCitaModalEstado" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 700; margin-top: 4px;">
-                        <option value="pendiente">Pendiente</option>
                         <option value="confirmada" selected>Confirmada</option>
-                        <option value="en_atencion">En Atención</option>
                         <option value="completada">Completada</option>
                         <option value="cancelada">Cancelada</option>
                     </select>
@@ -4790,9 +4784,7 @@ function renderizarCitasTab() {
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Estado:</span>
                         <select id="pwa_select_estado_cita_${c.id}" style="padding: 5px 8px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; border: 1.5px solid ${estSt.border}; background: ${estSt.bg}; color: ${estSt.text};">
-                            <option value="pendiente" ${c.estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
                             <option value="confirmada" ${c.estado === 'confirmada' ? 'selected' : ''}>Confirmada</option>
-                            <option value="en_atencion" ${c.estado === 'en_atencion' ? 'selected' : ''}>En Atención</option>
                             <option value="completada" ${c.estado === 'completada' ? 'selected' : ''}>Completada</option>
                             <option value="cancelada" ${c.estado === 'cancelada' ? 'selected' : ''}>Cancelada</option>
                         </select>

@@ -759,10 +759,9 @@ include 'includes/header.php';
         <div class="form-group">
             <label class="form-label">Estado</label>
             <select name="estado" class="form-select" required>
-                <option value="pendiente" <?php echo ($isEdit && $cita['estado'] == 'pendiente') ? 'selected' : ''; ?>>Pendiente</option>
-                <option value="confirmada" <?php echo ($isEdit && $cita['estado'] == 'confirmada') ? 'selected' : ''; ?>>Confirmada</option>
-                <option value="completada" <?php echo ($isEdit && $cita['estado'] == 'completada') ? 'selected' : ''; ?>>Completada</option>
-                <option value="cancelada" <?php echo ($isEdit && $cita['estado'] == 'cancelada') ? 'selected' : ''; ?>>Cancelada</option>
+                <option value="confirmada" selected>Confirmada</option>
+                <option value="completada">Completada</option>
+                <option value="cancelada">Cancelada</option>
             </select>
         </div>
         
