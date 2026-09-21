@@ -1145,16 +1145,32 @@ function formatPhoneDB($phone)
 }
 
 /**
- * Formatear número de teléfono para mostrarlo siempre visible con +593
+ * Formatear número de teléfono para mostrarlo limpio en pantalla (ej: 0979359178)
  * @param string $phone
  * @return string
  */
 function formatPhoneDisplay($phone)
 {
     if (empty($phone)) return '-';
-    $wa = formatPhoneForWhatsapp($phone);
-    if (empty($wa)) return htmlspecialchars($phone);
-    return '+' . $wa;
+    $clean = preg_replace('/[^0-9]/', '', (string)$phone);
+    if (empty($clean)) return htmlspecialchars($phone);
+
+    // Si viene en formato internacional 5939XXXXXXXX -> mostrar como 09XXXXXXXX
+    if (strpos($clean, '593') === 0 && strlen($clean) === 12) {
+        return '0' . substr($clean, 3);
+    }
+
+    // Si ya empieza con 0 y tiene 10 dígitos
+    if (substr($clean, 0, 1) === '0' && strlen($clean) === 10) {
+        return $clean;
+    }
+
+    // Si tiene 9 dígitos sin 0
+    if (strlen($clean) === 9 && substr($clean, 0, 1) === '9') {
+        return '0' . $clean;
+    }
+
+    return htmlspecialchars($phone);
 }
 
 /**
