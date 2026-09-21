@@ -327,20 +327,7 @@ const KortzenAuth = {
     },
 
     interceptBookings() {
-        const bookingLinks = document.querySelectorAll('a[href*="contacto.html"], a[href*="agendar"]');
-
-        bookingLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (!this.isLoggedIn()) {
-                    this.openModal();
-                } else {
-                    if (window.BookingWizard) {
-                        window.BookingWizard.open();
-                    }
-                }
-            });
-        });
+        // Enlaces de reserva navegan libremente a reservar.php sin intercepción
     }
 };
 

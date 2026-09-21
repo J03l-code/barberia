@@ -504,8 +504,8 @@ $pageTitle = 'Reservar Cita | KORTZEN Barbería Quito';
     </a>
 
     <!-- Scripts -->
-    <script src="/js/client-auth.js?v=100"></script>
-    <script src="/js/branch-selector.js?v=25000"></script>
-    <script type="module" src="/js/main.js"></script>
+    <script src="/js/client-auth.js?v=99000"></script>
+    <script src="/js/branch-selector.js?v=99000"></script>
+    <script type="module" src="/js/main.js?v=99000"></script>
 </body>
 </html>

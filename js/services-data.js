@@ -297,7 +297,7 @@ function renderServiceCard(service) {
                 <span class="service-card__duration">⏱ ${service.duration} min</span>
                 <span class="service-card__price">$${service.price}</span>
             </div>
-            <a href="/contacto.html" class="btn btn--ghost btn--sm" style="width: 100%;">Reservar</a>
+            <a href="/reservar.php" class="btn btn--secondary btn--sm service-card__btn" style="width: 100%;">Reservar</a>
         </article>
     `;
 }
