@@ -233,7 +233,7 @@ const ServicesLoader = {
                     <span class="service-card__price">$${price}</span>
                     <span class="service-card__duration">${service.duracion_minutos} min</span>
                 </div>
-                <a href="/cliente-login.php" class="btn btn--secondary btn--sm service-card__btn">Reservar</a>
+                <a href="/reservar.php" class="btn btn--secondary btn--sm service-card__btn">Reservar</a>
             </div>
         `;
         container.appendChild(card);

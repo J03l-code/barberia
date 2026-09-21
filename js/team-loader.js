@@ -189,7 +189,7 @@ const TeamLoader = {
                 </div>
                 
                 <div style="text-align: center; margin-top: 2rem;">
-                     <a href="/cliente-login.php" class="btn btn--primary">Reservar Cita</a>
+                     <a href="/reservar.php" class="btn btn--primary">Reservar Cita</a>
                 </div>
             </div>
         `;
