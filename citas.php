@@ -516,7 +516,7 @@ function toggleFiltroHoy() {
                                         $wa_msg = urlencode("Hola " . explode(' ', $cita['cliente_nombre'])[0] . ", te escribo de Kortzen sobre tu cita.");
                                         ?>
                                         <div style="font-size: 11px; margin-top: 2px; display: flex; gap: 8px; align-items: center;">
-                                            <span style="color:#888;"><?php echo htmlspecialchars($cita['cliente_telefono']); ?></span>
+                                            <span style="color:#888;"><?php echo htmlspecialchars(formatPhoneDisplay($cita['cliente_telefono'])); ?></span>
 
                                             <!-- WA Button -->
                                             <a href="https://wa.me/<?php echo $wa_phone; ?>?text=<?php echo $wa_msg; ?>" target="_blank"
@@ -885,7 +885,7 @@ function toggleFiltroHoy() {
         return [
             'id' => $c['id'],
             'cliente_nombre' => $c['cliente_nombre'],
-            'cliente_telefono' => $c['cliente_telefono'] ?: '',
+            'cliente_telefono' => !empty($c['cliente_telefono']) ? formatPhoneDisplay($c['cliente_telefono']) : '',
             'cliente_foto' => $c['cliente_foto'] ?? '',
             'servicio_nombre' => $c['servicio_nombre'],
             'barbero_nombre' => $c['barbero_nombre'],

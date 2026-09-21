@@ -1893,7 +1893,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <?php foreach ($agendaGlobal as $cg): 
                         $horaStr = date('H:i', strtotime($cg['fecha_hora']));
-                        $telLimpio = preg_replace('/\D/', '', $cg['telefono'] ?? '');
+                        $telLimpio = formatPhoneForWhatsapp($cg['telefono'] ?? '');
                     ?>
                         <div style="background: #FAFAFA; border: 1px solid #EAEAEA; border-radius: 10px; padding: 12px;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
@@ -1920,7 +1920,7 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                                         <a href="https://wa.me/<?php echo $telLimpio; ?>?text=<?php echo urlencode('Hola ' . explode(' ', $cg['cliente'])[0] . ', te escribo de Kortzen sobre tu cita.'); ?>" target="_blank" style="background: #25D366; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem;">
                                             <i class="fab fa-whatsapp"></i>
                                         </a>
-                                        <a href="tel:<?php echo $telLimpio; ?>" style="background: #111; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.8rem;">
+                                        <a href="tel:<?php echo htmlspecialchars($cg['telefono'] ?? ''); ?>" style="background: #111; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.8rem;">
                                             <i class="fas fa-phone"></i>
                                         </a>
                                     <?php endif; ?>
@@ -2239,13 +2239,13 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                             <?php endif; ?>
                             <div>
                                 <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-dark);"><?php echo htmlspecialchars($cli['nombre']); ?></div>
-                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars($cli['telefono'] ?: ($cli['email'] ?? 'Sin teléfono')); ?></div>
+                                <div style="font-size: 0.78rem; color: var(--text-gray);"><?php echo htmlspecialchars(!empty($cli['telefono']) ? formatPhoneDisplay($cli['telefono']) : ($cli['email'] ?? 'Sin teléfono')); ?></div>
                                 <div style="font-size: 0.72rem; color: var(--gold-pwa); font-weight: 700; margin-top: 2px;">⭐ <?php echo intval($cli['puntos'] ?? 0); ?> Puntos • <?php echo intval($cli['total_citas'] ?? 0); ?> citas</div>
                             </div>
                         </div>
                         <div style="display: flex; gap: 6px; align-items: center;">
                             <?php if (!empty($cli['telefono'])): ?>
-                                <a href="https://wa.me/<?php echo preg_replace('/\D/', '', $cli['telefono']); ?>" target="_blank" style="background: #25D366; color: #fff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1rem;">
+                                <a href="https://wa.me/<?php echo formatPhoneForWhatsapp($cli['telefono']); ?>" target="_blank" style="background: #25D366; color: #fff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1rem;">
                                     <i class="fab fa-whatsapp"></i>
                                 </a>
                             <?php endif; ?>
@@ -3913,6 +3913,30 @@ let allPwaResenasData = <?php echo json_encode($resenasList, JSON_HEX_TAG | JSON
 let selectedClientForCita = null;
 let clientSearchDebounce = null;
 
+function formatPhoneForWhatsappJS(phone) {
+    let clean = (phone || '').replace(/\D/g, '');
+    if (!clean) return '';
+    if (clean.startsWith('00593')) clean = clean.substring(2);
+    if (clean.startsWith('5930') && clean.length >= 12) clean = '593' + clean.substring(4);
+    if (clean.startsWith('593') && clean.length >= 11) return clean;
+    if (clean.startsWith('0')) return '593' + clean.substring(1);
+    if (clean.length === 9) return '593' + clean;
+    return clean;
+}
+
+function formatPhoneDisplayJS(phone) {
+    if (!phone) return '';
+    let clean = String(phone).replace(/\D/g, '');
+    if (clean.startsWith('00593')) clean = clean.substring(2);
+    if (clean.startsWith('5930') && clean.length >= 12) clean = '593' + clean.substring(4);
+    if (clean.startsWith('593') && clean.length >= 11) {
+        return '0' + clean.substring(3);
+    }
+    if (clean.startsWith('0')) return clean;
+    if (clean.length === 9) return '0' + clean;
+    return phone;
+}
+
 function mostrarToastPwa(msg) {
     const toast = document.getElementById('pwaToastNotification');
     const text = document.getElementById('pwaToastText');
@@ -3991,7 +4015,8 @@ function renderizarResultadosPredictivosPwa(clientes, query) {
             : `<span>${initials}</span>`;
 
         const nomHighlight = highlightMatch(c.nombre || '', query);
-        const telHighlight = highlightMatch(c.telefono || '', query);
+        const telDisplay = formatPhoneDisplayJS(c.telefono || '');
+        const telHighlight = highlightMatch(telDisplay, query);
 
         html += `
             <div class="pwa-client-result-item" onclick="selectClientPwa(${JSON.stringify(c).replace(/"/g, '&quot;')})">
@@ -4033,7 +4058,7 @@ function selectClientPwa(c) {
     const metaEl = document.getElementById('pwaSelectedClientMeta');
     if (metaEl) {
         metaEl.innerHTML = `
-            ${c.telefono ? `<span><i class="fas fa-phone-alt" style="font-size: 0.68rem;"></i> ${escapeHtml(c.telefono)}</span>` : ''}
+            ${c.telefono ? `<span><i class="fas fa-phone-alt" style="font-size: 0.68rem;"></i> ${escapeHtml(formatPhoneDisplayJS(c.telefono))}</span>` : ''}
             ${c.email ? `<span>• ${escapeHtml(c.email)}</span>` : ''}
         `;
     }
@@ -4638,7 +4663,7 @@ function renderizarCitasTab() {
         const fechaHora = c.fecha_hora ? c.fecha_hora.split(' ') : ['', ''];
         const fStr = fechaHora[0] ? fechaHora[0].split('-').reverse().join('/') : '';
         const hStr = fechaHora[1] ? fechaHora[1].substring(0, 5) : '';
-        const telLimpio = (c.cliente_telefono || '').replace(/\D/g, '');
+        const telLimpio = formatPhoneForWhatsappJS(c.cliente_telefono);
         const cFoto = c.barbero_foto;
         const barberoAvatar = cFoto
             ? `<img src="${escapeHtml(cFoto)}" alt="${escapeHtml(c.barbero_nombre)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid #E5E7EB; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div class=\\'pwa-chip-avatar\\' style=\\'width:24px;height:24px;font-size:0.65rem;\\'>${escapeHtml((c.barbero_nombre||'B').substring(0,2).toUpperCase())}</div>';">`
@@ -4676,7 +4701,7 @@ function renderizarCitasTab() {
                         <div style="font-size: 1rem; font-weight: 900; color: #111;">${escapeHtml(c.cliente_nombre || 'Cliente')}</div>
                         ${c.cliente_telefono ? `
                             <div style="font-size: 0.78rem; color: var(--text-gray); font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 6px;">
-                                <span>📞 ${escapeHtml(c.cliente_telefono)}</span>
+                                <span>📞 ${escapeHtml(formatPhoneDisplayJS(c.cliente_telefono))}</span>
                             </div>
                         ` : ''}
                     </div>
@@ -4685,7 +4710,7 @@ function renderizarCitasTab() {
                             <a href="https://wa.me/${telLimpio}?text=${encodeURIComponent('Hola ' + (c.cliente_nombre || '').split(' ')[0] + ', te escribo de Kortzen Barbería sobre tu cita.')}" target="_blank" style="background: #25D366; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(37,211,102,0.3);">
                                 <i class="fab fa-whatsapp"></i>
                             </a>
-                            <a href="tel:${telLimpio}" style="background: #111; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem;">
+                            <a href="tel:${escapeHtml(c.cliente_telefono || '')}" style="background: #111; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem;">
                                 <i class="fas fa-phone"></i>
                             </a>
                         ` : ''}
@@ -5152,7 +5177,7 @@ function abrirModalDetalleCitaPwa(c) {
 
     if (c.cliente_telefono) {
         act.innerHTML += `
-            <a href="https://wa.me/${c.cliente_telefono.replace(/\D/g,'')}" target="_blank" class="pwa-btn-main" style="background: #25D366; color: #fff;">
+            <a href="https://wa.me/${formatPhoneForWhatsappJS(c.cliente_telefono)}" target="_blank" class="pwa-btn-main" style="background: #25D366; color: #fff;">
                 <i class="fab fa-whatsapp"></i> WhatsApp Cliente
             </a>
         `;
@@ -5504,7 +5529,7 @@ function abrirModalClientePwa(cli) {
         document.getElementById('pwaCliAction').value = 'update';
         document.getElementById('pwaCliId').value = cli.id || '';
         document.getElementById('pwaCliNombre').value = cli.nombre || '';
-        document.getElementById('pwaCliTelefono').value = cli.telefono || '';
+        document.getElementById('pwaCliTelefono').value = formatPhoneDisplayJS(cli.telefono || '');
         document.getElementById('pwaCliEmail').value = cli.email || '';
         document.getElementById('pwaCliPuntos').value = cli.puntos || 0;
         document.getElementById('pwaCliNotas').value = cli.notas || '';
@@ -5620,7 +5645,7 @@ function filtrarClientesPwa() {
                         <span style="font-size: 0.68rem; color: var(--gold-pwa); font-weight: 800;">⭐ ${parseInt(c.puntos || 0)} pts</span>
                     </div>
                     <div style="font-size: 0.72rem; color: #666; margin-top: 1px;">
-                        📞 ${highlightMatch(c.telefono || c.email || 'Sin teléfono', q)}
+                        📞 ${highlightMatch(c.telefono ? formatPhoneDisplayJS(c.telefono) : (c.email || 'Sin teléfono'), q)}
                     </div>
                 </div>
             </div>
