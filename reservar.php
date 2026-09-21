@@ -16,146 +16,287 @@ $pageTitle = 'Reservar Cita | KORTZEN Barbería Quito';
     <link rel="shortcut icon" href="/favicon.ico?v=10">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png?v=10">
 
-    <!-- Kortzen Design System Stylesheets -->
+    <!-- Kortzen Core Stylesheets -->
     <link rel="stylesheet" href="/css/variables.css?v=22">
     <link rel="stylesheet" href="/css/reset.css?v=22">
     <link rel="stylesheet" href="/css/base.css?v=35">
     <link rel="stylesheet" href="/css/components.css?v=35">
     <link rel="stylesheet" href="/css/layout.css?v=35000">
     <link rel="stylesheet" href="/css/pages.css?v=22">
-    <link rel="stylesheet" href="/css/cursor.css?v=22">
     <link rel="stylesheet" href="/css/animations.css?v=24">
     <link rel="stylesheet" href="/css/whatsapp.css?v=22">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
-        .coming-soon-wrapper {
-            background-color: var(--color-charcoal, #141416);
-            border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
-            border-radius: var(--radius-lg, 16px);
-            padding: var(--space-12, 3rem) var(--space-8, 2rem);
-            max-width: 860px;
-            margin: 0 auto;
-            text-align: center;
+        /* Restablecer cursor visible estándar */
+        html, body, a, button {
+            cursor: auto !important;
         }
 
-        .coming-soon-badge {
+        .cursor-dot {
+            display: none !important;
+        }
+
+        body {
+            background-color: #FFFFFF;
+            color: #111111;
+            font-family: 'Plus Jakarta Sans', var(--font-body), sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Encabezado de página perfectamente centrado */
+        .page-header-centered {
+            text-align: center;
+            padding: 4rem 1.5rem 2.5rem 1.5rem;
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        .page-header-centered__subtitle {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: #777777;
+            margin-bottom: 0.75rem;
+        }
+
+        .page-header-centered__title {
+            font-size: clamp(2.2rem, 5vw, 3.2rem);
+            font-weight: 900;
+            color: #111111;
+            line-height: 1.15;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header-centered__desc {
+            font-size: 1.1rem;
+            color: #555555;
+            line-height: 1.6;
+            max-width: 620px;
+            margin: 0 auto;
+        }
+
+        /* Tarjeta Principal de Alto Contraste */
+        .expectation-card {
+            background: #111111;
+            border: 1.5px solid #242424;
+            border-radius: 20px;
+            padding: 3rem 2.25rem;
+            max-width: 820px;
+            margin: 0 auto 4rem auto;
+            text-align: center;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+            color: #FFFFFF;
+        }
+
+        .expectation-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            font-size: var(--text-xs, 0.75rem);
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            color: var(--color-gold, #C0A062);
-            background: rgba(192, 160, 98, 0.1);
-            border: 1px solid rgba(192, 160, 98, 0.25);
-            padding: 6px 16px;
-            border-radius: var(--radius-full, 9999px);
-            margin-bottom: var(--space-6, 1.5rem);
-        }
-
-        .coming-soon-title {
-            font-size: clamp(1.8rem, 4vw, 2.5rem);
-            font-weight: 800;
-            color: var(--color-white, #FFFFFF);
-            margin-bottom: var(--space-4, 1rem);
-            line-height: 1.2;
-            letter-spacing: -0.01em;
-        }
-
-        .coming-soon-desc {
-            color: var(--color-gray-light, #9CA3AF);
-            font-size: var(--text-lg, 1.125rem);
-            line-height: 1.7;
-            max-width: 640px;
-            margin: 0 auto var(--space-10, 2.5rem);
-        }
-
-        .booking-action-panel {
-            background: var(--color-black, #0A0A0B);
-            border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
-            border-radius: var(--radius-md, 12px);
-            padding: var(--space-8, 2rem) var(--space-6, 1.5rem);
-            margin-bottom: var(--space-10, 2.5rem);
-        }
-
-        .booking-action-panel__tag {
-            color: var(--color-gold, #C0A062);
-            font-size: var(--text-xs, 0.75rem);
+            font-size: 0.78rem;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.12em;
-            margin-bottom: var(--space-2, 0.5rem);
+            color: #FFFFFF;
+            background: #222222;
+            border: 1px solid #383838;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            margin-bottom: 1.75rem;
         }
 
-        .booking-action-panel__heading {
-            color: var(--color-white, #FFFFFF);
-            font-size: var(--text-xl, 1.25rem);
-            font-weight: 700;
-            margin-bottom: var(--space-2, 0.5rem);
+        .expectation-title {
+            font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+            font-weight: 900;
+            color: #FFFFFF;
+            margin-bottom: 1rem;
+            line-height: 1.25;
+            letter-spacing: -0.01em;
         }
 
-        .booking-action-panel__text {
-            color: var(--color-gray, #6B7280);
-            font-size: var(--text-sm, 0.875rem);
-            margin-bottom: var(--space-6, 1.5rem);
-            line-height: 1.5;
+        .expectation-desc {
+            color: #D1D5DB;
+            font-size: 1rem;
+            line-height: 1.65;
+            max-width: 620px;
+            margin: 0 auto 2.25rem auto;
         }
 
-        .booking-action-buttons {
+        /* Panel de Acción Destacada */
+        .action-highlight-box {
+            background: #18181A;
+            border: 1.5px solid #2D2D30;
+            border-radius: 16px;
+            padding: 2rem 1.75rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .action-highlight-box__tag {
+            color: #C0A062;
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-highlight-box__title {
+            color: #FFFFFF;
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-highlight-box__desc {
+            color: #9CA3AF;
+            font-size: 0.92rem;
+            line-height: 1.55;
+            max-width: 520px;
+            margin: 0 auto 1.5rem auto;
+        }
+
+        /* Botón Setmore Ultra Visible y Llamativo */
+        .btn-setmore-main {
             display: flex;
-            flex-direction: column;
-            gap: var(--space-4, 1rem);
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #C0A062;
+            color: #0A0A0B;
+            font-size: 1.05rem;
+            font-weight: 900;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 16px 28px;
+            border-radius: 12px;
+            border: 2px solid #D4AF37;
+            box-shadow: 0 8px 25px rgba(192, 160, 98, 0.45);
+            transition: all 0.25s ease;
+            width: 100%;
             max-width: 460px;
             margin: 0 auto;
         }
 
-        .booking-features-grid {
+        .btn-setmore-main:hover {
+            background: #FFFFFF;
+            color: #000000;
+            border-color: #FFFFFF;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(255, 255, 255, 0.25);
+        }
+
+        /* Botón WhatsApp de Apoyo */
+        .btn-whatsapp-sub {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #25D366;
+            color: #FFFFFF;
+            font-size: 0.92rem;
+            font-weight: 800;
+            text-decoration: none;
+            padding: 13px 22px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 460px;
+            margin: 12px auto 0 auto;
+            transition: all 0.2s ease;
+        }
+
+        .btn-whatsapp-sub:hover {
+            background: #1EBE5D;
+            color: #FFFFFF;
+            transform: translateY(-1px);
+        }
+
+        /* Features Grid */
+        .features-grid-3 {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: var(--space-4, 1rem);
+            gap: 1rem;
             text-align: left;
-            margin-top: var(--space-6, 1.5rem);
+            margin-top: 2rem;
         }
 
-        .booking-feature-item {
-            background: rgba(255, 255, 255, 0.02);
-            border-left: 2px solid var(--color-gold, #C0A062);
-            padding: var(--space-4, 1rem);
-            border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+        .feature-box {
+            background: #18181A;
+            border: 1px solid #262628;
+            border-left: 3px solid #C0A062;
+            padding: 1.1rem 1rem;
+            border-radius: 8px;
         }
 
-        .booking-feature-item__title {
-            color: var(--color-white, #FFFFFF);
-            font-size: var(--text-sm, 0.875rem);
-            font-weight: 700;
+        .feature-box__title {
+            color: #FFFFFF;
+            font-size: 0.9rem;
+            font-weight: 800;
             margin-bottom: 4px;
         }
 
-        .booking-feature-item__desc {
-            color: var(--color-gray, #6B7280);
-            font-size: var(--text-xs, 0.75rem);
-            line-height: 1.4;
+        .feature-box__desc {
+            color: #9CA3AF;
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }
+
+        /* Botón Volver */
+        .btn-back-clean {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            color: #9CA3AF;
+            border: 1.5px solid #333333;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-decoration: none;
+            margin-top: 2rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-back-clean:hover {
+            border-color: #FFFFFF;
+            color: #FFFFFF;
         }
 
         @media (max-width: 768px) {
-            .coming-soon-wrapper {
-                padding: var(--space-8, 2rem) var(--space-4, 1rem);
+            .expectation-card {
+                padding: 2.25rem 1.25rem;
+                margin-bottom: 2.5rem;
             }
 
-            .booking-features-grid {
+            .action-highlight-box {
+                padding: 1.5rem 1rem;
+            }
+
+            .features-grid-3 {
                 grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .btn-setmore-main {
+                font-size: 0.95rem;
+                padding: 14px 18px;
             }
         }
     </style>
 </head>
 
 <body>
-    <!-- Header -->
+    <!-- Header Oficial -->
     <header class="header" role="banner">
         <div class="container header__container">
             <a href="/" class="header__logo">
@@ -177,7 +318,7 @@ $pageTitle = 'Reservar Cita | KORTZEN Barbería Quito';
         </div>
     </header>
 
-    <!-- Mobile Navigation -->
+    <!-- Mobile Navigation Oficial -->
     <nav class="mobile-nav" id="mobile-nav" role="navigation" aria-label="Navegación móvil">
         <div class="mobile-nav__links">
             <a href="/" class="mobile-nav__link">Inicio</a>
@@ -210,79 +351,77 @@ $pageTitle = 'Reservar Cita | KORTZEN Barbería Quito';
     </nav>
 
     <main>
-        <!-- Page Header -->
-        <section class="page-header">
-            <div class="container">
-                <span class="page-header__subtitle">Agenda & Experiencia</span>
-                <h1 class="page-header__title">Reservas</h1>
-                <p class="page-header__description">Estamos perfeccionando nuestra nueva plataforma digital para brindarte un servicio superior.</p>
-            </div>
+        <!-- Page Header Centrado -->
+        <section class="page-header-centered">
+            <span class="page-header-centered__subtitle">Agenda & Experiencia</span>
+            <h1 class="page-header-centered__title">Reservas</h1>
+            <p class="page-header-centered__desc">Estamos perfeccionando nuestra nueva plataforma digital para brindarte un servicio superior.</p>
         </section>
 
-        <!-- Expectation Section -->
-        <section class="section" style="padding-top: 0;">
-            <div class="container">
-                <div class="coming-soon-wrapper">
-                    
-                    <div class="coming-soon-badge">
-                        <span>Próximamente • Nueva Experiencia</span>
-                    </div>
+        <!-- Contenedor Principal de Expectativa -->
+        <section class="container" style="padding-bottom: 2rem;">
+            <div class="expectation-card">
+                
+                <div class="expectation-badge">
+                    <span>Próximamente • Nueva Experiencia</span>
+                </div>
 
-                    <h2 class="coming-soon-title">
-                        Estamos actualizando nuestra Plataforma Oficial
-                    </h2>
+                <h2 class="expectation-title">
+                    Estamos actualizando nuestra Plataforma Oficial
+                </h2>
 
-                    <p class="coming-soon-desc">
-                        Muy pronto podrás agendar tus citas en tiempo real con tu barbero de confianza, acumular puntos de cliente y acceder a beneficios exclusivos desde nuestra nueva plataforma web y app.
+                <p class="expectation-desc">
+                    Muy pronto podrás agendar tus citas en tiempo real con tu barbero de confianza, acumular puntos de cliente y acceder a beneficios exclusivos desde nuestra nueva plataforma web y app.
+                </p>
+
+                <!-- Panel de Acción Destacada -->
+                <div class="action-highlight-box">
+                    <div class="action-highlight-box__tag">Atención Continua</div>
+                    <h3 class="action-highlight-box__title">¿Deseas reservar tu cita hoy?</h3>
+                    <p class="action-highlight-box__desc">
+                        Mientras completamos el lanzamiento oficial, puedes seguir agendando tu turno con total normalidad en nuestra plataforma habitual:
                     </p>
 
-                    <!-- Main Action Panel -->
-                    <div class="booking-action-panel">
-                        <div class="booking-action-panel__tag">Atención Continua</div>
-                        <h3 class="booking-action-panel__heading">¿Deseas reservar tu cita hoy?</h3>
-                        <p class="booking-action-panel__text">
-                            Mientras completamos el lanzamiento oficial, puedes seguir agendando tu turno con total normalidad en nuestra plataforma habitual:
-                        </p>
+                    <div>
+                        <a href="https://barberestudiokortzen.setmore.com/" target="_blank" rel="noopener noreferrer" class="btn-setmore-main">
+                            <span>Continuar Reservando en Setmore</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
 
-                        <div class="booking-action-buttons">
-                            <a href="https://barberestudiokortzen.setmore.com/" target="_blank" rel="noopener noreferrer" class="btn btn--primary btn--lg" style="width: 100%; justify-content: center; text-align: center;">
-                                Continuar Reservando en Setmore →
-                            </a>
-
-                            <a href="https://wa.me/593988422770?text=Hola%20KORTZEN,%20deseo%20agendar%20una%20cita" target="_blank" rel="noopener noreferrer" class="btn btn--secondary" style="width: 100%; justify-content: center; text-align: center; border-color: rgba(37, 211, 102, 0.4); color: #25D366;">
-                                Reservar por WhatsApp
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Upcoming Features Grid -->
-                    <div class="booking-features-grid">
-                        <div class="booking-feature-item">
-                            <div class="booking-feature-item__title">Agenda en Tiempo Real</div>
-                            <div class="booking-feature-item__desc">Disponibilidad exacta con tu barbero favorito y sin esperas.</div>
-                        </div>
-                        <div class="booking-feature-item">
-                            <div class="booking-feature-item__title">Club de Puntos</div>
-                            <div class="booking-feature-item__desc">Acumula beneficios y descuentos en cada uno de tus cortes.</div>
-                        </div>
-                        <div class="booking-feature-item">
-                            <div class="booking-feature-item__title">Historial de Estilo</div>
-                            <div class="booking-feature-item__desc">Registro personalizado de tus preferencias y rituales de autor.</div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: var(--space-8, 2rem);">
-                        <a href="/" class="btn btn--ghost" style="color: var(--color-gray-light); font-size: var(--text-sm);">
-                            ← Volver al inicio
+                        <a href="https://wa.me/593988422770?text=Hola%20KORTZEN,%20deseo%20agendar%20una%20cita" target="_blank" rel="noopener noreferrer" class="btn-whatsapp-sub">
+                            <i class="fab fa-whatsapp" style="font-size: 1.1rem;"></i>
+                            <span>O Reserva Directamente por WhatsApp</span>
                         </a>
                     </div>
-
                 </div>
+
+                <!-- Tarjetas de Adelanto -->
+                <div class="features-grid-3">
+                    <div class="feature-box">
+                        <div class="feature-box__title">Agenda en Tiempo Real</div>
+                        <div class="feature-box__desc">Disponibilidad exacta con tu barbero favorito y sin esperas.</div>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-box__title">Club de Puntos</div>
+                        <div class="feature-box__desc">Acumula beneficios y descuentos en cada uno de tus cortes.</div>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-box__title">Historial de Estilo</div>
+                        <div class="feature-box__desc">Registro personalizado de tus preferencias y rituales de autor.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <a href="/" class="btn-back-clean">
+                        <i class="fas fa-arrow-left"></i> Volver al inicio
+                    </a>
+                </div>
+
             </div>
         </section>
     </main>
 
-    <!-- Footer -->
+    <!-- Footer Oficial -->
     <footer class="footer" role="contentinfo">
         <div class="container">
             <div class="footer__grid">
