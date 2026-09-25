@@ -24,18 +24,26 @@ if (file_exists(__DIR__ . '/.env')) {
 }
 
 // Configuración de la Base de Datos
-$db_host = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false) ? '195.35.61.92' : 'localhost';
-define('DB_HOST', getenv('DB_HOST') ?: $db_host);
+$db_host = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false) ? 'localhost' : 'localhost';
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_NAME', getenv('DB_NAME') ?: 'u434851126_kortzen');
 define('DB_USER', getenv('DB_USER') ?: 'u434851126_kortzenusr');
 define('DB_PASS', getenv('DB_PASS') ?: 'Kortzen2026!');
 define('DB_CHARSET', 'utf8mb4');
 
-// Configuración de Zona Horaria (Ecuador)
+// Configuración de Zona Horaria (Ecuador / América)
 date_default_timezone_set('America/Guayaquil');
 
+// Detección automática del dominio actual (Multi-dominio automático)
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+        || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) 
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+$protocol = $isHttps ? 'https://' : 'http://';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$detectedUrl = $protocol . $host;
+
 // Configuración de la aplicación
-define('SITE_URL', getenv('SITE_URL') ?: 'https://kortzen.com');
+define('SITE_URL', getenv('SITE_URL') ?: $detectedUrl);
 define('SITE_NAME', getenv('SITE_NAME') ?: 'KORTZEN Barbería');
 
 // Configuración de Google reCAPTCHA
