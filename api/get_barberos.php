@@ -34,8 +34,23 @@ try {
         if (!isset($seen[$nameKey])) {
             $seen[$nameKey] = true;
             $barbero['cargo'] = ($barbero['rol'] === 'admin_local') ? 'Gerente / Master Barber' : 'Barbero Profesional';
+            
             $foto = !empty($barbero['foto_url']) ? $barbero['foto_url'] : (!empty($barbero['foto']) ? $barbero['foto'] : '');
-            $barbero['foto'] = !empty($foto) ? $foto : '/assets/images/barber-placeholder.jpg';
+            
+            // Mapeo robusto a las imágenes existentes
+            if (stripos($nameKey, 'mateo') !== false) {
+                $foto = '/assets/images/barber-mateo.jpg';
+            } elseif (stripos($nameKey, 'jeffrey') !== false || stripos($nameKey, 'jefrey') !== false) {
+                $foto = '/assets/images/barber-jeffrey.jpg';
+            } elseif (stripos($nameKey, 'joel') !== false) {
+                $foto = '/assets/images/barber-joel.jpg';
+            } elseif (stripos($nameKey, 'jonathan') !== false) {
+                $foto = '/assets/images/barber-jonathan.jpg';
+            } elseif (stripos($nameKey, 'josh') !== false) {
+                $foto = '/assets/images/barber-josh.jpg';
+            }
+
+            $barbero['foto'] = !empty($foto) ? $foto : '/assets/images/barber-mateo.jpg';
             $barbero['foto_url'] = $barbero['foto'];
             $barbero['foto_perfil'] = $barbero['foto'];
             $barbero['biografia'] = !empty($barbero['biografia']) ? $barbero['biografia'] : (!empty($barbero['bio']) ? $barbero['bio'] : '');

@@ -47,12 +47,31 @@ try {
     $servicios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($servicios as &$s) {
-        if (empty($s['foto_url']) && !empty($s['imagen_url'])) {
-            $s['foto_url'] = $s['imagen_url'];
+        $nombreLower = strtolower(trim($s['nombre']));
+        if (stripos($nombreLower, 'mateo') !== false) {
+            $s['foto_url'] = '/assets/images/service-corte-mateo.png';
+        } elseif (stripos($nombreLower, 'pro') !== false) {
+            $s['foto_url'] = '/assets/images/service-corte-pro.png';
+        } elseif (stripos($nombreLower, 'barba') !== false && stripos($nombreLower, 'corte') !== false) {
+            $s['foto_url'] = '/assets/images/service-corte-barba.png';
+        } elseif (stripos($nombreLower, 'afeitado') !== false) {
+            $s['foto_url'] = '/assets/images/service-afeitado-tradicional.png';
+        } elseif (stripos($nombreLower, 'barba') !== false) {
+            $s['foto_url'] = '/assets/images/service-barba-premium.png';
+        } elseif (stripos($nombreLower, 'cejas') !== false) {
+            $s['foto_url'] = '/assets/images/service-cejas.png';
+        } elseif (stripos($nombreLower, 'facial') !== false || stripos($nombreLower, 'limpieza') !== false) {
+            $s['foto_url'] = '/assets/images/service-limpieza-facial.png';
+        } elseif (stripos($nombreLower, 'ritual') !== false) {
+            $s['foto_url'] = '/assets/images/service-ritual-kortzen.png';
+        } elseif (stripos($nombreLower, 'ondulaci') !== false) {
+            $s['foto_url'] = '/assets/images/service-ondulacion.png';
         }
-        if (empty($s['imagen_url']) && !empty($s['foto_url'])) {
-            $s['imagen_url'] = $s['foto_url'];
+
+        if (empty($s['foto_url'])) {
+            $s['foto_url'] = !empty($s['imagen_url']) ? $s['imagen_url'] : (!empty($s['imagen']) ? $s['imagen'] : '/assets/images/service-classic-cut.jpg');
         }
+        $s['imagen_url'] = $s['foto_url'];
         if (empty($s['categoria'])) {
             $s['categoria'] = 'General';
         }
