@@ -4,33 +4,68 @@ require_once '../config.php';
 header('Content-Type: application/json');
 enforceRateLimit('crear_cita_cliente', 20, 60, 'Has realizado demasiadas solicitudes de reserva en poco tiempo. Por favor espera un minuto.');
 
-if (!isClienteLoggedIn()) {
-    echo json_encode(['success' => false, 'message' => 'Debes iniciar sesión.']);
-    exit;
+$cliente = null;
+$clienteId = null;
+
+if (isClienteLoggedIn()) {
+    $cliente = getCurrentCliente();
+    $clienteId = $cliente['id'] ?? null;
 }
 
 // Obtener datos
-$cliente = getCurrentCliente();
-$clienteId = $cliente['id'];
-
 $servicioId = intval($_POST['servicio_id'] ?? 0);
 $barberoId = intval($_POST['barbero_id'] ?? 0);
 $fecha = $_POST['fecha'] ?? '';
 $hora = $_POST['hora'] ?? '';
 $telefono = isset($_POST['telefono']) ? trim($_POST['telefono']) : '';
+$clienteNombre = trim($_POST['cliente_nombre'] ?? $_POST['nombre'] ?? '');
+$clienteEmail = trim($_POST['cliente_email'] ?? $_POST['email'] ?? '');
 
 if (!$servicioId || !$barberoId || empty($fecha) || empty($hora)) {
-    echo json_encode(['success' => false, 'message' => 'Faltan datos de la reserva.']);
+    echo json_encode(['success' => false, 'message' => 'Faltan datos de la reserva (servicio, barbero, fecha u hora).']);
     exit;
 }
 
 if (empty($telefono)) {
-    echo json_encode(['success' => false, 'message' => 'El teléfono es obligatorio.']);
+    echo json_encode(['success' => false, 'message' => 'El teléfono / WhatsApp es obligatorio para confirmar la cita.']);
     exit;
 }
 
 try {
     $pdo = getConnection();
+
+    if (!$clienteId) {
+        if (empty($clienteNombre)) {
+            echo json_encode(['success' => false, 'message' => 'Por favor ingresa tu nombre completo para la reserva.']);
+            exit;
+        }
+
+        $telClean = preg_replace('/[^0-9]/', '', $telefono);
+        $stmtFind = $pdo->prepare("SELECT * FROM clientes WHERE (telefono = ? OR (telefono != '' AND telefono = ?) OR (email != '' AND email = ?)) ORDER BY id DESC LIMIT 1");
+        $stmtFind->execute([$telefono, $telClean, $clienteEmail]);
+        $existente = $stmtFind->fetch(PDO::FETCH_ASSOC);
+
+        if ($existente) {
+            $clienteId = $existente['id'];
+            $cliente = $existente;
+            if (empty($existente['nombre']) && !empty($clienteNombre)) {
+                $pdo->prepare("UPDATE clientes SET nombre = ? WHERE id = ?")->execute([$clienteNombre, $clienteId]);
+            }
+        } else {
+            $stmtInsert = $pdo->prepare("INSERT INTO clientes (nombre, email, telefono, created_at) VALUES (?, ?, ?, NOW())");
+            $stmtInsert->execute([$clienteNombre, !empty($clienteEmail) ? $clienteEmail : null, $telefono]);
+            $clienteId = $pdo->lastInsertId();
+
+            $stmtNew = $pdo->prepare("SELECT * FROM clientes WHERE id = ?");
+            $stmtNew->execute([$clienteId]);
+            $cliente = $stmtNew->fetch(PDO::FETCH_ASSOC);
+        }
+
+        $_SESSION['cliente_logged_in'] = true;
+        $_SESSION['cliente_id'] = $clienteId;
+        $_SESSION['cliente_nombre'] = $cliente['nombre'];
+        $_SESSION['cliente_email'] = $cliente['email'] ?? '';
+    }
 
     // 0. Actualizar teléfono y preferencias del cliente si vienen en la petición
     $estiloBuscado = isset($_POST['estilo_buscado']) ? trim($_POST['estilo_buscado']) : null;

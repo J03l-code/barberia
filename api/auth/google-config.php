@@ -27,21 +27,22 @@
 // ⚠️ CONFIGURA ESTOS VALORES CON TUS CREDENCIALES DE GOOGLE
 // ============================================================
 
-define('GOOGLE_CLIENT_ID', '287462075073-lmhplvlmgarkmgosqbo34oqco25esfn5.apps.googleusercontent.com');
-define('GOOGLE_CLIENT_SECRET', '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');
+if (!defined('GOOGLE_CLIENT_ID')) {
+    define('GOOGLE_CLIENT_ID', getenv('GOOGLE_CLIENT_ID') ?: '287462075073-lmhplvlmgarkmgosqbo34oqco25esfn5.apps.googleusercontent.com');
+}
+if (!defined('GOOGLE_CLIENT_SECRET')) {
+    define('GOOGLE_CLIENT_SECRET', getenv('GOOGLE_CLIENT_SECRET') ?: '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');
+}
 
-// URLs de redirección (ajusta según tu entorno)
-$isLocalhost = ($_SERVER['HTTP_HOST'] ?? '') === 'localhost:2020' ||
-    strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false;
-
+// URLs de redirección dinámicas según el dominio actual
+$isLocalhost = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
 if ($isLocalhost) {
-    // Desarrollo local
     define('GOOGLE_REDIRECT_URI', 'http://localhost:2020/api/auth/google-callback.php');
     define('SITE_BASE_URL', 'http://localhost:2020');
 } else {
-    // Producción
-    define('GOOGLE_REDIRECT_URI', 'https://kortzen.com/api/auth/google-callback.php');
-    define('SITE_BASE_URL', 'https://kortzen.com');
+    $currentBase = defined('SITE_URL') ? SITE_URL : ('https://' . ($_SERVER['HTTP_HOST'] ?? 'barbershop.jiyanedesign.com'));
+    define('GOOGLE_REDIRECT_URI', rtrim($currentBase, '/') . '/api/auth/google-callback.php');
+    define('SITE_BASE_URL', rtrim($currentBase, '/'));
 }
 
 // URLs de Google OAuth 2.0
