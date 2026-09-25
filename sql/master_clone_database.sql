@@ -424,48 +424,50 @@ CREATE TABLE `resenas` (
 
 -- 1. Sucursales
 INSERT INTO `sucursales` (`id`, `nombre`, `direccion`, `telefono`, `horario_apertura`, `horario_cierre`, `estado`, `mapa_url`, `activo`) VALUES
-(1, 'KORTZEN Llano Chico', 'Calle 17 de septiembre, frente a la casa de colchon, Llano Chico, Quito', '+593 098 842 2770', '10:00:00', '20:00:00', 'activo', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.8071991201023!2d-78.44604192503535!3d-0.13528119986338483!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x91d58fc52de96153%3A0x35f5708deeee0cf7!2sKORTZEN!5e0!3m2!1sen!2sec!4v1786588668585!5m2!1sen!2sec', 1);
+(1, 'KORTZEN Llano Chico', 'Calle 17 de septiembre, frente a la casa de colchon, Llano Chico, Quito', '+593 098 842 2770', '00:00:00', '00:00:00', 'activo', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.8071991201023!2d-78.44604192503535!3d-0.13528119986338483!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x91d58fc52de96153%3A0x35f5708deeee0cf7!2sKORTZEN!5e0!3m2!1sen!2sec!4v1786588668585!5m2!1sen!2sec', 1),
+(2, 'KORTZEN Laureles', 'Laureles', '+593 098 842 2770', '10:00:00', '20:00:00', 'proximamente', NULL, 1);
 
 -- 2. Categorías de Servicios
 INSERT INTO `categorias_servicios` (`id`, `nombre`, `descripcion`, `icono`, `orden`, `activo`) VALUES
-(1, 'Corte & Estilo', 'Cortes de autor, degradados de precisión y peinado', 'scissors', 1, 1),
-(2, 'Cuidado de Barba', 'Perfilado, hidratación y toalla caliente', 'beard', 2, 1),
-(3, 'Afeitado Tradicional', 'Afeitado a navaja libre con espuma tibia', 'razor', 3, 1),
-(4, 'Tratamientos Spa', 'Exfoliación, mascarilla de carbón y vapor facial', 'spa', 4, 1);
+(1, 'Corte', 'Cortes clásicos, degradados modernos y estilos de autor.', 'scissors', 1, 1),
+(2, 'Afeitado', 'Ritual clásico de afeitado al ras con espuma tibia y toalla caliente.', 'razor', 2, 1),
+(3, 'Barba', 'Perfilado, hidratación y cuidado especializado de barba.', 'beard', 3, 1),
+(4, 'Spa', 'Tratamientos faciales, exfoliación y renovación personal.', 'spa', 4, 1);
 
 -- 3. Catálogo de Servicios
-INSERT INTO `servicios` (`id`, `nombre`, `descripcion`, `precio`, `duracion_minutos`, `categoria`, `orden`, `foto_url`, `imagen_url`, `destacado`, `que_incluye`, `beneficio_destacado`, `sucursal_id`, `activo`) VALUES
-(1, 'Corte Con Mateo', 'Una experiencia personalizada pensada para quienes buscan precisión, estilo y atención a cada detalle.', 10.00, 60, 'Corte & Estilo', 1, '/assets/images/service-classic-cut.jpg', '/assets/images/service-classic-cut.jpg', 1, 'Lavado capilar con shampoo premium\nAsesoría de visagismo\nCorte de precisión a máquina y tijera\nBebida de cortesía\nPeinado final con producto de fijación mate', 'Asesoría de visagismo incluida', 1, 1),
-(2, 'Corte + Barba', 'Corte completo con técnica tijera y máquina más perfilado, recorte e hidratación de barba con toalla caliente.', 15.00, 60, 'Corte & Estilo', 2, '/assets/images/service-beard-trim.jpg', '/assets/images/service-beard-trim.jpg', 1, 'Lavado capilar con shampoo premium\nCorte y diseño según morfología facial\nPerfilado y toalla caliente para barba\nAceite hidratante y bálsamo', 'Combo integral de máxima distinción', 1, 1),
-(3, 'Arreglo de Barba', 'Perfilado preciso con navaja libre, toalla caliente y aceites esenciales nutritivos.', 7.00, 30, 'Cuidado de Barba', 3, '/assets/images/service-traditional-shave.jpg', '/assets/images/service-traditional-shave.jpg', 0, 'Toalla caliente aromática\nPerfilado a navaja descartable\nBálsamo calmante e hidratación', 'Cuidado y definición para tu barba', 1, 1),
-(4, 'Afeitado Tradicional', 'Ritual clásico de afeitado al ras con espuma caliente, doble toalla y loción refrescante.', 10.00, 35, 'Afeitado Tradicional', 4, '/assets/images/service-traditional-shave.jpg', '/assets/images/service-traditional-shave.jpg', 0, 'Espuma caliente batida a brocha\nAfeitado a navaja clásica al ras\nToalla fría de cierre de poros', 'Experiencia tradicional de relajación', 1, 1),
-(5, 'Tratamiento Spa Facial', 'Limpieza profunda con vapor de ozono, exfoliación y mascarilla negra purificante.', 12.00, 45, 'Tratamientos Spa', 5, '/assets/images/service-spa-facial.jpg', '/assets/images/service-spa-facial.jpg', 0, 'Vapor de ozono\nExfoliación con microgránulos\nMascarilla peel-off de carbón activado\nMasaje facial relajante', 'Renovación y frescura para tu rostro', 1, 1);
+INSERT INTO `servicios` (`id`, `nombre`, `descripcion`, `precio`, `duracion_minutos`, `categoria`, `orden`, `foto_url`, `imagen_url`, `imagen`, `destacado`, `que_incluye`, `beneficio_destacado`, `sucursal_id`, `activo`) VALUES
+(1, 'Corte Con Mateo', 'Una experiencia personalizada pensada para quienes buscan precisión, estilo y atención a cada detalle. Mateo adapta el corte a tus facciones, tipo de cabello y preferencias para conseguir un resultado limpio, moderno y con identidad propia, manteniendo siempre el sello de calidad de Kortzen.', 10.00, 60, 'Corte', 1, '/assets/images/services/corte-con-mateo.png', '/assets/images/services/corte-con-mateo.png', '/assets/images/services/corte-con-mateo.png', 1, 'Lavado capilar con shampoo premium\nAsesoría de visagismo\nCorte de precisión a máquina y tijera\nBebida de cortesía\nPeinado final con producto de fijación mate', 'Asesoría de visagismo incluida', 1, 1),
+(2, 'Corte de cabello Pro', 'Potencia tu imagen con un acabado profesional diseñado para resaltar tu estilo. En Kortzen trabajamos cada detalle del cabello, utilizando técnicas de peinado y definición que aportan forma, textura y presencia para lograr un look impecable, moderno y personalizado.', 8.00, 60, 'Corte', 2, '/assets/images/services/corte-pro.png', '/assets/images/services/corte-pro.png', '/assets/images/services/corte-pro.png', 1, 'Lavado capilar con shampoo premium\nAsesoría de visagismo\nCorte de precisión a máquina y tijera\nBebida de cortesía\nPeinado final con producto profesional', 'Estilo pro y definición', 1, 1),
+(3, 'Corte Y Barba', 'Renueva tu imagen con un servicio completo que combina corte de cabello y arreglo de barba. En Kortzen cuidamos cada detalle para lograr un estilo limpio, definido y equilibrado, adaptado a tus rasgos y personalidad.', 12.00, 60, 'Corte', 3, '/assets/images/services/corte-y-barba.png', '/assets/images/services/corte-y-barba.png', '/assets/images/services/corte-y-barba.png', 1, 'Lavado capilar con shampoo premium\nAsesoría de visagismo\nCorte de precisión a máquina y tijera\nRitual de barba\nBebida de cortesía\nPeinado con producto profesional', 'Combo integral más solicitado', 1, 1),
+(4, 'Afeitado Tradicional', 'Más que un afeitado, es un ritual de relajación. Combinamos la técnica maestra de la navaja libre con el confort de las toallas calientes para lograr un apurado perfecto y sin irritación.', 10.00, 30, 'Afeitado', 4, '/assets/images/services/afeitado-tradicional.png', '/assets/images/services/afeitado-tradicional.png', '/assets/images/services/afeitado-tradicional.png', 0, 'Espuma caliente batida a brocha\nAfeitado a navaja clásica al ras\nToalla fría de cierre de poros', 'Experiencia clásica relajante', 1, 1),
+(5, 'Barba Premium', 'El cuidado definitivo para tu rostro. Es un ritual de diseño y nutrición que combina el recorte preciso con el confort de las toallas calientes y aceites esenciales.', 5.00, 30, 'Barba', 5, '/assets/images/services/barba-premium.png', '/assets/images/services/barba-premium.png', '/assets/images/services/barba-premium.png', 0, 'Toalla caliente aromática\nPerfilado a navaja descartable\nBálsamo calmante e hidratación', 'Definición e hidratación profunda', 1, 1),
+(6, 'Cejas', 'El marco perfecto para tu mirada. No es solo depilación; es un servicio de limpieza y simetría diseñado para potenciar tus facciones sin perder la naturalidad.', 2.00, 10, 'Spa', 6, '/assets/images/services/cejas.png', '/assets/images/services/cejas.png', '/assets/images/services/cejas.png', 0, 'Definición de contorno con precisión\nLimpieza y simetría natural', 'Simetría facial impecable', 1, 1),
+(7, 'Limpieza Facial Completa', 'El reseteo profundo que tu piel necesita. Este tratamiento elimina impurezas y células muertas, renovando por completo la vitalidad de tu rostro con exfoliación y mascarilla.', 8.00, 30, 'Spa', 7, '/assets/images/services/limpieza-facial.png', '/assets/images/services/limpieza-facial.png', '/assets/images/services/limpieza-facial.png', 0, 'Vapor de ozono\nExfoliación con microgránulos\nMascarilla peel-off de carbón activado\nMasaje facial relajante', 'Piel limpia y revitalizada', 1, 1),
+(8, 'Ritual KORTZEN', 'Nuestra experiencia más completa y exclusiva: incluye limpieza facial profunda con extracción suave, masaje relajante, perfilado de cejas y acabado con lavado y peinado.', 15.00, 85, 'Spa', 8, '/assets/images/services/ritual-kortzen.png', '/assets/images/services/ritual-kortzen.png', '/assets/images/services/ritual-kortzen.png', 1, 'Limpieza facial profunda con extracción suave\nMasaje relajante\nPerfilado de cejas y nariz\nLavado y peinado profesional\nBebida de cortesía', 'Experiencia VIP integral', 1, 1),
+(9, 'Ondulación o Semi Ondulación', 'Transforma tu estilo con movimiento y volumen natural. Aplicamos técnicas avanzadas que respetan la salud de tu fibra capilar para un look moderno y texturizado.', 50.00, 180, 'Corte', 9, '/assets/images/services/ondulacion.png', '/assets/images/services/ondulacion.png', '/assets/images/services/ondulacion.png', 0, 'Técnicas avanzadas de ondulación\nTratamiento protector capilar\nAsesoría de cuidado y mantenimiento', 'Volumen y textura duradera', 1, 1);
 
--- 4. Asignación de Servicios a Sucursal
+-- 4. Asignación de Servicios a Sucursales
 INSERT INTO `servicios_sucursales` (`servicio_id`, `sucursal_id`) VALUES
-(1, 1),
-(2, 1),
-(3, 1),
-(4, 1),
-(5, 1);
+(1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1), (8, 1), (9, 1),
+(1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2), (9, 2);
 
--- 5. Usuarios Administradores y Barberos
--- Contraseñas:
--- admin@kortzen.com -> Admin2026!
--- mateo@kortzen.com -> Barbero2026!
-INSERT INTO `usuarios` (`id`, `nombre`, `email`, `password`, `rol`, `sucursal_id`, `telefono`, `foto_url`, `bio`, `biografia`, `especialidades`, `comision_porcentaje`, `comision_fin_semana`, `comision_productos`, `almuerzo_inicio`, `almuerzo_fin`, `almuerzo_activo`, `activo`) VALUES
-(1, 'Administrador General', 'admin@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'admin', 1, '+593 098 842 2770', '', 'Administrador principal de la plataforma.', 'Administrador del sistema.', 'Gestión, Finanzas, Operaciones', 100.00, 100.00, 100.00, '13:00:00', '14:00:00', 0, 1),
-(2, 'Mateo Josué', 'mateo@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'barbero', 1, '+593 098 842 2770', '/assets/images/barber-mateo.jpg', 'Master Barber con más de 7 años de trayectoria perfeccionando el corte clásico y contemporáneo.', 'Master Barber enfocado en la excelencia de cada detalle.', 'Fade de Precisión, Visagismo, Cuidado de Barba', 50.00, 50.00, 10.00, '13:00:00', '14:00:00', 1, 1);
+-- 5. Usuarios Administradores y Barberos (Equipo Profesional)
+-- Contraseñas por defecto: Admin2026! / Barbero2026!
+INSERT INTO `usuarios` (`id`, `nombre`, `email`, `password`, `rol`, `sucursal_id`, `telefono`, `foto`, `foto_url`, `bio`, `biografia`, `especialidades`, `comision_porcentaje`, `comision_fin_semana`, `comision_productos`, `almuerzo_inicio`, `almuerzo_fin`, `almuerzo_activo`, `activo`) VALUES
+(1, 'Administrador General', 'admin@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'admin', 1, '+593 098 842 2770', NULL, NULL, 'Administrador principal de la plataforma.', 'Administrador del sistema.', 'Gestión, Finanzas, Operaciones', 100.00, 100.00, 100.00, '13:00:00', '14:00:00', 0, 1),
+(2, 'Mateo Josué', 'mateo@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'barbero', 1, '+593 098 842 2770', '/assets/images/barbers/mateo.jpg', '/assets/images/barbers/mateo.jpg', 'Master Barber y fundador con pasión por el arte del corte y estilo.', 'Master Barber y fundador con pasión por el arte del corte y estilo. Dedicado a ofrecer un servicio de máxima calidad.', 'Corte, Ondulación, Barba, Cejas', 100.00, 50.00, 10.00, '13:00:00', '14:00:00', 1, 1),
+(3, 'Jeffrey Herrera', 'jherrera@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'barbero', 1, '+593 098 842 2770', '/assets/images/barbers/jeffrey.jpg', '/assets/images/barbers/jeffrey.jpg', 'Jeffrey es un barbero profesional, dedicado a ofrecer cortes modernos y clásicos con un trato cercano y de calidad.', 'Jeffrey es un barbero profesional, dedicado a ofrecer cortes modernos y clásicos con un trato cercano y de calidad.', 'Corte, Barba, Ondulación', 60.00, 50.00, 10.00, '13:00:00', '14:00:00', 1, 1),
+(4, 'Joel Pinzón', 'jpinzon@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'barbero', 1, '+593 098 842 2770', '/assets/images/barbers/joel.jpg', '/assets/images/barbers/joel.jpg', 'Más que un barbero, soy alguien que ama su arte y busca que cada cliente salga con estilo y seguridad.', 'Más que un barbero, soy alguien que ama su arte y busca que cada cliente salga con estilo y seguridad.', 'Corte, Barba, Cejas', 80.00, 50.00, 10.00, '13:00:00', '14:00:00', 1, 1),
+(5, 'Jonathan Valverde', 'jvalverde@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'barbero', 1, '+593 098 842 2770', '/assets/images/barbers/jonathan.jpg', '/assets/images/barbers/jonathan.jpg', 'Especialista en degradados, visagismo y técnicas de corte contemporáneo con un acabado impecable.', 'Especialista en degradados, visagismo y técnicas de corte contemporáneo con un acabado impecable.', 'Corte, Degradados, Barba', 50.00, 50.00, 10.00, '13:00:00', '14:00:00', 1, 1),
+(6, 'Josh Quilumba', 'jquilumba@kortzen.com', '$2y$10$wTlsD9yXmZ7R.f2X2kE8f.5w7R1sF3J0J09XmZ7R.f2X2kE8f.5w7', 'barbero', 1, '+593 098 842 2770', '/assets/images/barbers/josh.jpg', '/assets/images/barbers/josh.jpg', 'Más que un corte, te ofrezco una experiencia completa con atención al detalle y resultados de calidad.', 'Más que un corte, te ofrezco una experiencia completa con atención al detalle y resultados de calidad.', 'Corte, Estilo Pro, Visagismo', 50.00, 50.00, 10.00, '13:00:00', '14:00:00', 1, 1);
 
--- 6. Asignación de Horarios Semanales para el Barbero (Lunes a Domingo 10:00 - 20:00)
+-- 6. Asignación de Horarios Semanales para Todos los Barberos (Lunes a Domingo 10:00 - 20:00)
 INSERT INTO `horarios_barberos` (`barbero_id`, `dia_semana`, `hora_inicio`, `hora_fin`, `activo`) VALUES
-(2, 0, '10:00:00', '20:00:00', 1),
-(2, 1, '10:00:00', '20:00:00', 1),
-(2, 2, '10:00:00', '20:00:00', 1),
-(2, 3, '10:00:00', '20:00:00', 1),
-(2, 4, '10:00:00', '20:00:00', 1),
-(2, 5, '10:00:00', '20:00:00', 1),
-(2, 6, '10:00:00', '20:00:00', 1);
+(2, 0, '10:00:00', '20:00:00', 1), (2, 1, '10:00:00', '20:00:00', 1), (2, 2, '10:00:00', '20:00:00', 1), (2, 3, '10:00:00', '20:00:00', 1), (2, 4, '10:00:00', '20:00:00', 1), (2, 5, '10:00:00', '20:00:00', 1), (2, 6, '10:00:00', '20:00:00', 1),
+(3, 0, '10:00:00', '20:00:00', 1), (3, 1, '10:00:00', '20:00:00', 1), (3, 2, '10:00:00', '20:00:00', 1), (3, 3, '10:00:00', '20:00:00', 1), (3, 4, '10:00:00', '20:00:00', 1), (3, 5, '10:00:00', '20:00:00', 1), (3, 6, '10:00:00', '20:00:00', 1),
+(4, 0, '10:00:00', '20:00:00', 1), (4, 1, '10:00:00', '20:00:00', 1), (4, 2, '10:00:00', '20:00:00', 1), (4, 3, '10:00:00', '20:00:00', 1), (4, 4, '10:00:00', '20:00:00', 1), (4, 5, '10:00:00', '20:00:00', 1), (4, 6, '10:00:00', '20:00:00', 1),
+(5, 0, '10:00:00', '20:00:00', 1), (5, 1, '10:00:00', '20:00:00', 1), (5, 2, '10:00:00', '20:00:00', 1), (5, 3, '10:00:00', '20:00:00', 1), (5, 4, '10:00:00', '20:00:00', 1), (5, 5, '10:00:00', '20:00:00', 1), (5, 6, '10:00:00', '20:00:00', 1),
+(6, 0, '10:00:00', '20:00:00', 1), (6, 1, '10:00:00', '20:00:00', 1), (6, 2, '10:00:00', '20:00:00', 1), (6, 3, '10:00:00', '20:00:00', 1), (6, 4, '10:00:00', '20:00:00', 1), (6, 5, '10:00:00', '20:00:00', 1), (6, 6, '10:00:00', '20:00:00', 1);
 
 -- 7. Configuración Global del Negocio
 INSERT INTO `configuracion` (`clave`, `valor`) VALUES
@@ -498,9 +500,10 @@ INSERT INTO `codigos_promocionales` (`codigo`, `tipo`, `valor`, `usos_maximos`, 
 
 -- 10. Galería de Muestra
 INSERT INTO `galeria_imagenes` (`titulo`, `descripcion`, `imagen_url`, `categoria`, `sucursal_id`) VALUES
-('Degradado Skin Fade', 'Precisión milimétrica y transición perfecta', '/assets/images/gallery-1.jpg', 'corte', 1),
-('Ritual Barba Clásica', 'Perfilado con toalla caliente y navaja libre', '/assets/images/gallery-2.jpg', 'barba', 1),
-('Spa Facial Masculino', 'Limpieza profunda con vapor de ozono', '/assets/images/gallery-3.jpg', 'spa', 1),
-('Nuestras Instalaciones', 'Ambiente distinguido para el caballero actual', '/assets/images/gallery-4.jpg', 'espacio', 1);
+('Degradado Skin Fade', 'Precisión milimétrica y transición perfecta', '/assets/images/services/corte-con-mateo.png', 'corte', 1),
+('Ritual Barba Clásica', 'Perfilado con toalla caliente y navaja libre', '/assets/images/services/barba-premium.png', 'barba', 1),
+('Spa Facial Masculino', 'Limpieza profunda con vapor de ozono', '/assets/images/services/limpieza-facial.png', 'spa', 1),
+('Nuestras Instalaciones', 'Ambiente distinguido para el caballero actual', '/assets/images/services/ritual-kortzen.png', 'espacio', 1);
 
 SET FOREIGN_KEY_CHECKS = 1;
+
