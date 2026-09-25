@@ -27,11 +27,28 @@
 // ⚠️ CONFIGURA ESTOS VALORES CON TUS CREDENCIALES DE GOOGLE
 // ============================================================
 
+// Cargar .env si no se ha cargado previamente
+if (!getenv('GOOGLE_CLIENT_ID') && file_exists(__DIR__ . '/../../.env')) {
+    $env_lines = @file(__DIR__ . '/../../.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($env_lines) {
+        foreach ($env_lines as $line) {
+            if (strpos(trim($line), '#') === 0) continue;
+            list($key, $val) = explode('=', $line, 2) + [null, null];
+            if ($key && $val !== null) {
+                $k = trim($key);
+                $v = trim($val);
+                putenv("$k=$v");
+                $_ENV[$k] = $v;
+            }
+        }
+    }
+}
+
 if (!defined('GOOGLE_CLIENT_ID')) {
-    define('GOOGLE_CLIENT_ID', getenv('GOOGLE_CLIENT_ID') ?: '287462075073-lmhplvlmgarkmgosqbo34oqco25esfn5.apps.googleusercontent.com');
+    define('GOOGLE_CLIENT_ID', getenv('GOOGLE_CLIENT_ID') ?: '');
 }
 if (!defined('GOOGLE_CLIENT_SECRET')) {
-    define('GOOGLE_CLIENT_SECRET', getenv('GOOGLE_CLIENT_SECRET') ?: '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');
+    define('GOOGLE_CLIENT_SECRET', getenv('GOOGLE_CLIENT_SECRET') ?: '');
 }
 
 // URLs de redirección dinámicas según el dominio actual
