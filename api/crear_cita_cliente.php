@@ -136,7 +136,10 @@ try {
             if ($hasBlock) continue;
 
             // Verificar citas ocupadas
-            $stmtC = $pdo->prepare("SELECT fecha_hora, duracion_minutos FROM citas WHERE barbero_id = ? AND estado != 'cancelada' AND DATE(fecha_hora) = ?");
+            $stmtC = $pdo->prepare("SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 40) as duracion_minutos 
+                                    FROM citas c 
+                                    LEFT JOIN servicios s ON c.servicio_id = s.id 
+                                    WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?");
             $stmtC->execute([$candId, $fecha]);
             $citas = $stmtC->fetchAll(PDO::FETCH_ASSOC);
             $hasCitaCol = false;

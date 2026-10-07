@@ -18,12 +18,12 @@ try {
     $exclusiveBarberId = null;
 
     if ($servicioId > 0) {
-        $stmtServicio = $pdo->prepare("SELECT duracion_minutos, nombre, barbero_id FROM servicios WHERE id = ?");
+        $stmtServicio = $pdo->prepare("SELECT * FROM servicios WHERE id = ?");
         $stmtServicio->execute([$servicioId]);
-        $servicio = $stmtServicio->fetch();
+        $servicio = $stmtServicio->fetch(PDO::FETCH_ASSOC);
         if ($servicio) {
-            $duracion = intval($servicio['duracion_minutos']) > 0 ? intval($servicio['duracion_minutos']) : 40;
-            $nombreServicio = $servicio['nombre'];
+            $duracion = !empty($servicio['duracion_minutos']) ? intval($servicio['duracion_minutos']) : (!empty($servicio['duracion']) ? intval($servicio['duracion']) : 40);
+            $nombreServicio = $servicio['nombre'] ?? 'Servicio';
             $exclusiveBarberId = !empty($servicio['barbero_id']) ? intval($servicio['barbero_id']) : null;
         }
     }
@@ -74,12 +74,12 @@ try {
         if ($bloq && !empty($bloq['todo_el_dia'])) return [];
 
         // Bloqueos parciales
-        $stmtBH = $pdo->prepare("SELECT hora_inicio, hora_fin FROM bloqueos_horas WHERE barbero_id = ? AND fecha = ?");
+        $stmtBH = $pdo->prepare("SELECT * FROM bloqueos_horas WHERE barbero_id = ? AND fecha = ?");
         $stmtBH->execute([$bId, $fDate]);
         $bParciales = $stmtBH->fetchAll(PDO::FETCH_ASSOC);
 
         // Almuerzo fijo
-        $stmtUser = $pdo->prepare("SELECT almuerzo_inicio, almuerzo_fin, almuerzo_activo FROM usuarios WHERE id = ?");
+        $stmtUser = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
         $stmtUser->execute([$bId]);
         $uData = $stmtUser->fetch(PDO::FETCH_ASSOC);
         if ($uData && ($uData['almuerzo_activo'] ?? 1) == 1 && !empty($uData['almuerzo_inicio']) && !empty($uData['almuerzo_fin'])) {
@@ -103,11 +103,14 @@ try {
             }
         }
 
-        // Citas del día
-        $sqlC = "SELECT fecha_hora, duracion_minutos FROM citas WHERE barbero_id = ? AND estado != 'cancelada' AND DATE(fecha_hora) = ?";
+        // Citas del día (con duración obtenida del servicio)
+        $sqlC = "SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 40) as duracion_minutos 
+                 FROM citas c 
+                 LEFT JOIN servicios s ON c.servicio_id = s.id 
+                 WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?";
         $paramsC = [$bId, $fDate];
         if ($excludeId > 0) {
-            $sqlC .= " AND id != ?";
+            $sqlC .= " AND c.id != ?";
             $paramsC[] = $excludeId;
         }
         $stmtC = $pdo->prepare($sqlC);
