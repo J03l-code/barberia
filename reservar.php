@@ -568,19 +568,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         <!-- Step 3: Date & Time -->
         <div class="wizard-step" id="step3">
             <h2 style="margin-bottom: 16px; font-size: 1.25rem; font-weight: 800; color: #FFFFFF;">3. Elige Fecha y Hora</h2>
-            
-            <!-- Quick Earliest Slot Banner -->
-            <div id="quickSlotBanner" class="quick-slot-banner" style="display: none;">
-                <div>
-                    <div style="font-size: 0.72rem; font-weight: 800; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px;">⚡ PRÓXIMA DISPONIBILIDAD</div>
-                    <div id="quickSlotLabel" style="font-size: 0.95rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">Hoy a las 10:00</div>
-                </div>
-                <button type="button" id="btnQuickBook" onclick="bookQuickSlot()" style="background: var(--gold); color: #000; border: none; border-radius: 8px; padding: 8px 14px; font-size: 0.8rem; font-weight: 900; cursor: pointer; text-transform: uppercase;">
-                    Reservar ➔
-                </button>
-            </div>
 
             <div class="datetime-wrapper">
+                <!-- Selector de Día -->
                 <div style="background: #161618; border: 1.5px solid var(--gold); border-radius: 14px; padding: 18px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
                     <div style="margin-bottom:12px;">
                         <label style="display:flex; align-items:center; gap:8px; color:#FFFFFF; font-weight:800; font-size:1.02rem; margin:0;">
@@ -593,6 +583,22 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                             style="width: 100%; padding: 16px 40px 16px 48px; background: #08080A; border: 1px solid var(--gold); color: #FFFFFF; font-weight: 800; font-size: 16px !important; border-radius: 10px; cursor: pointer; box-shadow: 0 0 12px rgba(192, 160, 98, 0.2); transition: all 0.3s ease; box-sizing: border-box;">
                         <i class="fas fa-chevron-down" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 1rem; pointer-events: none; z-index: 2;"></i>
                     </div>
+                </div>
+
+                <!-- Banner Destacado: Próxima Hora Más Cercana Disponible -->
+                <div id="quickSlotBanner" class="quick-slot-banner" style="background: linear-gradient(135deg, rgba(192, 160, 98, 0.2) 0%, #161618 100%); border: 1.5px solid var(--gold); border-radius: 14px; padding: 16px 18px; display: none; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 4px 20px rgba(192, 160, 98, 0.25);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold); color: #000; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 900; flex-shrink: 0;">
+                            ⚡
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 800; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px;">HORA MÁS CERCANA DISPONIBLE</div>
+                            <div id="quickSlotLabel" style="font-size: 1.02rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">Hoy a las 10:00</div>
+                        </div>
+                    </div>
+                    <button type="button" id="btnQuickBook" onclick="bookQuickSlot()" style="background: #FFFFFF; color: #111111; border: none; border-radius: 10px; padding: 10px 16px; font-size: 0.85rem; font-weight: 900; cursor: pointer; text-transform: uppercase; white-space: nowrap; box-shadow: 0 2px 10px rgba(255,255,255,0.25);">
+                        Reservar ➔
+                    </button>
                 </div>
 
                 <div>
@@ -1153,8 +1159,21 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 }
 
                 if (slots.length === 0) {
-                    grid.innerHTML = `<div style="grid-column:1/-1; color:#AAA; text-align:center; padding:16px; background:#1C1C1E; border-radius:10px; border:1px solid rgba(255,255,255,0.08);">
-                        No hay turnos libres para esta fecha. Por favor selecciona otro día en el calendario.
+                    let proximaHtml = '';
+                    if (resData.proxima_disponibilidad) {
+                        proximaHtml = `
+                            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
+                                <div style="font-size: 0.78rem; color: var(--gold); font-weight: 800; margin-bottom: 6px; text-transform: uppercase;">⚡ Hora más cercana disponible:</div>
+                                <div style="font-size: 1.05rem; font-weight: 900; color: #FFFFFF; margin-bottom: 12px;">${resData.proxima_disponibilidad.label} (${resData.proxima_disponibilidad.barbero_nombre})</div>
+                                <button type="button" onclick="bookQuickSlot()" style="background: var(--gold); color: #000000; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 900; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(192, 160, 98, 0.4);">
+                                    Reservar ${resData.proxima_disponibilidad.label} ➔
+                                </button>
+                            </div>
+                        `;
+                    }
+                    grid.innerHTML = `<div style="grid-column:1/-1; color:#AAA; text-align:center; padding:20px 16px; background:#1C1C1E; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size:0.92rem; font-weight:700; color:#CCCCCC;">No hay turnos libres para esta fecha en el calendario.</div>
+                        ${proximaHtml}
                     </div>`;
                     return;
                 }
@@ -1268,6 +1287,17 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 if (s === step) d.classList.add('active');
                 if (s < step) d.classList.add('completed');
             });
+
+            if (step === 3) {
+                const picker = document.getElementById('datePicker')._flatpickr;
+                let targetDate = bookingData.date;
+                if (!targetDate && picker) {
+                    targetDate = picker.formatDate(new Date(), "Y-m-d");
+                    bookingData.date = targetDate;
+                    picker.setDate(targetDate, false);
+                }
+                loadSlots(targetDate || new Date().toISOString().split('T')[0]);
+            }
 
             updateNavButtons();
 

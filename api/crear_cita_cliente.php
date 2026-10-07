@@ -105,7 +105,13 @@ try {
             $stmtH = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ? AND activo = 1");
             $stmtH->execute([$candId, $diaSem]);
             $hBase = $stmtH->fetch(PDO::FETCH_ASSOC);
-            if (!$hBase) continue;
+            if (!$hBase) {
+                $hBase = [
+                    'hora_inicio' => '10:00:00',
+                    'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
+                    'activo' => 1
+                ];
+            }
 
             $hStart = strtotime("$fecha " . $hBase['hora_inicio']);
             $hEnd = strtotime("$fecha " . $hBase['hora_fin']);

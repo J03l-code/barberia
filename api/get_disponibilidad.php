@@ -65,7 +65,14 @@ try {
         $stmtH = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ? AND activo = 1");
         $stmtH->execute([$bId, $diaSem]);
         $hBase = $stmtH->fetch(PDO::FETCH_ASSOC);
-        if (!$hBase) return [];
+        if (!$hBase) {
+            // Horario predeterminado KORTZEN (10:00 a 20:00 Lun-Sáb, 10:00 a 17:00 Dom)
+            $hBase = [
+                'hora_inicio' => '10:00:00',
+                'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
+                'activo' => 1
+            ];
+        }
 
         // Día bloqueado completo
         $stmtB = $pdo->prepare("SELECT * FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ?");
