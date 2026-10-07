@@ -35,11 +35,11 @@ try {
 
     // 2. Obtener lista de barberos a evaluar
     if ($barberoId > 0) {
-        $stmtBarbers = $pdo->prepare("SELECT id, nombre, foto, foto_url FROM usuarios WHERE id = ? AND activo = 1");
+        $stmtBarbers = $pdo->prepare("SELECT id, nombre FROM usuarios WHERE id = ? AND activo = 1");
         $stmtBarbers->execute([$barberoId]);
         $barberos = $stmtBarbers->fetchAll(PDO::FETCH_ASSOC);
     } else {
-        $stmtBarbers = $pdo->prepare("SELECT id, nombre, foto, foto_url FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local') AND (sucursal_id = ? OR sucursal_id IS NULL OR sucursal_id = 0) ORDER BY id ASC");
+        $stmtBarbers = $pdo->prepare("SELECT id, nombre FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local') AND (sucursal_id = ? OR sucursal_id IS NULL OR sucursal_id = 0) ORDER BY id ASC");
         $stmtBarbers->execute([$sucursalId]);
         $barberos = $stmtBarbers->fetchAll(PDO::FETCH_ASSOC);
     }
