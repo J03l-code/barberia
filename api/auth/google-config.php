@@ -14,10 +14,10 @@
  *    - Nombre: KORTZEN Login
  *    - Orígenes autorizados de JavaScript:
  *      * http://localhost:2020 (desarrollo)
- *      * https://kortzenbrb.jiyanedesign.com (producción)
+ *      * https://kortzen.com (producción)
  *    - URIs de redirección autorizados:
  *      * http://localhost:2020/api/auth/google-callback.php (desarrollo)
- *      * https://kortzenbrb.jiyanedesign.com/api/auth/google-callback.php (producción)
+ *      * https://kortzen.com/api/auth/google-callback.php (producción)
  * 7. Copia el Client ID y Client Secret aquí abajo
  * ID: 287462075073-lmhplvlmgarkmgosqbo34oqco25esfn5.apps.googleusercontent.com
  * secret: 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
