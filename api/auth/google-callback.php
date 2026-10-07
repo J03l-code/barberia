@@ -33,12 +33,21 @@ if (!isset($_GET['code'])) {
 }
 
 // Verificar el state para prevenir CSRF
-if (
-    !isset($_GET['state']) ||
-    !isset($_SESSION['google_oauth_state']) ||
-    $_GET['state'] !== $_SESSION['google_oauth_state']
-) {
-    showError('Error de Seguridad', 'Token de seguridad inválido. Por favor, intenta de nuevo.');
+$receivedState = $_GET['state'] ?? '';
+$sessionState = $_SESSION['google_oauth_state'] ?? '';
+
+$isStateValid = false;
+if (!empty($receivedState)) {
+    if (!empty($sessionState) && $receivedState === $sessionState) {
+        $isStateValid = true;
+    } elseif (strpos($receivedState, 'booking_') === 0) {
+        // State originario de flujo de confirmación de reserva
+        $isStateValid = true;
+    }
+}
+
+if (!$isStateValid) {
+    showError('Error de Seguridad', 'Token de seguridad no coincide o ha expirado. Por favor, intenta de nuevo desde la página de reservas.');
 }
 
 // Limpiar el state de la sesión
@@ -107,20 +116,40 @@ try {
     // Buscar si el usuario ya existe (por google_id o email)
     $stmt = $pdo->prepare("SELECT * FROM clientes WHERE google_id = ? OR email = ?");
     $stmt->execute([$googleId, $email]);
-    $cliente = $stmt->fetch();
+    $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $currentClientId = $_SESSION['cliente_id'] ?? null;
 
     if ($cliente) {
         // Usuario existe - actualizar datos
         $stmt = $pdo->prepare("
             UPDATE clientes 
             SET google_id = ?, 
-                nombre = ?, 
-                foto_perfil = ?,
+                nombre = COALESCE(NULLIF(?, ''), nombre), 
+                foto_perfil = COALESCE(?, foto_perfil),
                 ultima_sesion = NOW()
             WHERE id = ?
         ");
         $stmt->execute([$googleId, $nombre, $fotoPerfil, $cliente['id']]);
         $clienteId = $cliente['id'];
+
+        // Si venía de una reserva recién creada con ID temporal, asociar sus citas a su cuenta de Google
+        if ($currentClientId && $currentClientId != $clienteId) {
+            $pdo->prepare("UPDATE citas SET cliente_id = ? WHERE cliente_id = ?")->execute([$clienteId, $currentClientId]);
+        }
+    } elseif ($currentClientId) {
+        // Asociar la cuenta de Google al cliente que acaba de reservar
+        $stmt = $pdo->prepare("
+            UPDATE clientes 
+            SET google_id = ?, 
+                email = ?, 
+                nombre = COALESCE(NULLIF(?, ''), nombre), 
+                foto_perfil = ?,
+                ultima_sesion = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$googleId, $email, $nombre, $fotoPerfil, $currentClientId]);
+        $clienteId = $currentClientId;
     } else {
         // Nuevo usuario - insertar
         $stmt = $pdo->prepare("
@@ -160,10 +189,12 @@ try {
     // Regenerar ID de sesión por seguridad
     session_regenerate_id(true);
 
-    // Redirigir a la página de éxito o inicio
-    // Redirigir a la página de reservas por defecto (o dashboard si se prefiere)
-    // El usuario quería reservar, así que priorizamos el flujo de reserva.
-    header('Location: ' . SITE_BASE_URL . '/cliente-dashboard.php');
+    // Redirigir a mis-citas si viene del flujo de reserva, o dashboard
+    if (!empty($receivedState) && strpos($receivedState, 'booking_') === 0) {
+        header('Location: ' . SITE_BASE_URL . '/mis-citas.php');
+    } else {
+        header('Location: ' . SITE_BASE_URL . '/cliente-dashboard.php');
+    }
     exit;
 
 } catch (PDOException $e) {

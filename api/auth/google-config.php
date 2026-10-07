@@ -57,10 +57,15 @@ define('GOOGLE_SCOPES', 'openid email profile');
  */
 function getGoogleAuthUrl($state = null)
 {
+    if (session_status() === PHP_SESSION_NONE) {
+        @session_start();
+    }
+
     if ($state === null) {
         $state = bin2hex(random_bytes(16));
-        $_SESSION['google_oauth_state'] = $state;
     }
+    
+    $_SESSION['google_oauth_state'] = $state;
 
     $params = [
         'client_id' => GOOGLE_CLIENT_ID,
