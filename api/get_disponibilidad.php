@@ -122,19 +122,16 @@ try {
         $stmtBH->execute([$bId, $fDate]);
         $bParciales = $stmtBH->fetchAll(PDO::FETCH_ASSOC);
 
-        // Almuerzo fijo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
-        $stmtUser = $pdo->prepare("SELECT almuerzo_activo, almuerzo_inicio, almuerzo_fin FROM usuarios WHERE id = ?");
+        // Almuerzo obligatorio: Por defecto TODOS los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
+        $stmtUser = $pdo->prepare("SELECT almuerzo_inicio, almuerzo_fin FROM usuarios WHERE id = ?");
         $stmtUser->execute([$bId]);
         $uData = $stmtUser->fetch(PDO::FETCH_ASSOC);
-        $almActivo = !isset($uData['almuerzo_activo']) || intval($uData['almuerzo_activo']) === 1;
-        if ($almActivo) {
-            $almInicio = !empty($uData['almuerzo_inicio']) ? $uData['almuerzo_inicio'] : '13:00:00';
-            $almFin = !empty($uData['almuerzo_fin']) ? $uData['almuerzo_fin'] : '14:00:00';
-            $bParciales[] = [
-                'hora_inicio' => $almInicio,
-                'hora_fin' => $almFin
-            ];
-        }
+        $almInicio = (!empty($uData['almuerzo_inicio']) && $uData['almuerzo_inicio'] !== '00:00:00') ? $uData['almuerzo_inicio'] : '13:00:00';
+        $almFin = (!empty($uData['almuerzo_fin']) && $uData['almuerzo_fin'] !== '00:00:00') ? $uData['almuerzo_fin'] : '14:00:00';
+        $bParciales[] = [
+            'hora_inicio' => $almInicio,
+            'hora_fin' => $almFin
+        ];
 
         $startOfDay = strtotime("$fDate " . $hBase['hora_inicio']);
         $endOfDay = strtotime("$fDate " . $hBase['hora_fin']);

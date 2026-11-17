@@ -58,13 +58,10 @@ try {
         $ocupados[] = ['inicio' => date('H:i', $ini), 'fin' => date('H:i', $fin), 'servicio' => $c['servicio'], 'estado' => $c['estado']];
     }
     
-    // Almuerzo: Por defecto 13:00 a 14:00 si activo
-    $almActivo = !isset($user['almuerzo_activo']) || intval($user['almuerzo_activo']) === 1;
-    if ($almActivo) {
-        $almIni = !empty($user['almuerzo_inicio']) ? $user['almuerzo_inicio'] : '13:00:00';
-        $almFin = !empty($user['almuerzo_fin']) ? $user['almuerzo_fin'] : '14:00:00';
-        $ocupados[] = ['inicio' => $almIni, 'fin' => $almFin, 'tipo' => 'almuerzo'];
-    }
+    // Almuerzo: Por defecto 13:00 a 14:00 obligatorio para todos los barberos
+    $almIni = (!empty($user['almuerzo_inicio']) && $user['almuerzo_inicio'] !== '00:00:00') ? $user['almuerzo_inicio'] : '13:00:00';
+    $almFin = (!empty($user['almuerzo_fin']) && $user['almuerzo_fin'] !== '00:00:00') ? $user['almuerzo_fin'] : '14:00:00';
+    $ocupados[] = ['inicio' => $almIni, 'fin' => $almFin, 'tipo' => 'almuerzo'];
     
     // Bloqueos parciales
     foreach ($bloqHoras as $bh) {

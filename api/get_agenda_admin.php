@@ -256,19 +256,16 @@ try {
                 }
 
                 // Registrar Almuerzo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
-                $almActivo = !isset($b['almuerzo_activo']) || intval($b['almuerzo_activo']) === 1;
-                if ($almActivo) {
-                    $almIni = !empty($b['almuerzo_inicio']) ? $b['almuerzo_inicio'] : '13:00:00';
-                    $almFin = !empty($b['almuerzo_fin']) ? $b['almuerzo_fin'] : '14:00:00';
-                    $almStart = strtotime("$fechaLoop $almIni");
-                    $almEnd = strtotime("$fechaLoop $almFin");
-                    $intervalosOcupados[] = [
-                        'tipo' => 'almuerzo',
-                        'inicio' => $almStart,
-                        'fin' => $almEnd,
-                        'titulo' => 'Almuerzo'
-                    ];
-                }
+                $almIni = (!empty($b['almuerzo_inicio']) && $b['almuerzo_inicio'] !== '00:00:00') ? $b['almuerzo_inicio'] : '13:00:00';
+                $almFin = (!empty($b['almuerzo_fin']) && $b['almuerzo_fin'] !== '00:00:00') ? $b['almuerzo_fin'] : '14:00:00';
+                $almStart = strtotime("$fechaLoop $almIni");
+                $almEnd = strtotime("$fechaLoop $almFin");
+                $intervalosOcupados[] = [
+                    'tipo' => 'almuerzo',
+                    'inicio' => $almStart,
+                    'fin' => $almEnd,
+                    'titulo' => 'Almuerzo'
+                ];
 
                 // Registrar Bloqueos de horas
                 foreach ($bloqsHoras as $blh) {

@@ -137,15 +137,12 @@ try {
             $stmtB->execute([$candId, $fecha]);
             if ($stmtB->fetch()) continue;
 
-            // Verificar almuerzo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
-            $almActivo = !isset($cand['almuerzo_activo']) || intval($cand['almuerzo_activo']) === 1;
-            if ($almActivo) {
-                $almIni = !empty($cand['almuerzo_inicio']) ? $cand['almuerzo_inicio'] : '13:00:00';
-                $almFin = !empty($cand['almuerzo_fin']) ? $cand['almuerzo_fin'] : '14:00:00';
-                $lStart = strtotime("$fecha $almIni");
-                $lEnd = strtotime("$fecha $almFin");
-                if ($slotStartTs < $lEnd && $slotEndTs > $lStart) continue;
-            }
+            // Verificar almuerzo obligatorio: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
+            $almIni = (!empty($cand['almuerzo_inicio']) && $cand['almuerzo_inicio'] !== '00:00:00') ? $cand['almuerzo_inicio'] : '13:00:00';
+            $almFin = (!empty($cand['almuerzo_fin']) && $cand['almuerzo_fin'] !== '00:00:00') ? $cand['almuerzo_fin'] : '14:00:00';
+            $lStart = strtotime("$fecha $almIni");
+            $lEnd = strtotime("$fecha $almFin");
+            if ($slotStartTs < $lEnd && $slotEndTs > $lStart) continue;
 
             // Verificar bloqueos por horas
             $stmtBH = $pdo->prepare("SELECT * FROM bloqueos_horas WHERE barbero_id = ? AND fecha = ?");
@@ -271,16 +268,13 @@ try {
             }
         }
 
-        // 5. Verificar almuerzo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
-        $almActivo = !isset($barberoData['almuerzo_activo']) || intval($barberoData['almuerzo_activo']) === 1;
-        if ($almActivo) {
-            $almIni = !empty($barberoData['almuerzo_inicio']) ? $barberoData['almuerzo_inicio'] : '13:00:00';
-            $almFin = !empty($barberoData['almuerzo_fin']) ? $barberoData['almuerzo_fin'] : '14:00:00';
-            $cLunchStart = strtotime("$fecha $almIni");
-            $cLunchEnd = strtotime("$fecha $almFin");
-            if ($slotStartTs < $cLunchEnd && $slotEndTs > $cLunchStart) {
-                throw new Exception('El barbero se encuentra en su horario de almuerzo (13:00 - 14:00). Por favor selecciona otro horario.');
-            }
+        // 5. Verificar almuerzo obligatorio: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
+        $almIni = (!empty($barberoData['almuerzo_inicio']) && $barberoData['almuerzo_inicio'] !== '00:00:00') ? $barberoData['almuerzo_inicio'] : '13:00:00';
+        $almFin = (!empty($barberoData['almuerzo_fin']) && $barberoData['almuerzo_fin'] !== '00:00:00') ? $barberoData['almuerzo_fin'] : '14:00:00';
+        $cLunchStart = strtotime("$fecha $almIni");
+        $cLunchEnd = strtotime("$fecha $almFin");
+        if ($slotStartTs < $cLunchEnd && $slotEndTs > $cLunchStart) {
+            throw new Exception('El barbero se encuentra en su horario de almuerzo (13:00 - 14:00). Por favor selecciona otro horario.');
         }
     }
 
