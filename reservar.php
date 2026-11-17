@@ -1154,7 +1154,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             serviceId: null,
             serviceName: null,
             servicePrice: null,
-            serviceDuration: 40,
+            serviceDuration: 60,
             barberId: null,
             barberName: null,
             date: null,
@@ -1237,7 +1237,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                     bookingData.serviceId = savedDraft.serviceId;
                     bookingData.serviceName = savedDraft.serviceName;
                     bookingData.servicePrice = savedDraft.servicePrice;
-                    bookingData.serviceDuration = savedDraft.serviceDuration || 40;
+                    bookingData.serviceDuration = savedDraft.serviceDuration || 60;
 
                     const sCard = document.querySelector(`#servicesGrid [data-service-id="${bookingData.serviceId}"]`);
                     if (sCard) sCard.classList.add('selected');
@@ -1353,7 +1353,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 const sObj = allServicesList.find(s => s.id == urlServicioId);
                 if (sObj) {
                     const cardEl = document.querySelector(`#servicesGrid [data-service-id="${sObj.id}"]`);
-                    selectService(sObj.id, sObj.nombre, sObj.precio, sObj.duracion_minutos || 40, cardEl, sObj.barbero_id, sObj.barbero_nombre, sObj.barberos_ids);
+                    selectService(sObj.id, sObj.nombre, sObj.precio, sObj.duracion_minutos || 60, cardEl, sObj.barbero_id, sObj.barbero_nombre, sObj.barberos_ids);
                 }
             }
         });
@@ -1372,7 +1372,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         // Formateador de duración (ej: 60 -> 1 h, 85 -> 1 h 25 min, 30 -> 30 min)
         function formatDuration(minutes) {
-            const m = parseInt(minutes) || 40;
+            const m = parseInt(minutes) || 60;
             if (m < 60) return `${m} min`;
             const hours = Math.floor(m / 60);
             const remMin = m % 60;
@@ -1437,9 +1437,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         const isMateo = s.nombre.toLowerCase().includes('mateo');
                         const bName = s.barbero_nombre || (isMateo ? 'Mateo' : '');
                         const exclusiveBadgeHtml = bName ? `<span class="service-exclusive-pill">★ ${bName}</span>` : '';
-                        const durFormatted = formatDuration(s.duracion_minutos || 40);
+                        const durFormatted = formatDuration(s.duracion_minutos || 60);
 
-                        el.onclick = () => selectService(s.id, s.nombre, s.precio, s.duracion_minutos || 40, el, s.barbero_id, s.barbero_nombre, s.barberos_ids);
+                        el.onclick = () => selectService(s.id, s.nombre, s.precio, s.duracion_minutos || 60, el, s.barbero_id, s.barbero_nombre, s.barberos_ids);
 
                         el.innerHTML = `
                             <img src="${thumb}" alt="${s.nombre}" class="service-row-thumb" onerror="this.onerror=null; this.src='/assets/images/service-corte-mateo.png';">
@@ -1493,27 +1493,27 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
             let exclusiveHtml = '';
             if (bName) {
-                exclusiveHtml = `<div style="display:inline-flex; align-items:center; gap:5px; background:rgba(255, 255, 255, 0.1); border:1px solid rgba(255, 255, 255, 0.25); color:#FFFFFF; font-size:0.75rem; font-weight:800; padding:4px 10px; border-radius:6px; margin-bottom:12px; text-transform:uppercase;">
+                exclusiveHtml = `<div style="display:inline-flex; align-items:center; gap:5px; background:#F3F4F6; border:1px solid #E5E7EB; color:#111111; font-size:0.75rem; font-weight:800; padding:4px 10px; border-radius:6px; margin-bottom:12px; text-transform:uppercase;">
                     <span>★</span> Servicio Exclusivo con ${bName}
                 </div>`;
             }
 
-            let descHtml = s.descripcion ? `<p style="font-size:0.88rem; color:#A3A3A3; line-height:1.55; margin:0 0 16px 0;">${s.descripcion}</p>` : '';
+            let descHtml = s.descripcion ? `<p style="font-size:0.88rem; color:#4B5563; line-height:1.55; margin:0 0 16px 0;">${s.descripcion}</p>` : '';
 
             let incluyeHtml = '';
             if (s.que_incluye && s.que_incluye.trim() !== '') {
                 const lines = s.que_incluye.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
                 const renderedList = lines.map(item => {
                     const clean = item.replace(/^[•\-\*✓\s]+/, '').trim();
-                    return `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px; font-size:0.84rem; color:#E5E5E5; line-height:1.35;">
-                        <span style="color:#FFFFFF; font-size:0.85rem; flex-shrink:0;">✓</span>
+                    return `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px; font-size:0.84rem; color:#374151; line-height:1.35;">
+                        <span style="color:#111111; font-size:0.85rem; flex-shrink:0; font-weight:800;">✓</span>
                         <span>${clean}</span>
                     </div>`;
                 }).join('');
                 
                 incluyeHtml = `
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-left:3px solid #FFFFFF; border-radius:8px; padding:12px 14px; margin-bottom:20px; text-align:left;">
-                        <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:#FFFFFF; margin-bottom:8px; letter-spacing:0.8px;">QUÉ INCLUYE:</div>
+                    <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-left:3px solid #111111; border-radius:8px; padding:12px 14px; margin-bottom:20px; text-align:left;">
+                        <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:#111111; margin-bottom:8px; letter-spacing:0.8px;">QUÉ INCLUYE:</div>
                         ${renderedList}
                     </div>
                 `;
@@ -1521,21 +1521,21 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
             content.innerHTML = `
                 <div style="position:relative; margin-bottom:14px;">
-                    <img src="${thumb}" alt="${s.nombre}" style="width:100%; height:180px; object-fit:cover; border-radius:12px; border:1px solid rgba(255,255,255,0.1); display:block;" onerror="this.onerror=null; this.src='/assets/images/service-corte-mateo.png';">
+                    <img src="${thumb}" alt="${s.nombre}" style="width:100%; height:180px; object-fit:cover; border-radius:12px; border:1px solid #EAEAEA; display:block;" onerror="this.onerror=null; this.src='/assets/images/service-corte-mateo.png';">
                 </div>
                 ${exclusiveHtml}
-                <h3 style="font-size:1.3rem; font-weight:900; color:#FFFFFF; margin:0 0 8px 0; text-transform:uppercase; letter-spacing:0.4px;">${s.nombre}</h3>
+                <h3 style="font-size:1.3rem; font-weight:900; color:#111111; margin:0 0 8px 0; text-transform:none; letter-spacing:0.2px;">${s.nombre}</h3>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-                    <span style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:6px; font-size:0.82rem; font-weight:700; color:#CCCCCC;">
-                        ⏱️ ${formatDuration(s.duracion_minutos)}
+                    <span style="background:#F3F4F6; border:1px solid #E5E7EB; padding:4px 10px; border-radius:6px; font-size:0.82rem; font-weight:700; color:#4B5563;">
+                        ⏱️ ${formatDuration(s.duracion_minutos || 60)}
                     </span>
-                    <span style="background:rgba(255, 255, 255, 0.12); border:1px solid rgba(255, 255, 255, 0.3); padding:4px 12px; border-radius:6px; font-size:0.95rem; font-weight:900; color:#FFFFFF;">
+                    <span style="background:#111111; border:1px solid #111111; padding:4px 12px; border-radius:6px; font-size:0.95rem; font-weight:900; color:#FFFFFF;">
                         $${parseFloat(s.precio).toFixed(0)}
                     </span>
                 </div>
                 ${descHtml}
                 ${incluyeHtml}
-                <button type="button" onclick="selectFromDetails(${s.id})" style="width:100%; background:#FFFFFF; color:#111111; font-weight:900; font-size:0.9rem; padding:15px; border:none; border-radius:12px; text-transform:uppercase; letter-spacing:0.8px; cursor:pointer; box-shadow:0 6px 25px rgba(255,255,255,0.25); transition:transform 0.15s ease; box-sizing:border-box;">
+                <button type="button" onclick="selectFromDetails(${s.id})" style="width:100%; background:#111111; color:#FFFFFF; font-weight:900; font-size:0.9rem; padding:15px; border:none; border-radius:12px; text-transform:uppercase; letter-spacing:0.8px; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.15); transition:transform 0.15s ease; box-sizing:border-box;">
                     SELECCIONAR SERVICIO ($${parseFloat(s.precio).toFixed(0)}) ➔
                 </button>
             `;
@@ -1560,7 +1560,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             const s = allServicesList.find(item => item.id == serviceId);
             if (!s) return;
             const rowEl = document.querySelector(`.service-list-row[data-service-id="${serviceId}"]`);
-            selectService(s.id, s.nombre, s.precio, s.duracion_minutos || 40, rowEl, s.barbero_id, s.barbero_nombre, s.barberos_ids);
+            selectService(s.id, s.nombre, s.precio, s.duracion_minutos || 60, rowEl, s.barbero_id, s.barbero_nombre, s.barberos_ids);
         }
 
         document.addEventListener('keydown', (e) => {

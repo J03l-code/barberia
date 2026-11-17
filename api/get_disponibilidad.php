@@ -1,5 +1,5 @@
 <?php
-require_once '../config.php';
+require_once __DIR__ . '/../config.php';
 
 header('Content-Type: application/json');
 
@@ -13,7 +13,7 @@ try {
     $pdo = getConnection();
 
     // 1. Obtener duración del servicio
-    $duracion = 40; // Default 40 min
+    $duracion = 60; // Default 60 min (1 hora completa)
     $nombreServicio = 'Servicio';
     $exclusiveBarberId = null;
 
@@ -22,7 +22,7 @@ try {
         $stmtServicio->execute([$servicioId]);
         $servicio = $stmtServicio->fetch(PDO::FETCH_ASSOC);
         if ($servicio) {
-            $duracion = !empty($servicio['duracion_minutos']) ? intval($servicio['duracion_minutos']) : (!empty($servicio['duracion']) ? intval($servicio['duracion']) : 40);
+            $duracion = !empty($servicio['duracion_minutos']) ? intval($servicio['duracion_minutos']) : (!empty($servicio['duracion']) ? intval($servicio['duracion']) : 60);
             $nombreServicio = $servicio['nombre'] ?? 'Servicio';
             $exclusiveBarberId = !empty($servicio['barbero_id']) ? intval($servicio['barbero_id']) : null;
         }
@@ -56,7 +56,20 @@ try {
         exit;
     }
 
+    // Función auxiliar para calcular duración efectiva de un servicio
+    // Servicios <= 30 min -> 30 min
+    // Servicios de 31 a 60 min -> 60 min (hora redonda)
+    // Servicios > 60 min -> múltiplos de 30 min (ej. 90m, 120m)
+    function calcEffectiveDuration($rawMin) {
+        $raw = intval($rawMin);
+        if ($raw <= 0) return 60;
+        if ($raw <= 30) return 30;
+        if ($raw <= 60) return 60;
+        return (int)(ceil($raw / 30) * 30);
+    }
+
     // Función auxiliar para obtener slots de un barbero en una fecha dada
+    // Forzando siempre horas enteras (:00) y medias horas (:30) consecutivas tras citas de 30 min
     function getBarberSlotsForDate($pdo, $bId, $fDate, $srvDuration, $excludeId = 0) {
         $ts = strtotime($fDate);
         $diaSem = date('w', $ts);
@@ -99,19 +112,8 @@ try {
         $startOfDay = strtotime("$fDate " . $hBase['hora_inicio']);
         $endOfDay = strtotime("$fDate " . $hBase['hora_fin']);
 
-        // Si es hoy, filtrar horas pasadas (+30 min margen)
-        if ($fDate === date('Y-m-d')) {
-            $now = time() + (15 * 60);
-            if ($now > $startOfDay) {
-                // Redondear al siguiente múltiplo de 20 o 30 min
-                $minutos = intval(date('i', $now));
-                $bloque = ceil($minutos / 20) * 20;
-                $startOfDay = strtotime(date('Y-m-d H:00:00', $now)) + ($bloque * 60);
-            }
-        }
-
         // Citas del día (con duración obtenida del servicio)
-        $sqlC = "SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 40) as duracion_minutos 
+        $sqlC = "SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 60) as duracion_minutos 
                  FROM citas c 
                  LEFT JOIN servicios s ON c.servicio_id = s.id 
                  WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?";
@@ -124,40 +126,99 @@ try {
         $stmtC->execute($paramsC);
         $citas = $stmtC->fetchAll(PDO::FETCH_ASSOC);
 
+        // Duración efectiva del servicio que se desea agendar
+        $effSrvDuration = calcEffectiveDuration($srvDuration);
+
+        // Calcular intervalos ocupados y puntos de continuidad (:30)
         $ocupados = [];
+        $puntosContinuidad = [];
+
         foreach ($citas as $c) {
             $ini = strtotime($c['fecha_hora']);
-            $dur = intval($c['duracion_minutos']) > 0 ? intval($c['duracion_minutos']) : 40;
-            $ocupados[] = ['inicio' => $ini, 'fin' => $ini + ($dur * 60)];
+            $rawDur = intval($c['duracion_minutos']) > 0 ? intval($c['duracion_minutos']) : 60;
+            $effDur = calcEffectiveDuration($rawDur);
+            $fin = $ini + ($effDur * 60);
+            $ocupados[] = ['inicio' => $ini, 'fin' => $fin];
+
+            // Si finaliza en minuto 30, es candidato para dar continuidad inmediata
+            if (date('i', $fin) === '30') {
+                $puntosContinuidad[] = $fin;
+            }
         }
+
         foreach ($bParciales as $bp) {
             $iniB = strtotime("$fDate " . $bp['hora_inicio']);
             $finB = strtotime("$fDate " . $bp['hora_fin']);
             $ocupados[] = ['inicio' => $iniB, 'fin' => $finB];
+
+            if (date('i', $finB) === '30') {
+                $puntosContinuidad[] = $finB;
+            }
         }
 
+        // Generar candidatos de horarios:
+        // 1. Horas enteras (:00) dentro del horario laboral
+        $candidatos = [];
+        $startHour = intval(date('H', $startOfDay));
+        $endHour = intval(date('H', $endOfDay));
+
+        for ($h = $startHour; $h <= $endHour; $h++) {
+            $slotHourTs = strtotime(sprintf('%s %02d:00:00', $fDate, $h));
+            if ($slotHourTs >= $startOfDay && $slotHourTs < $endOfDay) {
+                $candidatos[] = $slotHourTs;
+            }
+        }
+
+        // Si la jornada formalmente empieza a los 30 minutos (ej. 10:30), agregarla
+        if (date('i', $startOfDay) === '30') {
+            $candidatos[] = $startOfDay;
+        }
+
+        // 2. Horarios de media hora (:30) continuos inmediatos tras fin de servicio o almuerzo
+        foreach ($puntosContinuidad as $pc) {
+            if ($pc >= $startOfDay && $pc < $endOfDay) {
+                $candidatos[] = $pc;
+            }
+        }
+
+        // Eliminar duplicados y ordenar cronológicamente
+        $candidatos = array_unique($candidatos);
+        sort($candidatos);
+
+        // Margen de anticipación mínima para hoy (+15 min)
+        $nowMargin = ($fDate === date('Y-m-d')) ? time() + (15 * 60) : 0;
         $slots = [];
-        $intervalo = 40 * 60; // Slots cada 40 minutos o duración de servicio
-        if ($srvDuration >= 60) $intervalo = 60 * 60;
-        elseif ($srvDuration <= 30) $intervalo = 30 * 60;
 
-        $cur = $startOfDay;
-        while (($cur + ($srvDuration * 60)) <= $endOfDay) {
-            $sIni = $cur;
-            $sFin = $cur + ($srvDuration * 60);
+        foreach ($candidatos as $cur) {
+            // Asegurar estrictamente que no existan minutos extraños (solo :00 o :30)
+            $minuto = date('i', $cur);
+            if ($minuto !== '00' && $minuto !== '30') {
+                continue;
+            }
 
+            // Si es hoy, descartar turnos pasados o con menos de 15 minutos de anticipación
+            if ($fDate === date('Y-m-d') && $cur < $nowMargin) {
+                continue;
+            }
+
+            // El turno con su duración debe terminar dentro del horario laboral
+            $sFin = $cur + ($effSrvDuration * 60);
+            if ($sFin > $endOfDay) {
+                continue;
+            }
+
+            // Comprobar colisión contra turnos y bloqueos ocupados
             $libre = true;
             foreach ($ocupados as $oc) {
-                if ($sIni < $oc['fin'] && $sFin > $oc['inicio']) {
+                if ($cur < $oc['fin'] && $sFin > $oc['inicio']) {
                     $libre = false;
                     break;
                 }
             }
 
             if ($libre) {
-                $slots[] = date('H:i', $sIni);
+                $slots[] = date('H:i', $cur);
             }
-            $cur += $intervalo;
         }
 
         return $slots;

@@ -1,5 +1,5 @@
 <?php
-require_once '../config.php';
+require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth/google-config.php';
 
 header('Content-Type: application/json');
@@ -19,6 +19,15 @@ try {
 
     if (!$servicioId || empty($fecha) || empty($hora)) {
         echo json_encode(['success' => false, 'message' => 'Faltan datos de la reserva (servicio, fecha u hora).']);
+        exit;
+    }
+
+    // Validar formato estricto de hora (solo horas enteras :00 o medias horas :30)
+    if (!preg_match('/^([01]?[0-9]|2[0-3]):(00|30)$/', $hora)) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Horario inválido. Solo se permite agendar en horas enteras (:00) o medias horas (:30).'
+        ]);
         exit;
     }
 
@@ -82,7 +91,9 @@ try {
     }
     $nombreServicio = $servicioData['nombre'];
     $precio = floatval($servicioData['precio']);
-    $duracionServicio = intval($servicioData['duracion_minutos']) > 0 ? intval($servicioData['duracion_minutos']) : 40;
+    $rawDur = intval($servicioData['duracion_minutos']) > 0 ? intval($servicioData['duracion_minutos']) : 60;
+    // Duración efectiva: <=30m -> 30m; 31-60m -> 60m (hora redonda); >60m -> múltiplos de 30m
+    $duracionServicio = ($rawDur <= 30) ? 30 : (($rawDur <= 60) ? 60 : (int)(ceil($rawDur / 30) * 30));
     $exclusiveBarberId = !empty($servicioData['barbero_id']) ? intval($servicioData['barbero_id']) : null;
 
     if ($exclusiveBarberId) {
@@ -90,6 +101,8 @@ try {
     }
 
     $fechaHora = "$fecha $hora:00";
+    $slotStartTs = strtotime($fechaHora);
+    $slotEndTs = $slotStartTs + ($duracionServicio * 60);
 
     // 2. Si es "Cualquier barbero disponible" (barberoId === 0), asignar el barbero libre
     if ($barberoId === 0) {
@@ -98,8 +111,6 @@ try {
         $candidatos = $stmtAllBarbers->fetchAll(PDO::FETCH_ASSOC);
 
         $selectedBarber = null;
-        $slotStartTs = strtotime($fechaHora);
-        $slotEndTs = $slotStartTs + ($duracionServicio * 60);
 
         foreach ($candidatos as $cand) {
             $candId = $cand['id'];
@@ -145,8 +156,8 @@ try {
             }
             if ($hasBlock) continue;
 
-            // Verificar citas ocupadas
-            $stmtC = $pdo->prepare("SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 40) as duracion_minutos 
+            // Verificar citas ocupadas con duración efectiva
+            $stmtC = $pdo->prepare("SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 60) as duracion_minutos 
                                     FROM citas c 
                                     LEFT JOIN servicios s ON c.servicio_id = s.id 
                                     WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?");
@@ -155,7 +166,8 @@ try {
             $hasCitaCol = false;
             foreach ($citas as $c) {
                 $cIni = strtotime($c['fecha_hora']);
-                $cDur = intval($c['duracion_minutos']) > 0 ? intval($c['duracion_minutos']) : 40;
+                $cRaw = intval($c['duracion_minutos']) > 0 ? intval($c['duracion_minutos']) : 60;
+                $cDur = ($cRaw <= 30) ? 30 : (($cRaw <= 60) ? 60 : (int)(ceil($cRaw / 30) * 30));
                 $cFin = $cIni + ($cDur * 60);
                 if ($slotStartTs < $cFin && $slotEndTs > $cIni) { $hasCitaCol = true; break; }
             }
@@ -182,19 +194,67 @@ try {
         }
         $nombreBarbero = $barberoData['nombre'];
 
-        // Verificar citas ocupadas
-        $stmtCcheck = $pdo->prepare("SELECT COUNT(*) FROM citas WHERE barbero_id = ? AND fecha_hora = ? AND estado != 'cancelada'");
-        $stmtCcheck->execute([$barberoId, $fechaHora]);
-        if ($stmtCcheck->fetchColumn() > 0) {
-            throw new Exception('Lo sentimos, este horario acaba de ser ocupado.');
+        // 1. Verificar horario base del barbero
+        $diaSem = date('w', $slotStartTs);
+        $stmtH = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ? AND activo = 1");
+        $stmtH->execute([$barberoId, $diaSem]);
+        $hBase = $stmtH->fetch(PDO::FETCH_ASSOC);
+        if (!$hBase) {
+            $hBase = [
+                'hora_inicio' => '10:00:00',
+                'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
+                'activo' => 1
+            ];
+        }
+        $hStart = strtotime("$fecha " . $hBase['hora_inicio']);
+        $hEnd = strtotime("$fecha " . $hBase['hora_fin']);
+        if ($slotStartTs < $hStart || $slotEndTs > $hEnd) {
+            throw new Exception('El barbero no atiende en ese horario o excede la jornada laboral.');
         }
 
-        // Verificar almuerzo
+        // 2. Verificar día bloqueado
+        $stmtB = $pdo->prepare("SELECT * FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ? AND todo_el_dia = 1");
+        $stmtB->execute([$barberoId, $fecha]);
+        if ($stmtB->fetch()) {
+            throw new Exception('El barbero no labora en la fecha seleccionada.');
+        }
+
+        // 3. Verificar citas ocupadas con duración efectiva completa
+        $stmtCcheck = $pdo->prepare("
+            SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 60) as duracion_minutos 
+            FROM citas c 
+            LEFT JOIN servicios s ON c.servicio_id = s.id 
+            WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?
+        ");
+        $stmtCcheck->execute([$barberoId, $fecha]);
+        $citasExistentes = $stmtCcheck->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($citasExistentes as $ce) {
+            $ceIni = strtotime($ce['fecha_hora']);
+            $ceRaw = intval($ce['duracion_minutos']) > 0 ? intval($ce['duracion_minutos']) : 60;
+            $ceDur = ($ceRaw <= 30) ? 30 : (($ceRaw <= 60) ? 60 : (int)(ceil($ceRaw / 30) * 30));
+            $ceFin = $ceIni + ($ceDur * 60);
+            if ($slotStartTs < $ceFin && $slotEndTs > $ceIni) {
+                throw new Exception('Lo sentimos, este horario acaba de ser ocupado por otra cita.');
+            }
+        }
+
+        // 4. Verificar bloqueos por horas
+        $stmtBH = $pdo->prepare("SELECT * FROM bloqueos_horas WHERE barbero_id = ? AND fecha = ?");
+        $stmtBH->execute([$barberoId, $fecha]);
+        $bhs = $stmtBH->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($bhs as $bh) {
+            $bIni = strtotime("$fecha " . $bh['hora_inicio']);
+            $bFin = strtotime("$fecha " . $bh['hora_fin']);
+            if ($slotStartTs < $bFin && $slotEndTs > $bIni) {
+                throw new Exception('El barbero no se encuentra disponible en este horario (bloqueo programado).');
+            }
+        }
+
+        // 5. Verificar almuerzo
         if (($barberoData['almuerzo_activo'] ?? 1) == 1 && !empty($barberoData['almuerzo_inicio']) && !empty($barberoData['almuerzo_fin'])) {
-            $cSlotStart = strtotime($fechaHora);
             $cLunchStart = strtotime("$fecha " . $barberoData['almuerzo_inicio']);
             $cLunchEnd = strtotime("$fecha " . $barberoData['almuerzo_fin']);
-            if ($cSlotStart >= $cLunchStart && $cSlotStart < $cLunchEnd) {
+            if ($slotStartTs < $cLunchEnd && $slotEndTs > $cLunchStart) {
                 throw new Exception('El barbero se encuentra en su horario de almuerzo a esa hora. Por favor selecciona otro horario.');
             }
         }
