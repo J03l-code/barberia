@@ -122,14 +122,17 @@ try {
         $stmtBH->execute([$bId, $fDate]);
         $bParciales = $stmtBH->fetchAll(PDO::FETCH_ASSOC);
 
-        // Almuerzo fijo (solo si el administrador lo configuró y activó deliberadamente)
+        // Almuerzo fijo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
         $stmtUser = $pdo->prepare("SELECT almuerzo_activo, almuerzo_inicio, almuerzo_fin FROM usuarios WHERE id = ?");
         $stmtUser->execute([$bId]);
         $uData = $stmtUser->fetch(PDO::FETCH_ASSOC);
-        if ($uData && intval($uData['almuerzo_activo'] ?? 0) === 1 && !empty($uData['almuerzo_inicio']) && !empty($uData['almuerzo_fin'])) {
+        $almActivo = !isset($uData['almuerzo_activo']) || intval($uData['almuerzo_activo']) === 1;
+        if ($almActivo) {
+            $almInicio = !empty($uData['almuerzo_inicio']) ? $uData['almuerzo_inicio'] : '13:00:00';
+            $almFin = !empty($uData['almuerzo_fin']) ? $uData['almuerzo_fin'] : '14:00:00';
             $bParciales[] = [
-                'hora_inicio' => $uData['almuerzo_inicio'],
-                'hora_fin' => $uData['almuerzo_fin']
+                'hora_inicio' => $almInicio,
+                'hora_fin' => $almFin
             ];
         }
 

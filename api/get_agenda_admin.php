@@ -255,10 +255,13 @@ try {
                     ];
                 }
 
-                // Registrar Almuerzo (solo si fue activado deliberadamente por el administrador)
-                if (intval($b['almuerzo_activo'] ?? 0) === 1 && !empty($b['almuerzo_inicio']) && !empty($b['almuerzo_fin'])) {
-                    $almStart = strtotime("$fechaLoop " . $b['almuerzo_inicio']);
-                    $almEnd = strtotime("$fechaLoop " . $b['almuerzo_fin']);
+                // Registrar Almuerzo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
+                $almActivo = !isset($b['almuerzo_activo']) || intval($b['almuerzo_activo']) === 1;
+                if ($almActivo) {
+                    $almIni = !empty($b['almuerzo_inicio']) ? $b['almuerzo_inicio'] : '13:00:00';
+                    $almFin = !empty($b['almuerzo_fin']) ? $b['almuerzo_fin'] : '14:00:00';
+                    $almStart = strtotime("$fechaLoop $almIni");
+                    $almEnd = strtotime("$fechaLoop $almFin");
                     $intervalosOcupados[] = [
                         'tipo' => 'almuerzo',
                         'inicio' => $almStart,

@@ -266,10 +266,10 @@ function getConnection()
                     ");
                 } catch (Throwable $e_usuc) {}
 
-                // Sincronización de horarios y desbloqueo de días activos (se ejecuta una vez por sesión):
+                // Sincronización de horarios y almuerzos por defecto:
                 try {
-                    // 1. Desactivar almuerzo automático genérico (13:00-14:00) para no bloquear turnos comerciales sin intención
-                    $pdo->exec("UPDATE usuarios SET almuerzo_activo = 0 WHERE (almuerzo_activo = 1 OR almuerzo_activo IS NULL) AND (almuerzo_inicio = '13:00:00' OR almuerzo_inicio = '13:00') AND (almuerzo_fin = '14:00:00' OR almuerzo_fin = '14:00')");
+                    // 1. Todos los barberos tienen almuerzo de 13:00 a 14:00 por defecto (bloqueado)
+                    $pdo->exec("UPDATE usuarios SET almuerzo_activo = 1, almuerzo_inicio = '13:00:00', almuerzo_fin = '14:00:00' WHERE almuerzo_inicio IS NULL OR almuerzo_fin IS NULL OR almuerzo_activo IS NULL OR almuerzo_activo = 1");
                     
                     // 2. Asegurar que las jornadas activas de los barberos cubran hasta las 20:00 (Lun - Sáb)
                     $pdo->exec("UPDATE horarios_barberos SET hora_fin = '20:00:00' WHERE activo = 1 AND dia_semana != 0 AND hora_fin < '20:00:00'");
@@ -285,7 +285,7 @@ function getConnection()
                         }
                         $pdo->exec("DELETE FROM dias_bloqueados WHERE barbero_id = $jId AND fecha = '2026-11-18'");
                         $pdo->exec("DELETE FROM bloqueos_horas WHERE barbero_id = $jId AND fecha = '2026-11-18'");
-                        $pdo->exec("UPDATE usuarios SET almuerzo_activo = 0 WHERE id = $jId");
+                        $pdo->exec("UPDATE usuarios SET almuerzo_activo = 1, almuerzo_inicio = '13:00:00', almuerzo_fin = '14:00:00' WHERE id = $jId");
                     }
                 } catch (Throwable $e_sync_all) {}
 

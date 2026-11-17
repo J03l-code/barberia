@@ -58,9 +58,12 @@ try {
         $ocupados[] = ['inicio' => date('H:i', $ini), 'fin' => date('H:i', $fin), 'servicio' => $c['servicio'], 'estado' => $c['estado']];
     }
     
-    // Almuerzo (solo si fue activado explícitamente)
-    if ($user && intval($user['almuerzo_activo'] ?? 0) === 1 && !empty($user['almuerzo_inicio']) && !empty($user['almuerzo_fin'])) {
-        $ocupados[] = ['inicio' => $user['almuerzo_inicio'], 'fin' => $user['almuerzo_fin'], 'tipo' => 'almuerzo'];
+    // Almuerzo: Por defecto 13:00 a 14:00 si activo
+    $almActivo = !isset($user['almuerzo_activo']) || intval($user['almuerzo_activo']) === 1;
+    if ($almActivo) {
+        $almIni = !empty($user['almuerzo_inicio']) ? $user['almuerzo_inicio'] : '13:00:00';
+        $almFin = !empty($user['almuerzo_fin']) ? $user['almuerzo_fin'] : '14:00:00';
+        $ocupados[] = ['inicio' => $almIni, 'fin' => $almFin, 'tipo' => 'almuerzo'];
     }
     
     // Bloqueos parciales

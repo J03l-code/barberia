@@ -137,10 +137,13 @@ try {
             $stmtB->execute([$candId, $fecha]);
             if ($stmtB->fetch()) continue;
 
-            // Verificar almuerzo (solo si fue activado deliberadamente)
-            if (intval($cand['almuerzo_activo'] ?? 0) === 1 && !empty($cand['almuerzo_inicio']) && !empty($cand['almuerzo_fin'])) {
-                $lStart = strtotime("$fecha " . $cand['almuerzo_inicio']);
-                $lEnd = strtotime("$fecha " . $cand['almuerzo_fin']);
+            // Verificar almuerzo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
+            $almActivo = !isset($cand['almuerzo_activo']) || intval($cand['almuerzo_activo']) === 1;
+            if ($almActivo) {
+                $almIni = !empty($cand['almuerzo_inicio']) ? $cand['almuerzo_inicio'] : '13:00:00';
+                $almFin = !empty($cand['almuerzo_fin']) ? $cand['almuerzo_fin'] : '14:00:00';
+                $lStart = strtotime("$fecha $almIni");
+                $lEnd = strtotime("$fecha $almFin");
                 if ($slotStartTs < $lEnd && $slotEndTs > $lStart) continue;
             }
 
@@ -268,12 +271,15 @@ try {
             }
         }
 
-        // 5. Verificar almuerzo (solo si fue activado deliberadamente)
-        if (intval($barberoData['almuerzo_activo'] ?? 0) === 1 && !empty($barberoData['almuerzo_inicio']) && !empty($barberoData['almuerzo_fin'])) {
-            $cLunchStart = strtotime("$fecha " . $barberoData['almuerzo_inicio']);
-            $cLunchEnd = strtotime("$fecha " . $barberoData['almuerzo_fin']);
+        // 5. Verificar almuerzo: Por defecto todos los barberos tienen almuerzo de 13:00 a 14:00 (bloqueado)
+        $almActivo = !isset($barberoData['almuerzo_activo']) || intval($barberoData['almuerzo_activo']) === 1;
+        if ($almActivo) {
+            $almIni = !empty($barberoData['almuerzo_inicio']) ? $barberoData['almuerzo_inicio'] : '13:00:00';
+            $almFin = !empty($barberoData['almuerzo_fin']) ? $barberoData['almuerzo_fin'] : '14:00:00';
+            $cLunchStart = strtotime("$fecha $almIni");
+            $cLunchEnd = strtotime("$fecha $almFin");
             if ($slotStartTs < $cLunchEnd && $slotEndTs > $cLunchStart) {
-                throw new Exception('El barbero se encuentra en su horario de almuerzo a esa hora. Por favor selecciona otro horario.');
+                throw new Exception('El barbero se encuentra en su horario de almuerzo (13:00 - 14:00). Por favor selecciona otro horario.');
             }
         }
     }
