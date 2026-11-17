@@ -75,11 +75,21 @@ try {
         $diaSem = date('w', $ts);
 
         // Horario base
-        $stmtH = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ? AND activo = 1");
-        $stmtH->execute([$bId, $diaSem]);
-        $hBase = $stmtH->fetch(PDO::FETCH_ASSOC);
-        if (!$hBase) {
-            // Horario predeterminado KORTZEN (10:00 a 20:00 Lun-Sáb, 10:00 a 17:00 Dom)
+        // Primero verificar si el día existe pero está desactivado (activo = 0)
+        $stmtHCheck = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ?");
+        $stmtHCheck->execute([$bId, $diaSem]);
+        $hCheck = $stmtHCheck->fetch(PDO::FETCH_ASSOC);
+
+        if ($hCheck && intval($hCheck['activo']) === 0) {
+            // El día existe y está DESACTIVADO por el admin → no hay disponibilidad
+            return [];
+        }
+
+        // Si el día está activo, usarlo; si no existe registro, usar horario predeterminado
+        if ($hCheck && intval($hCheck['activo']) === 1) {
+            $hBase = $hCheck;
+        } else {
+            // No hay registro para este día → horario predeterminado KORTZEN
             $hBase = [
                 'hora_inicio' => '10:00:00',
                 'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',

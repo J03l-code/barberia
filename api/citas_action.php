@@ -184,6 +184,22 @@ try {
 
             $fecha_hora = $fecha . ' ' . $hora . ':00';
 
+            // Validar que el barbero no tenga el día desactivado en sus horarios
+            $diaSemCita = date('w', strtotime($fecha));
+            $stmtHorDia = $pdo->prepare("SELECT activo FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ?");
+            $stmtHorDia->execute([$barbero_id, $diaSemCita]);
+            $horDia = $stmtHorDia->fetch(PDO::FETCH_ASSOC);
+            if ($horDia && intval($horDia['activo']) === 0) {
+                throw new Exception('El barbero no trabaja este día. Selecciona otro día u otro barbero.');
+            }
+
+            // Validar que el día no esté bloqueado completo
+            $stmtBloqDia = $pdo->prepare("SELECT id FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ? AND todo_el_dia = 1");
+            $stmtBloqDia->execute([$barbero_id, $fecha]);
+            if ($stmtBloqDia->fetch()) {
+                throw new Exception('El barbero tiene este día bloqueado. Selecciona otro día u otro barbero.');
+            }
+
             $sql = "INSERT INTO citas (cliente_id, servicio_id, barbero_id, sucursal_id, fecha_hora, estado, notas) 
                     VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
