@@ -194,18 +194,36 @@ try {
         }
         $nombreBarbero = $barberoData['nombre'];
 
+        // Verificar si tiene citas activas en esta fecha
+        $stmtCitasCount = $pdo->prepare("SELECT COUNT(*) FROM citas WHERE barbero_id = ? AND DATE(fecha_hora) = ? AND estado NOT IN ('cancelada', 'no_asistio')");
+        $stmtCitasCount->execute([$barberoId, $fecha]);
+        $hasCitasOnDate = intval($stmtCitasCount->fetchColumn() ?? 0) > 0;
+
         // 1. Verificar horario base del barbero
         $diaSem = date('w', $slotStartTs);
-        $stmtH = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ? AND activo = 1");
+        $stmtH = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ?");
         $stmtH->execute([$barberoId, $diaSem]);
         $hBase = $stmtH->fetch(PDO::FETCH_ASSOC);
-        if (!$hBase) {
+
+        if ($hBase && intval($hBase['activo']) === 0 && !$hasCitasOnDate) {
+            throw new Exception('El barbero no atiende en el día seleccionado.');
+        }
+
+        if ($hBase && intval($hBase['activo']) === 1) {
+            if ($diaSem != 0 && strtotime("$fecha " . $hBase['hora_fin']) < strtotime("$fecha 20:00:00")) {
+                $hBase['hora_fin'] = '20:00:00';
+            }
+            if ($hasCitasOnDate && strtotime("$fecha " . $hBase['hora_inicio']) > strtotime("$fecha 11:00:00")) {
+                $hBase['hora_inicio'] = '11:00:00';
+            }
+        } else {
             $hBase = [
-                'hora_inicio' => '10:00:00',
+                'hora_inicio' => ($diaSem == 0) ? '10:00:00' : '11:00:00',
                 'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
                 'activo' => 1
             ];
         }
+
         $hStart = strtotime("$fecha " . $hBase['hora_inicio']);
         $hEnd = strtotime("$fecha " . $hBase['hora_fin']);
         if ($slotStartTs < $hStart || $slotEndTs > $hEnd) {
@@ -215,7 +233,7 @@ try {
         // 2. Verificar día bloqueado
         $stmtB = $pdo->prepare("SELECT * FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ? AND todo_el_dia = 1");
         $stmtB->execute([$barberoId, $fecha]);
-        if ($stmtB->fetch()) {
+        if ($stmtB->fetch() && !$hasCitasOnDate) {
             throw new Exception('El barbero no labora en la fecha seleccionada.');
         }
 

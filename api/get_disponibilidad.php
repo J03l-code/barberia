@@ -74,34 +74,48 @@ try {
         $ts = strtotime($fDate);
         $diaSem = date('w', $ts);
 
-        // Horario base
-        // Primero verificar si el día existe pero está desactivado (activo = 0)
+        // 1. Verificar si el barbero ya tiene citas agendadas en esta fecha (si tiene citas, claramente labora ese día)
+        $stmtCitasCount = $pdo->prepare("SELECT COUNT(*) FROM citas WHERE barbero_id = ? AND DATE(fecha_hora) = ? AND estado NOT IN ('cancelada', 'no_asistio')");
+        $stmtCitasCount->execute([$bId, $fDate]);
+        $hasCitasOnDate = intval($stmtCitasCount->fetchColumn() ?? 0) > 0;
+
+        // 2. Horario base semanal
         $stmtHCheck = $pdo->prepare("SELECT * FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ?");
         $stmtHCheck->execute([$bId, $diaSem]);
         $hCheck = $stmtHCheck->fetch(PDO::FETCH_ASSOC);
 
-        if ($hCheck && intval($hCheck['activo']) === 0) {
-            // El día existe y está DESACTIVADO por el admin → no hay disponibilidad
+        // Si el día está desactivado en la agenda semanal Y NO tiene citas confirmadas para hoy -> día libre
+        if ($hCheck && intval($hCheck['activo']) === 0 && !$hasCitasOnDate) {
             return [];
         }
 
-        // Si el día está activo, usarlo; si no existe registro, usar horario predeterminado
+        // 3. Día bloqueado completo (solo si no tiene citas confirmadas agendadas)
+        $stmtB = $pdo->prepare("SELECT * FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ?");
+        $stmtB->execute([$bId, $fDate]);
+        $bloq = $stmtB->fetch(PDO::FETCH_ASSOC);
+        if ($bloq && !empty($bloq['todo_el_dia']) && !$hasCitasOnDate) {
+            return [];
+        }
+
+        // 4. Definir horario base (asegurando cobertura completa de la jornada)
         if ($hCheck && intval($hCheck['activo']) === 1) {
             $hBase = $hCheck;
+            // Asegurar que la jornada cubra hasta las 20:00 de Lunes a Sábado
+            if ($diaSem != 0 && strtotime("$fDate " . $hBase['hora_fin']) < strtotime("$fDate 20:00:00")) {
+                $hBase['hora_fin'] = '20:00:00';
+            }
+            // Asegurar que comience a las 11:00 o antes si hay citas
+            if ($hasCitasOnDate && strtotime("$fDate " . $hBase['hora_inicio']) > strtotime("$fDate 11:00:00")) {
+                $hBase['hora_inicio'] = '11:00:00';
+            }
         } else {
-            // No hay registro para este día → horario predeterminado KORTZEN
+            // Horario predeterminado KORTZEN (11:00 a 20:00 Lun-Sáb, 10:00 a 17:00 Dom)
             $hBase = [
-                'hora_inicio' => '10:00:00',
+                'hora_inicio' => ($diaSem == 0) ? '10:00:00' : '11:00:00',
                 'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
                 'activo' => 1
             ];
         }
-
-        // Día bloqueado completo
-        $stmtB = $pdo->prepare("SELECT * FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ?");
-        $stmtB->execute([$bId, $fDate]);
-        $bloq = $stmtB->fetch(PDO::FETCH_ASSOC);
-        if ($bloq && !empty($bloq['todo_el_dia'])) return [];
 
         // Bloqueos parciales
         $stmtBH = $pdo->prepare("SELECT * FROM bloqueos_horas WHERE barbero_id = ? AND fecha = ?");

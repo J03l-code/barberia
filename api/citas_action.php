@@ -184,19 +184,24 @@ try {
 
             $fecha_hora = $fecha . ' ' . $hora . ':00';
 
-            // Validar que el barbero no tenga el día desactivado en sus horarios
+            // Validar si el barbero ya tiene citas activas en esta fecha
             $diaSemCita = date('w', strtotime($fecha));
+            $stmtCitasCount = $pdo->prepare("SELECT COUNT(*) FROM citas WHERE barbero_id = ? AND DATE(fecha_hora) = ? AND estado NOT IN ('cancelada', 'no_asistio')");
+            $stmtCitasCount->execute([$barbero_id, $fecha]);
+            $hasCitasOnDate = intval($stmtCitasCount->fetchColumn() ?? 0) > 0;
+
+            // Validar que el barbero no tenga el día desactivado en sus horarios (a menos que tenga citas)
             $stmtHorDia = $pdo->prepare("SELECT activo FROM horarios_barberos WHERE barbero_id = ? AND dia_semana = ?");
             $stmtHorDia->execute([$barbero_id, $diaSemCita]);
             $horDia = $stmtHorDia->fetch(PDO::FETCH_ASSOC);
-            if ($horDia && intval($horDia['activo']) === 0) {
+            if ($horDia && intval($horDia['activo']) === 0 && !$hasCitasOnDate) {
                 throw new Exception('El barbero no trabaja este día. Selecciona otro día u otro barbero.');
             }
 
             // Validar que el día no esté bloqueado completo
             $stmtBloqDia = $pdo->prepare("SELECT id FROM dias_bloqueados WHERE barbero_id = ? AND fecha = ? AND todo_el_dia = 1");
             $stmtBloqDia->execute([$barbero_id, $fecha]);
-            if ($stmtBloqDia->fetch()) {
+            if ($stmtBloqDia->fetch() && !$hasCitasOnDate) {
                 throw new Exception('El barbero tiene este día bloqueado. Selecciona otro día u otro barbero.');
             }
 

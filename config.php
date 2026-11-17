@@ -266,21 +266,28 @@ function getConnection()
                     ");
                 } catch (Throwable $e_usuc) {}
 
-                // Optimización de horarios de barberos y disponibilidad máxima:
-                // 1. Desactivar almuerzo automático genérico (13:00-14:00) para no bloquear turnos comerciales sin intención
+                // Sincronización de horarios y desbloqueo de días activos (se ejecuta una vez por sesión):
                 try {
+                    // 1. Desactivar almuerzo automático genérico (13:00-14:00) para no bloquear turnos comerciales sin intención
                     $pdo->exec("UPDATE usuarios SET almuerzo_activo = 0 WHERE (almuerzo_activo = 1 OR almuerzo_activo IS NULL) AND (almuerzo_inicio = '13:00:00' OR almuerzo_inicio = '13:00') AND (almuerzo_fin = '14:00:00' OR almuerzo_fin = '14:00')");
-                } catch (Throwable $e_alm_fix) {}
-
-                // 2. Asegurar que las jornadas activas de los barberos cubran hasta las 20:00 (Lun - Sáb)
-                try {
+                    
+                    // 2. Asegurar que las jornadas activas de los barberos cubran hasta las 20:00 (Lun - Sáb)
                     $pdo->exec("UPDATE horarios_barberos SET hora_fin = '20:00:00' WHERE activo = 1 AND dia_semana != 0 AND hora_fin < '20:00:00'");
-                } catch (Throwable $e_hfin_fix) {}
-
-                // 3. Asegurar jornada de Jeffrey Herrera desde las 11:00 hasta las 20:00 en sus días activos
-                try {
-                    $pdo->exec("UPDATE horarios_barberos SET hora_inicio = '11:00:00' WHERE activo = 1 AND hora_inicio > '11:00:00' AND barbero_id IN (SELECT id FROM usuarios WHERE nombre LIKE '%Jeffrey%')");
-                } catch (Throwable $e_jeff_fix) {}
+                    
+                    // 3. Configurar y asegurar jornada completa de Jeffrey Herrera (Lun-Sáb 11:00 a 20:00)
+                    $stmtJId = $pdo->query("SELECT id FROM usuarios WHERE nombre LIKE '%Jeffrey%' LIMIT 1");
+                    $jId = $stmtJId ? intval($stmtJId->fetchColumn()) : 0;
+                    if ($jId > 0) {
+                        for ($d = 1; $d <= 6; $d++) {
+                            $pdo->exec("INSERT INTO horarios_barberos (barbero_id, dia_semana, hora_inicio, hora_fin, activo) 
+                                        VALUES ($jId, $d, '11:00:00', '20:00:00', 1) 
+                                        ON DUPLICATE KEY UPDATE activo = 1, hora_inicio = '11:00:00', hora_fin = '20:00:00'");
+                        }
+                        $pdo->exec("DELETE FROM dias_bloqueados WHERE barbero_id = $jId AND fecha = '2026-11-18'");
+                        $pdo->exec("DELETE FROM bloqueos_horas WHERE barbero_id = $jId AND fecha = '2026-11-18'");
+                        $pdo->exec("UPDATE usuarios SET almuerzo_activo = 0 WHERE id = $jId");
+                    }
+                } catch (Throwable $e_sync_all) {}
 
                 try {
                     $pdo->exec("
