@@ -1247,6 +1247,97 @@ function formatPhoneDisplay($phone)
 }
 
 /**
+ * Valida de forma estricta que un número sea un celular real y válido de Ecuador (09XXXXXXXX)
+ * @param string $phone
+ * @return array ['valid' => bool, 'clean' => string, 'formatted' => string, 'whatsapp' => string, 'error' => string|null]
+ */
+function validateEcuadorianMobile($phone)
+{
+    $raw = preg_replace('/[^0-9]/', '', (string)$phone);
+    if (empty($raw)) {
+        return ['valid' => false, 'clean' => '', 'formatted' => '', 'whatsapp' => '', 'error' => 'El número de celular no puede estar vacío.'];
+    }
+
+    $clean = $raw;
+    // Normalizaciones de prefijo 593 / 00593 / 5930
+    if (strpos($clean, '00593') === 0) {
+        $clean = substr($clean, 5);
+    } elseif (strpos($clean, '5930') === 0 && strlen($clean) >= 12) {
+        $clean = '0' . substr($clean, 4);
+    } elseif (strpos($clean, '593') === 0 && strlen($clean) >= 11) {
+        $clean = '0' . substr($clean, 3);
+    } elseif (strpos($clean, '9') === 0 && strlen($clean) === 9) {
+        $clean = '0' . $clean;
+    }
+
+    // 1. Debe tener exactamente 10 dígitos
+    if (strlen($clean) !== 10) {
+        return [
+            'valid' => false,
+            'clean' => $clean,
+            'formatted' => $clean,
+            'whatsapp' => '',
+            'error' => 'El número debe tener exactamente 10 dígitos (ej: 0991234567).'
+        ];
+    }
+
+    // 2. Debe empezar obligatoriamente con 09
+    if (substr($clean, 0, 2) !== '09') {
+        return [
+            'valid' => false,
+            'clean' => $clean,
+            'formatted' => $clean,
+            'whatsapp' => '',
+            'error' => 'El celular debe comenzar con 09 (ej: 098..., 099..., 096...).'
+        ];
+    }
+
+    // 3. El tercer dígito debe corresponder a prefijos móviles vigentes en Ecuador (092 a 099)
+    $tercer = intval(substr($clean, 2, 1));
+    if ($tercer < 2) {
+        return [
+            'valid' => false,
+            'clean' => $clean,
+            'formatted' => $clean,
+            'whatsapp' => '',
+            'error' => 'El código de operadora no es válido. Debe iniciar con 098, 099, 097, 096, etc.'
+        ];
+    }
+
+    // 4. Rechazar números con dígitos restantes idénticos (ej: 0999999999, 0988888888, 0900000000, 0911111111)
+    $resto = substr($clean, 2);
+    if (preg_match('/^(\d)\1{7}$/', $resto)) {
+        return [
+            'valid' => false,
+            'clean' => $clean,
+            'formatted' => $clean,
+            'whatsapp' => '',
+            'error' => 'Por favor ingresa un número de teléfono real y activo.'
+        ];
+    }
+
+    // 5. Rechazar secuencias falsas comunes
+    $secuenciasInvalidas = ['0912345678', '0987654321', '0901234567', '0923456789'];
+    if (in_array($clean, $secuenciasInvalidas, true)) {
+        return [
+            'valid' => false,
+            'clean' => $clean,
+            'formatted' => $clean,
+            'whatsapp' => '',
+            'error' => 'Por favor ingresa un número de teléfono real y activo.'
+        ];
+    }
+
+    return [
+        'valid' => true,
+        'clean' => $clean,
+        'formatted' => substr($clean, 0, 3) . ' ' . substr($clean, 3, 3) . ' ' . substr($clean, 6, 4),
+        'whatsapp' => '593' . substr($clean, 1),
+        'error' => null
+    ];
+}
+
+/**
  * Verificación y disparo automático asíncrono de recordatorios de citas 2h antes
  * Se ejecuta de fondo máximo 1 vez cada 60 segundos por sesión.
  */

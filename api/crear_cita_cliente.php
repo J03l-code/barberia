@@ -31,17 +31,26 @@ try {
         exit;
     }
 
-    // 0. Identificar o Registrar al Cliente
+    // 0. Validación estricta del número de celular (Ecuador 10 dígitos 09XXXXXXXX)
+    $telAValidar = !empty($telefono) ? $telefono : (isClienteLoggedIn() ? (getCurrentCliente()['telefono'] ?? '') : '');
+    $telCheck = validateEcuadorianMobile($telAValidar);
+    if (!$telCheck['valid']) {
+        echo json_encode([
+            'success' => false,
+            'message' => $telCheck['error'] ?? 'Por favor ingresa un número de celular de Ecuador válido (10 dígitos comenzando con 09, ej: 0991234567).'
+        ]);
+        exit;
+    }
+    // Guardar normalizado a formato estándar nacional 09XXXXXXXX
+    $telefono = $telCheck['clean'];
+
+    // Identificar o Registrar al Cliente
     if (isClienteLoggedIn()) {
         $cliente = getCurrentCliente();
         $clienteId = $cliente['id'];
-        if (empty($telefono) && !empty($cliente['telefono'])) {
-            $telefono = $cliente['telefono'];
-        } elseif (!empty($telefono)) {
-            // Actualizar teléfono del cliente en su perfil para futuras citas
-            $stmtUpdTel = $pdo->prepare("UPDATE clientes SET telefono = ? WHERE id = ?");
-            $stmtUpdTel->execute([$telefono, $clienteId]);
-        }
+        // Actualizar teléfono del cliente en su perfil para futuras citas
+        $stmtUpdTel = $pdo->prepare("UPDATE clientes SET telefono = ? WHERE id = ?");
+        $stmtUpdTel->execute([$telefono, $clienteId]);
         if (empty($nombreCliente)) {
             $nombreCliente = $cliente['nombre'];
         }

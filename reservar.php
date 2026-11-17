@@ -1034,10 +1034,20 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom:6px; color:#111111; font-size: 0.88rem; font-weight:800;">WhatsApp / Celular (+593) *</label>
-                    <input type="tel" id="clientPhone" placeholder="0991234567" value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>" autofocus
-                        style="width: 100%; padding: 13px; background: #FAF9F6; border: 1.5px solid #111111; color: #111111; border-radius: 10px; font-weight: 800; font-size: 1.05rem; box-sizing: border-box;">
-                    <small style="color: #777777; font-size: 0.76rem; margin-top: 4px; display: block;">* Te enviaremos el recordatorio de tu cita a este número.</small>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <label style="color:#111111; font-size: 0.88rem; font-weight:800; margin:0;">WhatsApp / Celular (Ecuador) *</label>
+                        <span style="font-size: 0.72rem; color: #64748B; font-weight: 700;">10 dígitos (09XXXXXXXX)</span>
+                    </div>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <span style="position: absolute; left: 14px; display: flex; align-items: center; gap: 5px; font-weight: 800; font-size: 0.92rem; color: #111111; pointer-events: none; z-index: 2; user-select: none;">
+                            <span style="font-size: 1.15rem; line-height: 1;">🇪🇨</span> +593
+                        </span>
+                        <input type="tel" id="clientPhone" placeholder="099 123 4567" maxlength="12" autocomplete="tel"
+                            value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>" autofocus
+                            style="width: 100%; padding: 13px 14px 13px 92px; background: #FAF9F6; border: 1.5px solid #111111; color: #111111; border-radius: 10px; font-weight: 800; font-size: 1.05rem; box-sizing: border-box; letter-spacing: 0.04em; transition: border-color 0.2s, box-shadow 0.2s;">
+                    </div>
+                    <div id="phoneValidationStatus" style="font-size: 0.78rem; font-weight: 700; margin-top: 5px; display: none;"></div>
+                    <small style="color: #777777; font-size: 0.76rem; margin-top: 4px; display: block;">* Te enviaremos el recordatorio de tu cita a este número por WhatsApp.</small>
                 </div>
 
                 <div style="margin-bottom: 20px;">
@@ -1211,6 +1221,99 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             window.location.href = 'api/auth/google-login.php?redirect=booking_step4';
         }
 
+        function validateEcuadorPhone(raw) {
+            if (!raw) return { valid: false, clean: '', formatted: '', message: 'El número de celular es requerido.' };
+            let clean = raw.toString().replace(/[^0-9]/g, '');
+
+            // Normalización prefijos 593 / 00593 / 5930
+            if (clean.indexOf('00593') === 0) clean = clean.substring(5);
+            else if (clean.indexOf('5930') === 0 && clean.length >= 12) clean = '0' + clean.substring(4);
+            else if (clean.indexOf('593') === 0 && clean.length >= 11) clean = '0' + clean.substring(3);
+            else if (clean.indexOf('9') === 0 && clean.length === 9) clean = '0' + clean;
+
+            if (clean.length < 10) {
+                return { valid: false, clean, formatted: clean, message: `Faltan ${10 - clean.length} dígitos (ej: 099 123 4567).` };
+            }
+            if (clean.length > 10) {
+                return { valid: false, clean, formatted: clean, message: 'El número no debe superar 10 dígitos.' };
+            }
+            if (!clean.startsWith('09')) {
+                return { valid: false, clean, formatted: clean, message: 'Debe ser un celular que empiece con 09 (ej: 098, 099, 096...).' };
+            }
+            const third = parseInt(clean.charAt(2), 10);
+            if (third < 2) {
+                return { valid: false, clean, formatted: clean, message: 'Código de operadora celular no válido (debe ser 092 a 099).' };
+            }
+            // Rechazar repetitivos (ej: 0999999999, 0988888888, 0900000000)
+            const rest = clean.substring(2);
+            if (/^(\d)\1{7}$/.test(rest)) {
+                return { valid: false, clean, formatted: clean, message: 'Por favor ingresa un número de celular real y activo.' };
+            }
+            // Rechazar secuencias falsas comunes
+            const fakePatterns = ['0912345678', '0987654321', '0901234567', '0923456789'];
+            if (fakePatterns.includes(clean)) {
+                return { valid: false, clean, formatted: clean, message: 'Por favor ingresa un número de celular real y activo.' };
+            }
+
+            const formatted = `${clean.substring(0, 3)} ${clean.substring(3, 6)} ${clean.substring(6, 10)}`;
+            return { valid: true, clean, formatted, message: '✓ Celular válido (+593)' };
+        }
+
+        function handlePhoneInputFormat(inputEl) {
+            if (!inputEl) return;
+            const feedbackEl = document.getElementById('phoneValidationStatus');
+            let raw = inputEl.value;
+            let digits = raw.replace(/[^0-9]/g, '');
+
+            if (digits.startsWith('593') && digits.length > 3) {
+                digits = '0' + digits.substring(3);
+            } else if (digits.startsWith('9') && digits.length >= 1 && digits.length <= 9) {
+                digits = '0' + digits;
+            }
+
+            if (digits.length > 10) digits = digits.substring(0, 10);
+
+            let formatted = digits;
+            if (digits.length > 6) {
+                formatted = `${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}`;
+            } else if (digits.length > 3) {
+                formatted = `${digits.substring(0, 3)} ${digits.substring(3)}`;
+            }
+
+            inputEl.value = formatted;
+            const res = validateEcuadorPhone(digits);
+
+            if (feedbackEl) {
+                if (digits.length === 0) {
+                    feedbackEl.style.display = 'none';
+                    inputEl.style.borderColor = '#111111';
+                    inputEl.style.boxShadow = 'none';
+                } else if (res.valid) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#16a34a';
+                    feedbackEl.innerHTML = '✓ Celular de Ecuador verificado (+593)';
+                    inputEl.style.borderColor = '#16a34a';
+                    inputEl.style.boxShadow = '0 0 0 3px rgba(22, 163, 74, 0.12)';
+                } else {
+                    feedbackEl.style.display = 'block';
+                    if (digits.length < 10) {
+                        feedbackEl.style.color = '#D97706';
+                        feedbackEl.innerHTML = `⚠️ ${res.message}`;
+                        inputEl.style.borderColor = '#F59E0B';
+                        inputEl.style.boxShadow = 'none';
+                    } else {
+                        feedbackEl.style.color = '#DC2626';
+                        feedbackEl.innerHTML = `❌ ${res.message}`;
+                        inputEl.style.borderColor = '#DC2626';
+                        inputEl.style.boxShadow = '0 0 0 3px rgba(220, 38, 38, 0.12)';
+                    }
+                }
+            }
+
+            bookingData.phone = res.valid ? res.clean : digits;
+            updateNavButtons();
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const branchId = localStorage.getItem('kortzen_selected_branch') || 1;
 
@@ -1330,9 +1433,15 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             const emailInput = document.getElementById('clientEmail');
 
             if (phoneInput) {
-                phoneInput.addEventListener('input', (e) => {
-                    bookingData.phone = e.target.value.trim();
-                    updateNavButtons();
+                // Formatear y validar si ya viene un valor precargado de Google/perfil
+                if (phoneInput.value) {
+                    handlePhoneInputFormat(phoneInput);
+                }
+                phoneInput.addEventListener('input', () => {
+                    handlePhoneInputFormat(phoneInput);
+                });
+                phoneInput.addEventListener('blur', () => {
+                    handlePhoneInputFormat(phoneInput);
                 });
             }
             if (nameInput) {
@@ -1973,7 +2082,8 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                     next.classList.remove('hidden');
                     const phone = document.getElementById('clientPhone') ? document.getElementById('clientPhone').value.trim() : '';
                     const name = document.getElementById('clientName') ? document.getElementById('clientName').value.trim() : '';
-                    if (phone.length >= 7 && name.length >= 2) canNext = true;
+                    const phoneCheck = validateEcuadorPhone(phone);
+                    if (phoneCheck.valid && name.length >= 2) canNext = true;
                 }
             }
 
@@ -2033,21 +2143,25 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         loginWithGoogleFromStep4();
                         return;
                     }
-                    const phone = document.getElementById('clientPhone') ? document.getElementById('clientPhone').value.trim() : '';
+                    const phoneInputEl = document.getElementById('clientPhone');
+                    const phone = phoneInputEl ? phoneInputEl.value.trim() : '';
                     const name = document.getElementById('clientName') ? document.getElementById('clientName').value.trim() : '';
                     const email = document.getElementById('clientEmail') ? document.getElementById('clientEmail').value.trim() : '';
                     if (!name || name.length < 2) {
                         alert('Por favor ingresa tu nombre completo.');
                         return;
                     }
-                    if (!phone || phone.length < 7) {
-                        alert('Por favor ingresa un número de teléfono/WhatsApp válido (+593).');
-                        const pInput = document.getElementById('clientPhone');
-                        if (pInput) pInput.focus();
+                    const phoneCheck = validateEcuadorPhone(phone);
+                    if (!phoneCheck.valid) {
+                        alert(phoneCheck.message || 'Por favor ingresa un número de celular de Ecuador válido (10 dígitos comenzando con 09, ej: 0991234567).');
+                        if (phoneInputEl) {
+                            phoneInputEl.focus();
+                            phoneInputEl.style.borderColor = '#DC2626';
+                        }
                         return;
                     }
                     bookingData.name = name;
-                    bookingData.phone = phone;
+                    bookingData.phone = phoneCheck.clean;
                     bookingData.email = email;
                 }
 
@@ -2058,6 +2172,18 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         // --- Final Booking Submission ---
         document.getElementById('btnConfirmBooking').addEventListener('click', async () => {
+            const rawPhone = bookingData.phone || (document.getElementById('clientPhone') ? document.getElementById('clientPhone').value.trim() : '');
+            const phoneCheck = validateEcuadorPhone(rawPhone);
+            if (!phoneCheck.valid) {
+                alert(phoneCheck.message || 'Por favor ingresa un número de celular de Ecuador válido (10 dígitos comenzando con 09, ej: 0991234567).');
+                const pInput = document.getElementById('clientPhone');
+                if (pInput) {
+                    pInput.focus();
+                    pInput.style.borderColor = '#DC2626';
+                }
+                return;
+            }
+
             const btn = document.getElementById('btnConfirmBooking');
             btn.disabled = true;
             btn.textContent = "Confirmando tu cita...";
@@ -2071,7 +2197,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 formData.append('fecha', bookingData.date);
                 formData.append('hora', bookingData.time);
                 formData.append('nombre', bookingData.name || document.getElementById('clientName').value.trim());
-                formData.append('telefono', bookingData.phone || document.getElementById('clientPhone').value.trim());
+                formData.append('telefono', phoneCheck.clean);
                 formData.append('email', bookingData.email || document.getElementById('clientEmail').value.trim());
                 
                 if (referralCodeApplied && referralCodeApplied.trim() !== '') {
