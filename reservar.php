@@ -41,10 +41,10 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             touch-action: manipulation;
         }
 
-        /* FLATPICKR LUXURY CLEAN DARK THEME OVERRIDES WITH PERFECT 7-COLUMN RESPONSIVE LAYOUT */
+        /* FLATPICKR LUXURY CLEAN MONOCHROME THEME OVERRIDES WITH PERFECT 7-COLUMN RESPONSIVE LAYOUT */
         .flatpickr-calendar {
             background: #141416 !important;
-            border: 2px solid #C0A062 !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.2) !important;
             box-shadow: 0 15px 45px rgba(0, 0, 0, 0.95) !important;
             border-radius: 16px !important;
             padding: 12px 10px !important;
@@ -98,7 +98,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         }
         span.flatpickr-weekday {
             background: #141416 !important;
-            color: #C0A062 !important;
+            color: #CCCCCC !important;
             font-weight: 800 !important;
             font-size: 0.82rem !important;
             width: 14.28% !important;
@@ -121,25 +121,25 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             color: #FFFFFF !important;
             font-weight: 800 !important;
             background: #1E1E22 !important;
-            border: 1px solid rgba(192, 160, 98, 0.45) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
             border-radius: 50% !important;
             transition: all 0.2s ease !important;
         }
         .flatpickr-day:not(.disabled):not(.prevMonthDay):not(.nextMonthDay):hover {
-            background: #C0A062 !important;
+            background: #FFFFFF !important;
             color: #000000 !important;
-            border-color: #C0A062 !important;
+            border-color: #FFFFFF !important;
             transform: scale(1.1) !important;
         }
 
         /* 2. DIA SELECCIONADO */
         .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, .flatpickr-day.selected.inRange, .flatpickr-day.selected:focus, .flatpickr-day.selected:hover {
-            background: #C0A062 !important;
+            background: #FFFFFF !important;
             border: 2px solid #FFFFFF !important;
             color: #000000 !important;
             font-weight: 800 !important;
             border-radius: 50% !important;
-            box-shadow: 0 0 15px rgba(192, 160, 98, 0.8) !important;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6) !important;
             transform: scale(1.1) !important;
         }
 
@@ -155,15 +155,16 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         }
 
         .flatpickr-day.today {
-            border: 2px solid #C0A062 !important;
+            border: 2px solid rgba(255, 255, 255, 0.5) !important;
         }
         .flatpickr-months .flatpickr-prev-month, .flatpickr-months .flatpickr-next-month {
-            color: #C0A062 !important;
-            fill: #C0A062 !important;
+            color: #FFFFFF !important;
+            fill: #FFFFFF !important;
         }
 
         :root {
-            --gold: #C0A062;
+            --gold: #FFFFFF;
+            --accent-gray: #A3A3A3;
             --dark-bg: #050505;
             --card-bg: #111111;
             --text-primary: #F5F5F5;
@@ -195,7 +196,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         .booking-title {
             font-size: 2rem;
-            color: var(--gold);
+            color: #FFFFFF;
             margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -244,15 +245,15 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         .step-dot.active {
             background: #000000 !important;
             color: #FFFFFF !important;
-            border: 3px solid #C0A062 !important;
-            box-shadow: 0 0 15px rgba(192, 160, 98, 0.7), inset 0 0 5px rgba(192, 160, 98, 0.4);
+            border: 3px solid #FFFFFF !important;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6), inset 0 0 5px rgba(255, 255, 255, 0.3);
             transform: scale(1.15);
         }
 
         .step-dot.completed {
-            background: #C0A062 !important;
+            background: #FFFFFF !important;
             color: #000000 !important;
-            border: 2px solid #C0A062 !important;
+            border: 2px solid #FFFFFF !important;
             font-weight: 800;
         }
 
@@ -296,7 +297,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             margin: 16px 2px 8px 2px;
             font-size: 0.82rem;
             font-weight: 800;
-            color: var(--gold);
+            color: #FFFFFF;
             text-transform: uppercase;
             letter-spacing: 1.2px;
         }
@@ -339,16 +340,16 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         }
 
         .service-list-row:active {
-            background: rgba(192, 160, 98, 0.08);
+            background: rgba(255, 255, 255, 0.08);
         }
 
         .service-list-row.selected {
-            background: rgba(192, 160, 98, 0.14) !important;
-            border-left: 3.5px solid var(--gold) !important;
+            background: rgba(255, 255, 255, 0.12) !important;
+            border-left: 3.5px solid #FFFFFF !important;
         }
 
         .service-list-row.selected .service-chevron-icon {
-            color: var(--gold);
+            color: #FFFFFF;
             transform: translateX(2px);
         }
 
@@ -396,9 +397,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         .service-exclusive-pill {
             font-size: 0.66rem;
             font-weight: 800;
-            background: rgba(192, 160, 98, 0.18);
-            color: var(--gold);
-            border: 1px solid rgba(192, 160, 98, 0.35);
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+            border: 1px solid rgba(255, 255, 255, 0.25);
             padding: 1px 6px;
             border-radius: 4px;
             text-transform: uppercase;
@@ -443,7 +444,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         .service-row-meta .details-btn:hover,
         .service-row-meta .details-btn:active {
-            color: var(--gold);
+            color: #FFFFFF;
         }
 
         .service-row-meta .price-val {
@@ -490,7 +491,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         .service-details-drawer {
             background: #141417;
-            border: 1px solid rgba(192, 160, 98, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 20px 20px 0 0;
             width: 100%;
             max-width: 480px;
@@ -615,16 +616,16 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         .price {
             display: block;
             margin-top: 12px;
-            font-weight: bold;
-            color: var(--gold);
+            font-weight: 800;
+            color: #FFFFFF;
             font-size: 1.15rem;
         }
 
         /* Any Barber Card */
         .any-barber-card {
             grid-column: 1 / -1;
-            background: linear-gradient(135deg, rgba(192, 160, 98, 0.15) 0%, rgba(20, 20, 22, 0.9) 100%);
-            border: 1.5px dashed var(--gold);
+            background: #161618;
+            border: 1.5px dashed rgba(255, 255, 255, 0.35);
             border-radius: 14px;
             padding: 18px 20px;
             display: flex;
@@ -638,7 +639,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         .any-barber-card:hover {
             border-color: #FFFFFF;
-            background: linear-gradient(135deg, rgba(192, 160, 98, 0.25) 0%, rgba(30, 30, 35, 1) 100%);
+            background: #1E1E22;
             transform: scale(1.01);
         }
 
@@ -657,20 +658,20 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             margin: 0 auto 12px;
             background-size: cover;
             background-position: center;
-            border: 2px solid var(--gold);
+            border: 2px solid rgba(255, 255, 255, 0.4);
         }
 
         /* Proxima Disponibilidad Banner */
         .quick-slot-banner {
-            background: linear-gradient(135deg, #18181b 0%, #111113 100%);
-            border: 1.5px solid var(--gold);
+            background: #161618;
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
             border-radius: 14px;
             padding: 14px 18px;
             margin-bottom: 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 4px 20px rgba(192, 160, 98, 0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
         /* Date & Time */
@@ -798,7 +799,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 1.1rem;">📍</span>
                 <div>
-                    <div style="font-size: 0.68rem; font-weight: 800; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px;">SUCURSAL SELECCIONADA</div>
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #A3A3A3; text-transform: uppercase; letter-spacing: 0.5px;">SUCURSAL SELECCIONADA</div>
                     <div style="font-size: 0.92rem; font-weight: 800; color: #FFFFFF;" data-branch-dynamic="name">KORTZEN Llano Chico</div>
                 </div>
             </div>
@@ -831,12 +832,12 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             <!-- Opción: Cualquier Barbero Disponible -->
             <div id="anyBarberOption" class="any-barber-card" onclick="selectAnyBarber(this)">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold); color: #000; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 900; flex-shrink: 0;">
+                    <div style="width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; color: #111111; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 900; flex-shrink: 0;">
                         ⚡
                     </div>
                     <div>
                         <div style="font-weight: 900; font-size: 0.95rem; color: #FFFFFF;">Cualquier barbero disponible</div>
-                        <div style="font-size: 0.8rem; color: var(--gold);">Quiero la hora más cercana / Mayor disponibilidad</div>
+                        <div style="font-size: 0.8rem; color: #A3A3A3;">Quiero la hora más cercana / Mayor disponibilidad</div>
                     </div>
                 </div>
                 <div style="font-size: 0.8rem; font-weight: 800; color: #FFFFFF; background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px;">
@@ -855,28 +856,28 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
             <div class="datetime-wrapper">
                 <!-- Selector de Día -->
-                <div style="background: #161618; border: 1.5px solid var(--gold); border-radius: 14px; padding: 18px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
+                <div style="background: #161618; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 14px; padding: 18px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
                     <div style="margin-bottom:12px;">
                         <label style="display:flex; align-items:center; gap:8px; color:#FFFFFF; font-weight:800; font-size:1.02rem; margin:0;">
-                            <i class="fas fa-calendar-alt" style="color:var(--gold); font-size:1.15rem;"></i> Selecciona el día de tu cita
+                            <i class="fas fa-calendar-alt" style="color:#FFFFFF; font-size:1.15rem;"></i> Selecciona el día de tu cita
                         </label>
                     </div>
                     <div style="position: relative; width: 100%;">
-                        <i class="fas fa-calendar-day" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 1.15rem; pointer-events: none; z-index: 2;"></i>
+                        <i class="fas fa-calendar-day" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #CCCCCC; font-size: 1.15rem; pointer-events: none; z-index: 2;"></i>
                         <input type="text" id="datePicker" placeholder="Haz clic aquí para abrir el calendario..." readonly
-                            style="width: 100%; padding: 16px 40px 16px 48px; background: #08080A; border: 1px solid var(--gold); color: #FFFFFF; font-weight: 800; font-size: 16px !important; border-radius: 10px; cursor: pointer; box-shadow: 0 0 12px rgba(192, 160, 98, 0.2); transition: all 0.3s ease; box-sizing: border-box;">
-                        <i class="fas fa-chevron-down" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 1rem; pointer-events: none; z-index: 2;"></i>
+                            style="width: 100%; padding: 16px 40px 16px 48px; background: #08080A; border: 1px solid rgba(255,255,255,0.25); color: #FFFFFF; font-weight: 800; font-size: 16px !important; border-radius: 10px; cursor: pointer; box-shadow: 0 0 12px rgba(255, 255, 255, 0.1); transition: all 0.3s ease; box-sizing: border-box;">
+                        <i class="fas fa-chevron-down" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #CCCCCC; font-size: 1rem; pointer-events: none; z-index: 2;"></i>
                     </div>
                 </div>
 
                 <!-- Banner Destacado: Próxima Hora Más Cercana Disponible -->
-                <div id="quickSlotBanner" class="quick-slot-banner" style="background: linear-gradient(135deg, rgba(192, 160, 98, 0.2) 0%, #161618 100%); border: 1.5px solid var(--gold); border-radius: 14px; padding: 16px 18px; display: none; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 4px 20px rgba(192, 160, 98, 0.25);">
+                <div id="quickSlotBanner" class="quick-slot-banner" style="background: #161618; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 14px; padding: 16px 18px; display: none; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold); color: #000; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 900; flex-shrink: 0;">
+                        <div style="width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; color: #111111; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 900; flex-shrink: 0;">
                             ⚡
                         </div>
                         <div>
-                            <div style="font-size: 0.72rem; font-weight: 800; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px;">HORA MÁS CERCANA DISPONIBLE</div>
+                            <div style="font-size: 0.72rem; font-weight: 800; color: #A3A3A3; text-transform: uppercase; letter-spacing: 0.5px;">HORA MÁS CERCANA DISPONIBLE</div>
                             <div id="quickSlotLabel" style="font-size: 1.02rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">Hoy a las 10:00</div>
                         </div>
                     </div>
@@ -922,9 +923,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display:block; margin-bottom:6px; color:var(--gold); font-size: 0.88rem; font-weight:800;">WhatsApp / Celular (+593) *</label>
+                    <label style="display:block; margin-bottom:6px; color:#FFFFFF; font-size: 0.88rem; font-weight:800;">WhatsApp / Celular (+593) *</label>
                     <input type="tel" id="clientPhone" placeholder="0991234567" value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>"
-                        style="width: 100%; padding: 13px; background: #1C1C1E; border: 1.5px solid var(--gold); color: #FFFFFF; border-radius: 8px; font-weight: 800; font-size: 1.05rem; box-sizing: border-box;">
+                        style="width: 100%; padding: 13px; background: #1C1C1E; border: 1.5px solid rgba(255,255,255,0.3); color: #FFFFFF; border-radius: 8px; font-weight: 800; font-size: 1.05rem; box-sizing: border-box;">
                     <small style="color: #888888; font-size: 0.76rem; margin-top: 4px; display: block;">* Te enviaremos el recordatorio a este número.</small>
                 </div>
 
@@ -936,7 +937,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
                 <!-- Código de Referido -->
                 <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed rgba(255,255,255,0.15);">
-                    <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--gold); font-weight:800; font-size: 0.88rem;">
+                    <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:#FFFFFF; font-weight:800; font-size: 0.88rem;">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                         <span>¿Tienes un Código Promocional o de Referido?</span>
                     </label>
@@ -944,7 +945,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         <input type="text" id="referralCodeInput" placeholder="Ej: JOEL888" 
                                style="flex:1; min-width:0; padding:12px; background:#1C1C1E; border:1px solid rgba(255,255,255,0.15); border-radius:8px; text-transform:uppercase; font-weight:800; font-size:0.95rem; color:#FFFFFF; box-sizing: border-box;">
                         <button type="button" onclick="aplicarCodigoReferidoReserva()" 
-                                style="padding:12px 18px; background:var(--gold); color:#111111; border:none; border-radius:8px; font-weight:900; font-size:0.85rem; cursor:pointer; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">
+                                style="padding:12px 18px; background:#FFFFFF; color:#111111; border:none; border-radius:8px; font-weight:900; font-size:0.85rem; cursor:pointer; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">
                             Aplicar
                         </button>
                     </div>
@@ -985,7 +986,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 <!-- Política de Reserva -->
                 <div class="policy-section" style="margin-bottom: 16px; padding: 14px; background: #FAFAFA; border: 1px solid #EAEAEA; border-radius: 12px;">
                     <h4 style="margin: 0 0 8px 0; color: #111111; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C0A062" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         <span><?php echo htmlspecialchars($politicaTitulo); ?></span>
                     </h4>
                     <div style="font-size: 0.78rem; color: #4B5563; line-height: 1.45; margin-bottom: 10px;">
@@ -1252,7 +1253,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
             let exclusiveHtml = '';
             if (bName) {
-                exclusiveHtml = `<div style="display:inline-flex; align-items:center; gap:5px; background:rgba(192, 160, 98, 0.15); border:1px solid rgba(192, 160, 98, 0.35); color:var(--gold); font-size:0.75rem; font-weight:800; padding:4px 10px; border-radius:6px; margin-bottom:12px; text-transform:uppercase;">
+                exclusiveHtml = `<div style="display:inline-flex; align-items:center; gap:5px; background:rgba(255, 255, 255, 0.1); border:1px solid rgba(255, 255, 255, 0.25); color:#FFFFFF; font-size:0.75rem; font-weight:800; padding:4px 10px; border-radius:6px; margin-bottom:12px; text-transform:uppercase;">
                     <span>★</span> Servicio Exclusivo con ${bName}
                 </div>`;
             }
@@ -1265,14 +1266,14 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 const renderedList = lines.map(item => {
                     const clean = item.replace(/^[•\-\*✓\s]+/, '').trim();
                     return `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px; font-size:0.84rem; color:#E5E5E5; line-height:1.35;">
-                        <span style="color:var(--gold); font-size:0.85rem; flex-shrink:0;">✓</span>
+                        <span style="color:#FFFFFF; font-size:0.85rem; flex-shrink:0;">✓</span>
                         <span>${clean}</span>
                     </div>`;
                 }).join('');
                 
                 incluyeHtml = `
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-left:3px solid var(--gold); border-radius:8px; padding:12px 14px; margin-bottom:20px; text-align:left;">
-                        <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:var(--gold); margin-bottom:8px; letter-spacing:0.8px;">QUÉ INCLUYE:</div>
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-left:3px solid #FFFFFF; border-radius:8px; padding:12px 14px; margin-bottom:20px; text-align:left;">
+                        <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:#FFFFFF; margin-bottom:8px; letter-spacing:0.8px;">QUÉ INCLUYE:</div>
                         ${renderedList}
                     </div>
                 `;
@@ -1288,7 +1289,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                     <span style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:6px; font-size:0.82rem; font-weight:700; color:#CCCCCC;">
                         ⏱️ ${formatDuration(s.duracion_minutos)}
                     </span>
-                    <span style="background:rgba(192, 160, 98, 0.15); border:1px solid rgba(192, 160, 98, 0.4); padding:4px 12px; border-radius:6px; font-size:0.95rem; font-weight:900; color:var(--gold);">
+                    <span style="background:rgba(255, 255, 255, 0.12); border:1px solid rgba(255, 255, 255, 0.3); padding:4px 12px; border-radius:6px; font-size:0.95rem; font-weight:900; color:#FFFFFF;">
                         $${parseFloat(s.precio).toFixed(0)}
                     </span>
                 </div>
@@ -1366,10 +1367,10 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         <div style="display:flex; flex-direction:column; align-items:center;">
                             ${avatarHtml}
                             <h3 style="display:flex; align-items:center; gap:6px;">
-                                ${b.nombre} ${isExclusive ? '<span style="color:var(--gold); font-size:0.8rem;">★</span>' : ''}
+                                ${b.nombre} ${isExclusive ? '<span style="color:#FFFFFF; font-size:0.8rem;">★</span>' : ''}
                             </h3>
                             <p style="font-size:0.82rem; color:#888; margin-bottom:0;">${b.sucursal_nombre || 'Kortzen Master'}</p>
-                            <div style="margin-top:6px; font-size:0.75rem; color:var(--gold); font-weight:800;">★★★★★ 5.0</div>
+                            <div style="margin-top:6px; font-size:0.75rem; color:#D1D1D6; font-weight:800;">★★★★★ 5.0</div>
                         </div>
                     `;
                     grid.appendChild(el);
@@ -1549,9 +1550,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                     if (resData.proxima_disponibilidad) {
                         proximaHtml = `
                             <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
-                                <div style="font-size: 0.78rem; color: var(--gold); font-weight: 800; margin-bottom: 6px; text-transform: uppercase;">⚡ Hora más cercana disponible:</div>
+                                <div style="font-size: 0.78rem; color: #CCCCCC; font-weight: 800; margin-bottom: 6px; text-transform: uppercase;">⚡ Hora más cercana disponible:</div>
                                 <div style="font-size: 1.05rem; font-weight: 900; color: #FFFFFF; margin-bottom: 12px;">${resData.proxima_disponibilidad.label} (${resData.proxima_disponibilidad.barbero_nombre})</div>
-                                <button type="button" onclick="bookQuickSlot()" style="background: var(--gold); color: #000000; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 900; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(192, 160, 98, 0.4);">
+                                <button type="button" onclick="bookQuickSlot()" style="background: #FFFFFF; color: #111111; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 900; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(255, 255, 255, 0.25);">
                                     Reservar ${resData.proxima_disponibilidad.label} ➔
                                 </button>
                             </div>
@@ -1857,7 +1858,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         </div>
 
                         <!-- Botón Exclusivo de Google Sign-in -->
-                        <div style="max-width:480px; margin:0 auto 20px auto; background:#18181B; border:1.5px solid var(--gold); padding:18px 16px; border-radius:14px; text-align:center;">
+                        <div style="max-width:480px; margin:0 auto 20px auto; background:#18181B; border:1.5px solid rgba(255,255,255,0.25); padding:18px 16px; border-radius:14px; text-align:center;">
                             <div style="font-size:0.92rem; font-weight:800; color:#FFFFFF; margin-bottom:6px;">¿Deseas guardar tus datos para próximas reservas?</div>
                             <p style="font-size:0.78rem; color:#A3A3A3; margin-bottom:14px;">Vincula tu cuenta con Google en un solo clic para ver tu historial y acumular puntos.</p>
                             <a href="${googleAuthUrl}" style="display:inline-flex; align-items:center; justify-content:center; gap:10px; background:#FFFFFF; color:#111111; font-weight:800; font-size:0.88rem; padding:12px 18px; border-radius:10px; text-decoration:none; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(255,255,255,0.2);">
@@ -1876,7 +1877,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
                         <!-- Botón Agendar Otra Cita -->
                         <div style="max-width:480px; margin:0 auto 16px auto;">
-                            <a href="reservar.php" style="display:flex; align-items:center; justify-content:center; gap:10px; background:linear-gradient(135deg, var(--gold) 0%, #D4AF37 50%, #B38F4D 100%); color:#000000; font-weight:900; font-size:0.88rem; padding:13px 18px; border-radius:12px; text-decoration:none; text-transform:uppercase; letter-spacing:0.5px; box-sizing:border-box;">
+                            <a href="reservar.php" style="display:flex; align-items:center; justify-content:center; gap:10px; background:#222225; border:1px solid rgba(255,255,255,0.25); color:#FFFFFF; font-weight:800; font-size:0.88rem; padding:13px 18px; border-radius:12px; text-decoration:none; text-transform:uppercase; letter-spacing:0.5px; box-sizing:border-box;">
                                 <span>+ Agendar Otra Cita / Acompañante</span>
                             </a>
                         </div>
