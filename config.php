@@ -266,6 +266,22 @@ function getConnection()
                     ");
                 } catch (Throwable $e_usuc) {}
 
+                // Optimización de horarios de barberos y disponibilidad máxima:
+                // 1. Desactivar almuerzo automático genérico (13:00-14:00) para no bloquear turnos comerciales sin intención
+                try {
+                    $pdo->exec("UPDATE usuarios SET almuerzo_activo = 0 WHERE (almuerzo_activo = 1 OR almuerzo_activo IS NULL) AND (almuerzo_inicio = '13:00:00' OR almuerzo_inicio = '13:00') AND (almuerzo_fin = '14:00:00' OR almuerzo_fin = '14:00')");
+                } catch (Throwable $e_alm_fix) {}
+
+                // 2. Asegurar que las jornadas activas de los barberos cubran hasta las 20:00 (Lun - Sáb)
+                try {
+                    $pdo->exec("UPDATE horarios_barberos SET hora_fin = '20:00:00' WHERE activo = 1 AND dia_semana != 0 AND hora_fin < '20:00:00'");
+                } catch (Throwable $e_hfin_fix) {}
+
+                // 3. Asegurar jornada de Jeffrey Herrera desde las 11:00 hasta las 20:00 en sus días activos
+                try {
+                    $pdo->exec("UPDATE horarios_barberos SET hora_inicio = '11:00:00' WHERE activo = 1 AND hora_inicio > '11:00:00' AND barbero_id IN (SELECT id FROM usuarios WHERE nombre LIKE '%Jeffrey%')");
+                } catch (Throwable $e_jeff_fix) {}
+
                 try {
                     $pdo->exec("
                         CREATE TABLE IF NOT EXISTS `resenas` (

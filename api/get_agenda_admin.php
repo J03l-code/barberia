@@ -147,7 +147,7 @@ try {
             WHERE c.barbero_id IN ($inBarbers)
               AND c.fecha_hora >= ?
               AND c.fecha_hora <= ?
-              AND c.estado != 'cancelada'
+              AND c.estado NOT IN ('cancelada', 'no_asistio')
             ORDER BY c.fecha_hora ASC
         ";
 
@@ -239,10 +239,12 @@ try {
                 $startMin = strtotime("$fechaLoop $horaInicioStr");
                 $endMin = strtotime("$fechaLoop $horaFinStr");
 
-                // Registrar citas como ocupadas
+                // Registrar citas como ocupadas con duración efectiva
                 foreach ($citasBarberoDia as $cb) {
                     $cStart = strtotime($cb['fecha_hora']);
-                    $cEnd = !empty($cb['hora_fin']) ? strtotime("$fechaLoop " . $cb['hora_fin']) : ($cStart + (intval($cb['duracion_minutos']) * 60));
+                    $rawDur = intval($cb['duracion_minutos'] ?? 0) > 0 ? intval($cb['duracion_minutos']) : 60;
+                    $cDur = ($rawDur <= 30) ? 30 : (($rawDur <= 60) ? 60 : (int)(ceil($rawDur / 30) * 30));
+                    $cEnd = $cStart + ($cDur * 60);
                     $intervalosOcupados[] = [
                         'tipo' => 'cita',
                         'inicio' => $cStart,
@@ -253,8 +255,8 @@ try {
                     ];
                 }
 
-                // Registrar Almuerzo si activo
-                if (($b['almuerzo_activo'] ?? 1) == 1 && !empty($b['almuerzo_inicio']) && !empty($b['almuerzo_fin'])) {
+                // Registrar Almuerzo (solo si fue activado deliberadamente por el administrador)
+                if (intval($b['almuerzo_activo'] ?? 0) === 1 && !empty($b['almuerzo_inicio']) && !empty($b['almuerzo_fin'])) {
                     $almStart = strtotime("$fechaLoop " . $b['almuerzo_inicio']);
                     $almEnd = strtotime("$fechaLoop " . $b['almuerzo_fin']);
                     $intervalosOcupados[] = [

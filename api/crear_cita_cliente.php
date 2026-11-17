@@ -137,8 +137,8 @@ try {
             $stmtB->execute([$candId, $fecha]);
             if ($stmtB->fetch()) continue;
 
-            // Verificar almuerzo
-            if (($cand['almuerzo_activo'] ?? 1) == 1 && !empty($cand['almuerzo_inicio']) && !empty($cand['almuerzo_fin'])) {
+            // Verificar almuerzo (solo si fue activado deliberadamente)
+            if (intval($cand['almuerzo_activo'] ?? 0) === 1 && !empty($cand['almuerzo_inicio']) && !empty($cand['almuerzo_fin'])) {
                 $lStart = strtotime("$fecha " . $cand['almuerzo_inicio']);
                 $lEnd = strtotime("$fecha " . $cand['almuerzo_fin']);
                 if ($slotStartTs < $lEnd && $slotEndTs > $lStart) continue;
@@ -160,7 +160,7 @@ try {
             $stmtC = $pdo->prepare("SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 60) as duracion_minutos 
                                     FROM citas c 
                                     LEFT JOIN servicios s ON c.servicio_id = s.id 
-                                    WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?");
+                                    WHERE c.barbero_id = ? AND c.estado NOT IN ('cancelada', 'no_asistio') AND DATE(c.fecha_hora) = ?");
             $stmtC->execute([$candId, $fecha]);
             $citas = $stmtC->fetchAll(PDO::FETCH_ASSOC);
             $hasCitaCol = false;
@@ -224,7 +224,7 @@ try {
             SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 60) as duracion_minutos 
             FROM citas c 
             LEFT JOIN servicios s ON c.servicio_id = s.id 
-            WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?
+            WHERE c.barbero_id = ? AND c.estado NOT IN ('cancelada', 'no_asistio') AND DATE(c.fecha_hora) = ?
         ");
         $stmtCcheck->execute([$barberoId, $fecha]);
         $citasExistentes = $stmtCcheck->fetchAll(PDO::FETCH_ASSOC);
@@ -250,8 +250,8 @@ try {
             }
         }
 
-        // 5. Verificar almuerzo
-        if (($barberoData['almuerzo_activo'] ?? 1) == 1 && !empty($barberoData['almuerzo_inicio']) && !empty($barberoData['almuerzo_fin'])) {
+        // 5. Verificar almuerzo (solo si fue activado deliberadamente)
+        if (intval($barberoData['almuerzo_activo'] ?? 0) === 1 && !empty($barberoData['almuerzo_inicio']) && !empty($barberoData['almuerzo_fin'])) {
             $cLunchStart = strtotime("$fecha " . $barberoData['almuerzo_inicio']);
             $cLunchEnd = strtotime("$fecha " . $barberoData['almuerzo_fin']);
             if ($slotStartTs < $cLunchEnd && $slotEndTs > $cLunchStart) {

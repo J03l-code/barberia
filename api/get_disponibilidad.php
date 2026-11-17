@@ -108,11 +108,11 @@ try {
         $stmtBH->execute([$bId, $fDate]);
         $bParciales = $stmtBH->fetchAll(PDO::FETCH_ASSOC);
 
-        // Almuerzo fijo
-        $stmtUser = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
+        // Almuerzo fijo (solo si el administrador lo configuró y activó deliberadamente)
+        $stmtUser = $pdo->prepare("SELECT almuerzo_activo, almuerzo_inicio, almuerzo_fin FROM usuarios WHERE id = ?");
         $stmtUser->execute([$bId]);
         $uData = $stmtUser->fetch(PDO::FETCH_ASSOC);
-        if ($uData && ($uData['almuerzo_activo'] ?? 1) == 1 && !empty($uData['almuerzo_inicio']) && !empty($uData['almuerzo_fin'])) {
+        if ($uData && intval($uData['almuerzo_activo'] ?? 0) === 1 && !empty($uData['almuerzo_inicio']) && !empty($uData['almuerzo_fin'])) {
             $bParciales[] = [
                 'hora_inicio' => $uData['almuerzo_inicio'],
                 'hora_fin' => $uData['almuerzo_fin']

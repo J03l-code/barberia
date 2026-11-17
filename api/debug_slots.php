@@ -58,8 +58,8 @@ try {
         $ocupados[] = ['inicio' => date('H:i', $ini), 'fin' => date('H:i', $fin), 'servicio' => $c['servicio'], 'estado' => $c['estado']];
     }
     
-    // Almuerzo
-    if ($user && ($user['almuerzo_activo'] ?? 1) == 1 && !empty($user['almuerzo_inicio']) && !empty($user['almuerzo_fin'])) {
+    // Almuerzo (solo si fue activado explícitamente)
+    if ($user && intval($user['almuerzo_activo'] ?? 0) === 1 && !empty($user['almuerzo_inicio']) && !empty($user['almuerzo_fin'])) {
         $ocupados[] = ['inicio' => $user['almuerzo_inicio'], 'fin' => $user['almuerzo_fin'], 'tipo' => 'almuerzo'];
     }
     
