@@ -282,6 +282,15 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             }
         }
 
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         /* Services Compact Luxury List (Setmore-Inspired Elite UX) */
         .services-list-container {
             display: flex;
@@ -927,29 +936,113 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
 
         <!-- Step 4: Contact & Personal Details -->
         <div class="wizard-step" id="step4">
-            <h2 style="margin-bottom: 16px; font-size: 1.25rem; font-weight: 800; color: #111111;">4. Datos de Contacto</h2>
+            <h2 style="margin-bottom: 16px; font-size: 1.25rem; font-weight: 800; color: #111111;">4. Identificación y Contacto</h2>
+            
+            <?php if (!$isLoggedIn): ?>
+            <!-- Bloque elegante de inicio de sesión obligatorio con Google -->
+            <div style="background:#FFFFFF; padding:28px 22px; border-radius:18px; border:1px solid #EAEAEA; max-width: 480px; margin: 0 auto; box-sizing: border-box; box-shadow: 0 6px 25px rgba(0,0,0,0.03); text-align: center;">
+                <div style="width: 52px; height: 52px; border-radius: 50%; background: #FAF9F6; border: 1px solid #EAEAEA; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                    <svg width="26" height="26" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                </div>
+
+                <h3 style="margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 800; color: #111111; letter-spacing: -0.02em;">Inicia sesión con Google</h3>
+                
+                <p style="color: #555555; margin: 0 auto 20px auto; font-size: 0.92rem; line-height: 1.55; max-width: 400px;">
+                    Para mejorar la gestión en el sistema y brindarte un mejor servicio, inicia sesión con Gmail.
+                </p>
+
+                <div style="background: #FAF9F6; border: 1px solid #EEEEEE; border-radius: 12px; padding: 14px 16px; margin-bottom: 22px; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.84rem; color: #333333; font-weight: 600;">
+                        <span style="color: #111111; font-weight: 800;">✓</span>
+                        <span>Confirmación instantánea enviada a tu Gmail</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.84rem; color: #333333; font-weight: 600;">
+                        <span style="color: #111111; font-weight: 800;">✓</span>
+                        <span>Consulta y administra tus citas desde tu perfil PWA</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.84rem; color: #333333; font-weight: 600;">
+                        <span style="color: #111111; font-weight: 800;">✓</span>
+                        <span>Recordatorios automáticos para asegurar tu turno</span>
+                    </div>
+                </div>
+
+                <button type="button" onclick="loginWithGoogleFromStep4()" id="btnGoogleLoginStep4" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; background: #111111; color: #FFFFFF; border: none; padding: 15px 22px; border-radius: 12px; font-size: 0.96rem; font-weight: 800; cursor: pointer; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12); transition: all 0.2s ease;">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Continuar con Google</span>
+                </button>
+
+                <p style="color: #888888; font-size: 0.78rem; margin: 14px 0 0 0;">
+                    🔒 Rápido y seguro en 1 clic. Tu cita se mantendrá guardada para que continúes sin interrupciones.
+                </p>
+
+                <!-- Hidden inputs to preserve DOM references -->
+                <input type="hidden" id="clientName" value="">
+                <input type="hidden" id="clientPhone" value="">
+                <input type="hidden" id="clientEmail" value="">
+            </div>
+            <?php else: ?>
+            <!-- Cliente ya autenticado con Google -->
             <div style="background:#FFFFFF; padding:24px 20px; border-radius:16px; border:1px solid #EAEAEA; max-width: 480px; margin: 0 auto; box-sizing: border-box; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                <!-- Card de perfil Google conectado -->
+                <div style="background: #FAF9F6; border: 1px solid #EAEAEA; border-radius: 12px; padding: 12px 14px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                        <?php if (!empty($cliente['foto_perfil'])): ?>
+                            <img src="<?php echo htmlspecialchars($cliente['foto_perfil']); ?>" alt="Perfil" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 1.5px solid #111111; flex-shrink: 0;">
+                        <?php else: ?>
+                            <div style="width: 42px; height: 42px; border-radius: 50%; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0;">
+                                <?php echo strtoupper(substr($cliente['nombre'] ?? 'K', 0, 1)); ?>
+                            </div>
+                        <?php endif; ?>
+                        <div style="min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-weight: 800; font-size: 0.94rem; color: #111111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">
+                                    <?php echo htmlspecialchars($cliente['nombre'] ?? ''); ?>
+                                </span>
+                                <span style="background: #E8F5E9; color: #2E7D32; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;">
+                                    ✓ Verificado
+                                </span>
+                            </div>
+                            <div style="font-size: 0.78rem; color: #666666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px;">
+                                <?php echo htmlspecialchars($cliente['email'] ?? ''); ?>
+                            </div>
+                        </div>
+                    </div>
+                    <span style="font-size: 0.72rem; color: #888888; font-weight: 700; text-align: right; flex-shrink: 0;">
+                        Sesión PWA
+                    </span>
+                </div>
+
                 <p style="color:var(--text-secondary); margin-bottom:18px; font-size:0.88rem;">
-                    Ingresa tus datos para recibir la confirmación inmediata y recordatorios de tu cita.
+                    Verifica tus datos de contacto para enviarte la confirmación y recordatorios por WhatsApp.
                 </p>
 
                 <div style="margin-bottom: 16px;">
                     <label style="display:block; margin-bottom:6px; color:#111111; font-size: 0.88rem; font-weight:700;">Nombre completo *</label>
-                    <input type="text" id="clientName" placeholder="Ej: Carlos Andrade" value="<?php echo htmlspecialchars($cliente['nombre'] ?? ''); ?>"
+                    <input type="text" id="clientName" placeholder="Tu nombre" value="<?php echo htmlspecialchars($cliente['nombre'] ?? ''); ?>"
                         style="width: 100%; padding: 13px; background: #FAF9F6; border: 1px solid #EAEAEA; color: #111111; border-radius: 10px; font-weight: 600; box-sizing: border-box;">
                 </div>
 
                 <div style="margin-bottom: 16px;">
                     <label style="display:block; margin-bottom:6px; color:#111111; font-size: 0.88rem; font-weight:800;">WhatsApp / Celular (+593) *</label>
-                    <input type="tel" id="clientPhone" placeholder="0991234567" value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>"
+                    <input type="tel" id="clientPhone" placeholder="0991234567" value="<?php echo htmlspecialchars($cliente['telefono'] ?? ''); ?>" autofocus
                         style="width: 100%; padding: 13px; background: #FAF9F6; border: 1.5px solid #111111; color: #111111; border-radius: 10px; font-weight: 800; font-size: 1.05rem; box-sizing: border-box;">
-                    <small style="color: #777777; font-size: 0.76rem; margin-top: 4px; display: block;">* Te enviaremos el recordatorio a este número.</small>
+                    <small style="color: #777777; font-size: 0.76rem; margin-top: 4px; display: block;">* Te enviaremos el recordatorio de tu cita a este número.</small>
                 </div>
 
                 <div style="margin-bottom: 20px;">
-                    <label style="display:block; margin-bottom:6px; color:#111111; font-size: 0.88rem; font-weight:700;">Correo Electrónico (opcional)</label>
-                    <input type="email" id="clientEmail" placeholder="ejemplo@gmail.com" value="<?php echo htmlspecialchars($cliente['email'] ?? ''); ?>"
-                        style="width: 100%; padding: 13px; background: #FAF9F6; border: 1px solid #EAEAEA; color: #111111; border-radius: 10px; font-weight: 600; box-sizing: border-box;">
+                    <label style="display:block; margin-bottom:6px; color:#111111; font-size: 0.88rem; font-weight:700;">Correo Electrónico (Gmail vinculado)</label>
+                    <input type="email" id="clientEmail" placeholder="ejemplo@gmail.com" value="<?php echo htmlspecialchars($cliente['email'] ?? ''); ?>" readonly
+                        style="width: 100%; padding: 13px; background: #F3F4F6; border: 1px solid #EAEAEA; color: #555555; border-radius: 10px; font-weight: 600; box-sizing: border-box; cursor: not-allowed;">
                 </div>
 
                 <!-- Código de Referido -->
@@ -969,6 +1062,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                     <div id="referralCodeMessage" style="margin-top:8px; font-size:0.85rem;"></div>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
 
         <!-- Step 5: Confirm -->
@@ -1049,6 +1143,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script>
+        const IS_LOGGED_IN = <?php echo $isLoggedIn ? 'true' : 'false'; ?>;
+        const LOGGED_CLIENT = <?php echo json_encode($cliente ?? null); ?>;
+
         // State
         const bookingData = {
             serviceId: null,
@@ -1059,9 +1156,9 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             barberName: null,
             date: null,
             time: null,
-            name: null,
-            phone: null,
-            email: null
+            name: <?php echo json_encode($cliente['nombre'] ?? ''); ?>,
+            phone: <?php echo json_encode($cliente['telefono'] ?? ''); ?>,
+            email: <?php echo json_encode($cliente['email'] ?? ''); ?>
         };
 
         let currentStep = 1;
@@ -1075,6 +1172,42 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         let appliedDiscountType = 'fixed';
         let appliedDiscountPercentage = 0.0;
 
+        function loginWithGoogleFromStep4() {
+            const btn = document.getElementById('btnGoogleLoginStep4');
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '0.75';
+                btn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+                        <circle cx="12" cy="12" r="10" stroke="#FFFFFF" stroke-opacity="0.25"></circle>
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="#FFFFFF"></path>
+                    </svg>
+                    <span>Conectando con Google...</span>
+                `;
+            }
+
+            const pending = {
+                serviceId: bookingData.serviceId,
+                serviceName: bookingData.serviceName,
+                servicePrice: bookingData.servicePrice,
+                serviceDuration: bookingData.serviceDuration,
+                barberId: bookingData.barberId,
+                barberName: bookingData.barberName,
+                date: bookingData.date,
+                time: bookingData.time,
+                referralCode: referralCodeApplied || ''
+            };
+
+            try {
+                localStorage.setItem('kortzen_pending_booking', JSON.stringify(pending));
+                sessionStorage.setItem('kortzen_pending_booking', JSON.stringify(pending));
+            } catch (err) {
+                console.error('Error guardando borrador:', err);
+            }
+
+            window.location.href = 'api/auth/google-login.php?redirect=booking_step4';
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const branchId = localStorage.getItem('kortzen_selected_branch') || 1;
 
@@ -1082,6 +1215,94 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             await loadServices(branchId);
             initDatePicker();
             updateNavButtons();
+
+            // Auto-restaurar borrador de reserva si viene de Google OAuth o usuario ya está autenticado con borrador pendiente
+            const urlParams = new URLSearchParams(window.location.search);
+            const isFromGoogle = urlParams.get('from_google') === '1' || urlParams.get('restore_booking') === '1';
+            let savedDraft = null;
+
+            try {
+                const rawDraft = localStorage.getItem('kortzen_pending_booking') || sessionStorage.getItem('kortzen_pending_booking');
+                if (rawDraft) savedDraft = JSON.parse(rawDraft);
+            } catch (err) {
+                console.error('Error al parsear borrador:', err);
+            }
+
+            if (savedDraft && (isFromGoogle || IS_LOGGED_IN)) {
+                // 1. Restaurar Servicio
+                if (savedDraft.serviceId) {
+                    bookingData.serviceId = savedDraft.serviceId;
+                    bookingData.serviceName = savedDraft.serviceName;
+                    bookingData.servicePrice = savedDraft.servicePrice;
+                    bookingData.serviceDuration = savedDraft.serviceDuration || 40;
+
+                    const sCard = document.querySelector(`#servicesGrid [data-service-id="${bookingData.serviceId}"]`);
+                    if (sCard) sCard.classList.add('selected');
+                }
+
+                // 2. Restaurar Barbero
+                if (savedDraft.barberId !== undefined && savedDraft.barberId !== null) {
+                    bookingData.barberId = savedDraft.barberId;
+                    bookingData.barberName = savedDraft.barberName;
+
+                    if (bookingData.barberId === 0) {
+                        const anyEl = document.getElementById('anyBarberOption');
+                        if (anyEl) anyEl.classList.add('selected');
+                    } else {
+                        const bCard = document.querySelector(`#barbersGrid .option-card[data-barber-id="${bookingData.barberId}"]`);
+                        if (bCard) bCard.classList.add('selected');
+                    }
+                }
+
+                // 3. Restaurar Fecha y Hora
+                if (savedDraft.date) {
+                    bookingData.date = savedDraft.date;
+                    const picker = document.getElementById('datePicker') ? document.getElementById('datePicker')._flatpickr : null;
+                    if (picker) {
+                        picker.setDate(bookingData.date, false);
+                    }
+                }
+                if (savedDraft.time) {
+                    bookingData.time = savedDraft.time;
+                }
+
+                // 4. Restaurar Código de Referido si existía
+                if (savedDraft.referralCode) {
+                    referralCodeApplied = savedDraft.referralCode;
+                    const refInput = document.getElementById('referralCodeInput');
+                    if (refInput) {
+                        refInput.value = referralCodeApplied;
+                        aplicarCodigoReferidoReserva();
+                    }
+                }
+
+                // Limpiar borrador temporal para evitar interferir en reservas futuras
+                try {
+                    localStorage.removeItem('kortzen_pending_booking');
+                    sessionStorage.removeItem('kortzen_pending_booking');
+                } catch (e) {}
+
+                // Sincronizar datos del cliente autenticado
+                if (IS_LOGGED_IN && LOGGED_CLIENT) {
+                    bookingData.name = LOGGED_CLIENT.nombre || '';
+                    bookingData.email = LOGGED_CLIENT.email || '';
+                    if (LOGGED_CLIENT.telefono) {
+                        bookingData.phone = LOGGED_CLIENT.telefono;
+                    }
+
+                    const nameInputEl = document.getElementById('clientName');
+                    const emailInputEl = document.getElementById('clientEmail');
+                    const phoneInputEl = document.getElementById('clientPhone');
+
+                    if (nameInputEl && !nameInputEl.value) nameInputEl.value = bookingData.name;
+                    if (emailInputEl && !emailInputEl.value) emailInputEl.value = bookingData.email;
+                    if (phoneInputEl && !phoneInputEl.value && bookingData.phone) phoneInputEl.value = bookingData.phone;
+                }
+
+                // Avanzar directamente al Paso 4 para verificar datos y continuar
+                currentStep = 4;
+                showStep(4);
+            }
 
             // Policy Checkbox Logic
             const checkbox = document.getElementById('policyCheckbox');
@@ -1124,9 +1345,8 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             }
 
             // Auto-seleccionar servicio si viene en URL (?servicio_id=X)
-            const urlParams = new URLSearchParams(window.location.search);
             const urlServicioId = urlParams.get('servicio_id');
-            if (urlServicioId && allServicesList.length > 0) {
+            if (urlServicioId && allServicesList.length > 0 && !savedDraft) {
                 const sObj = allServicesList.find(s => s.id == urlServicioId);
                 if (sObj) {
                     const cardEl = document.querySelector(`#servicesGrid [data-service-id="${sObj.id}"]`);
@@ -1703,6 +1923,22 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                 loadSlots(targetDate || new Date().toISOString().split('T')[0]);
             }
 
+            if (step === 4) {
+                if (IS_LOGGED_IN && LOGGED_CLIENT) {
+                    const nameInputEl = document.getElementById('clientName');
+                    const emailInputEl = document.getElementById('clientEmail');
+                    const phoneInputEl = document.getElementById('clientPhone');
+
+                    if (nameInputEl && !nameInputEl.value) nameInputEl.value = LOGGED_CLIENT.nombre || '';
+                    if (emailInputEl && !emailInputEl.value) emailInputEl.value = LOGGED_CLIENT.email || '';
+                    if (phoneInputEl && !phoneInputEl.value && LOGGED_CLIENT.telefono) phoneInputEl.value = LOGGED_CLIENT.telefono || '';
+
+                    if (nameInputEl && nameInputEl.value) bookingData.name = nameInputEl.value.trim();
+                    if (emailInputEl && emailInputEl.value) bookingData.email = emailInputEl.value.trim();
+                    if (phoneInputEl && phoneInputEl.value) bookingData.phone = phoneInputEl.value.trim();
+                }
+            }
+
             updateNavButtons();
 
             if (step === 5) {
@@ -1728,9 +1964,14 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
             if (currentStep === 2 && (bookingData.barberId !== null)) canNext = true;
             if (currentStep === 3 && bookingData.date && bookingData.time) canNext = true;
             if (currentStep === 4) {
-                const phone = document.getElementById('clientPhone').value.trim();
-                const name = document.getElementById('clientName').value.trim();
-                if (phone.length >= 7 && name.length >= 2) canNext = true;
+                if (!IS_LOGGED_IN) {
+                    next.classList.add('hidden');
+                } else {
+                    next.classList.remove('hidden');
+                    const phone = document.getElementById('clientPhone') ? document.getElementById('clientPhone').value.trim() : '';
+                    const name = document.getElementById('clientName') ? document.getElementById('clientName').value.trim() : '';
+                    if (phone.length >= 7 && name.length >= 2) canNext = true;
+                }
             }
 
             if (currentStep === 5) {
@@ -1785,15 +2026,21 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
         document.getElementById('btnNext').addEventListener('click', () => {
             if (currentStep < 5) {
                 if (currentStep === 4) {
-                    const phone = document.getElementById('clientPhone').value.trim();
-                    const name = document.getElementById('clientName').value.trim();
-                    const email = document.getElementById('clientEmail').value.trim();
+                    if (!IS_LOGGED_IN) {
+                        loginWithGoogleFromStep4();
+                        return;
+                    }
+                    const phone = document.getElementById('clientPhone') ? document.getElementById('clientPhone').value.trim() : '';
+                    const name = document.getElementById('clientName') ? document.getElementById('clientName').value.trim() : '';
+                    const email = document.getElementById('clientEmail') ? document.getElementById('clientEmail').value.trim() : '';
                     if (!name || name.length < 2) {
                         alert('Por favor ingresa tu nombre completo.');
                         return;
                     }
                     if (!phone || phone.length < 7) {
-                        alert('Por favor ingresa un número de teléfono/WhatsApp válido.');
+                        alert('Por favor ingresa un número de teléfono/WhatsApp válido (+593).');
+                        const pInput = document.getElementById('clientPhone');
+                        if (pInput) pInput.focus();
                         return;
                     }
                     bookingData.name = name;

@@ -30,7 +30,15 @@ if (!isGoogleConfigured()) {
     ');
 }
 
+// Obtener estado personalizado si viene de un flujo específico (ej: reservar paso 4)
+$customState = null;
+if (!empty($_GET['redirect']) && preg_match('/^[a-zA-Z0-9_\-]+$/', $_GET['redirect'])) {
+    $customState = $_GET['redirect'];
+} elseif (!empty($_GET['state']) && preg_match('/^[a-zA-Z0-9_\-]+$/', $_GET['state'])) {
+    $customState = $_GET['state'];
+}
+
 // Generar URL de autorización y redirigir
-$authUrl = getGoogleAuthUrl();
+$authUrl = getGoogleAuthUrl($customState);
 header('Location: ' . $authUrl);
 exit;

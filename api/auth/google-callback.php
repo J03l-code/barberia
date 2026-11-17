@@ -169,6 +169,12 @@ try {
     $_SESSION['google_access_token'] = $tokenData['access_token'] ?? null;
     $_SESSION['cliente_logged_in'] = true;
 
+    // Obtener teléfono existente si ya estaba registrado
+    $stmtC = $pdo->prepare("SELECT telefono FROM clientes WHERE id = ?");
+    $stmtC->execute([$clienteId]);
+    $cliRow = $stmtC->fetch(PDO::FETCH_ASSOC);
+    $_SESSION['cliente_telefono'] = $cliRow['telefono'] ?? null;
+
     // Guardar cookie persistente PWA firmada criptográficamente (365 días)
     $pwaToken = generarPwaToken($clienteId, $email);
     setcookie('kortzen_pwa_token', $clienteId . ':' . $pwaToken, [
@@ -189,8 +195,10 @@ try {
     // Regenerar ID de sesión por seguridad
     session_regenerate_id(true);
 
-    // Redirigir a mis-citas si viene del flujo de reserva, o dashboard
-    if (!empty($receivedState) && strpos($receivedState, 'booking_') === 0) {
+    // Redirigir según el estado de origen
+    if (!empty($receivedState) && strpos($receivedState, 'booking_step4') === 0) {
+        header('Location: ' . SITE_BASE_URL . '/reservar.php?restore_booking=1&from_google=1');
+    } elseif (!empty($receivedState) && strpos($receivedState, 'booking_') === 0) {
         header('Location: ' . SITE_BASE_URL . '/mis-citas.php');
     } else {
         header('Location: ' . SITE_BASE_URL . '/cliente-dashboard.php');

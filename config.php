@@ -806,7 +806,7 @@ function isClienteLoggedIn()
             if ($clientId > 0 && !empty($tokenHash)) {
                 try {
                     $pdo = getConnection();
-                    $stmt = $pdo->prepare("SELECT id, nombre, email, foto_perfil, google_id FROM clientes WHERE id = ?");
+                    $stmt = $pdo->prepare("SELECT id, nombre, email, telefono, foto_perfil, google_id FROM clientes WHERE id = ?");
                     $stmt->execute([$clientId]);
                     $c = $stmt->fetch(PDO::FETCH_ASSOC);
                     if ($c && validarPwaToken($c['id'], $c['email'], $tokenHash)) {
@@ -814,6 +814,7 @@ function isClienteLoggedIn()
                         $_SESSION['cliente_id'] = $c['id'];
                         $_SESSION['cliente_nombre'] = $c['nombre'];
                         $_SESSION['cliente_email'] = $c['email'];
+                        $_SESSION['cliente_telefono'] = $c['telefono'] ?? null;
                         $_SESSION['cliente_foto'] = $c['foto_perfil'] ?? null;
                         $_SESSION['cliente_google_id'] = $c['google_id'] ?? null;
                         return true;
@@ -836,11 +837,32 @@ function getCurrentCliente()
         return null;
     }
 
+    $cId = $_SESSION['cliente_id'] ?? null;
+    $telefono = $_SESSION['cliente_telefono'] ?? null;
+
+    if ($cId && $telefono === null) {
+        try {
+            $pdo = getConnection();
+            $stmt = $pdo->prepare("SELECT telefono, foto_perfil FROM clientes WHERE id = ?");
+            $stmt->execute([$cId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $telefono = $row['telefono'] ?? '';
+                $_SESSION['cliente_telefono'] = $telefono;
+                if (!empty($row['foto_perfil'])) {
+                    $_SESSION['cliente_foto'] = $row['foto_perfil'];
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
     return [
-        'id' => $_SESSION['cliente_id'] ?? null,
+        'id' => $cId,
         'nombre' => $_SESSION['cliente_nombre'] ?? 'Cliente',
         'email' => $_SESSION['cliente_email'] ?? '',
         'foto' => $_SESSION['cliente_foto'] ?? null,
+        'foto_perfil' => $_SESSION['cliente_foto'] ?? null,
+        'telefono' => $telefono ?? '',
         'google_id' => $_SESSION['cliente_google_id'] ?? null
     ];
 }

@@ -28,6 +28,10 @@ try {
         $clienteId = $cliente['id'];
         if (empty($telefono) && !empty($cliente['telefono'])) {
             $telefono = $cliente['telefono'];
+        } elseif (!empty($telefono)) {
+            // Actualizar teléfono del cliente en su perfil para futuras citas
+            $stmtUpdTel = $pdo->prepare("UPDATE clientes SET telefono = ? WHERE id = ?");
+            $stmtUpdTel->execute([$telefono, $clienteId]);
         }
         if (empty($nombreCliente)) {
             $nombreCliente = $cliente['nombre'];
