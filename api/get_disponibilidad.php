@@ -123,10 +123,11 @@ try {
         $endOfDay = strtotime("$fDate " . $hBase['hora_fin']);
 
         // Citas del día (con duración obtenida del servicio)
+        // Excluir citas canceladas y no asistidas para liberar esos slots
         $sqlC = "SELECT c.fecha_hora, COALESCE(s.duracion_minutos, 60) as duracion_minutos 
                  FROM citas c 
                  LEFT JOIN servicios s ON c.servicio_id = s.id 
-                 WHERE c.barbero_id = ? AND c.estado != 'cancelada' AND DATE(c.fecha_hora) = ?";
+                 WHERE c.barbero_id = ? AND c.estado NOT IN ('cancelada', 'no_asistio') AND DATE(c.fecha_hora) = ?";
         $paramsC = [$bId, $fDate];
         if ($excludeId > 0) {
             $sqlC .= " AND c.id != ?";
