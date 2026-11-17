@@ -8,8 +8,9 @@ $isLoggedIn = isClienteLoggedIn();
 $cliente = $isLoggedIn ? getCurrentCliente() : null;
 $pageTitle = 'Reservar Cita';
 
-// Cargar configuraciones del sistema (incluyendo política de reservas)
+// Cargar configuraciones del sistema (incluyendo política de reservas y referidos)
 $systemConfigs = getSystemConfigs();
+$sistemaReferidosActivo = isSistemaReferidosActivo();
 $politicaTitulo = $systemConfigs['politica_reserva_titulo'] ?? 'POLÍTICA DE RESERVAS';
 $politicaTexto = $systemConfigs['politica_reserva_texto'] ?? "• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.\n• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.\n• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada para no afectar los turnos siguientes.\n• Cuidamos tu tiempo y el de los demás caballeros.";
 $politicaCheckTexto = $systemConfigs['politica_reserva_check_texto'] ?? 'He leído y acepto la política de reserva y condiciones de puntualidad.';
@@ -1045,6 +1046,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                         style="width: 100%; padding: 13px; background: #F3F4F6; border: 1px solid #EAEAEA; color: #555555; border-radius: 10px; font-weight: 600; box-sizing: border-box; cursor: not-allowed;">
                 </div>
 
+                <?php if ($sistemaReferidosActivo): ?>
                 <!-- Código de Referido -->
                 <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed #EAEAEA;">
                     <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:#111111; font-weight:800; font-size: 0.88rem;">
@@ -1061,6 +1063,7 @@ $politicaRequiereCheck = ($systemConfigs['politica_reserva_requiere_check'] ?? '
                     </div>
                     <div id="referralCodeMessage" style="margin-top:8px; font-size:0.85rem;"></div>
                 </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
         </div>

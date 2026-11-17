@@ -61,6 +61,7 @@ if ($cliente_id) {
 $puntos_nivel_plata = 500;
 $puntos_nivel_oro = 1500;
 $puntos_nivel_vip = 3000;
+$sistemaReferidosActivo = isSistemaReferidosActivo();
 
 try {
     $pdo = getConnection();
@@ -205,6 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             </div>
         </div>
 
+        <?php if ($sistemaReferidosActivo): ?>
         <!-- Tarjeta de Programa de Referidos & Recompensas -->
         <?php
         $wa_share_msg = urlencode("¡Hola! Te regalo $" . $descuento_referido_amigo_cfg . " de descuento en tu corte de pelo en KORTZEN Barbería. Usa mi código " . $codigo_referido . " al reservar aquí: https://kortzen.com/reservar.php");
@@ -258,6 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             });
         }
         </script>
+        <?php endif; ?>
 
         <?php if ($proxima_cita): 
             $ts_prof = strtotime($proxima_cita['fecha_hora']);
@@ -302,6 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 </svg>
             </a>
 
+            <?php if ($sistemaReferidosActivo): ?>
             <a href="javascript:void(0)" onclick="alert('Comparte tu enlace de referido con amigos y gana 200 puntos KORTZEN por cada reserva')" class="pwa-benefit-item">
                 <div class="pwa-benefit-item__left">
                     <div class="pwa-benefit-item__icon">
@@ -322,6 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </a>
+            <?php endif; ?>
 
             <a href="https://wa.me/593988422770?text=Hola%20KORTZEN,%20tengo%20una%20consulta" target="_blank" class="pwa-benefit-item">
                 <div class="pwa-benefit-item__left">

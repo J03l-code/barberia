@@ -35,6 +35,7 @@ if ($action === 'save_configs') {
         $politica_reserva_texto = trim($_POST['politica_reserva_texto'] ?? '');
         $politica_reserva_check_texto = trim($_POST['politica_reserva_check_texto'] ?? 'He leído y acepto la política de reserva y condiciones de puntualidad.');
         $politica_reserva_requiere_check = (isset($_POST['politica_reserva_requiere_check']) && $_POST['politica_reserva_requiere_check'] === '0') ? '0' : '1';
+        $sistema_referidos_activo = (isset($_POST['sistema_referidos_activo']) && ($_POST['sistema_referidos_activo'] === '1' || $_POST['sistema_referidos_activo'] === 'true')) ? '1' : '0';
 
         $configs = [
             'puntos_por_corte' => (string)$puntos_por_corte,
@@ -48,6 +49,7 @@ if ($action === 'save_configs') {
             'politica_reserva_texto' => $politica_reserva_texto,
             'politica_reserva_check_texto' => $politica_reserva_check_texto,
             'politica_reserva_requiere_check' => $politica_reserva_requiere_check,
+            'sistema_referidos_activo' => $sistema_referidos_activo,
             'smtp_host' => $smtp_host,
             'smtp_port' => (string)$smtp_port,
             'smtp_user' => $smtp_user,
@@ -173,6 +175,34 @@ if ($action === 'eliminar_codigo_promocional') {
             exit;
         }
         header('Location: ../configuracion.php?success=' . urlencode("Código promocional eliminado exitosamente."));
+        exit;
+    } catch (Exception $e) {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit;
+        }
+        header('Location: ../configuracion.php?error=' . urlencode($e->getMessage()));
+        exit;
+    }
+}
+
+// Toggle directo para Sistema de Referidos & Promociones
+if ($action === 'toggle_referidos') {
+    try {
+        $pdo = getConnection();
+        $nuevoEstado = (isset($_POST['estado']) && ($_POST['estado'] === '1' || $_POST['estado'] === 'true')) ? '1' : '0';
+        $stmt = $pdo->prepare("INSERT INTO configuracion (clave, valor) VALUES ('sistema_referidos_activo', ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
+        $stmt->execute([$nuevoEstado]);
+
+        $msg = ($nuevoEstado === '1') ? 'Sistema de referidos activado exitosamente.' : 'Sistema de referidos desactivado exitosamente.';
+
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'activo' => ($nuevoEstado === '1'), 'message' => $msg]);
+            exit;
+        }
+        header('Location: ../configuracion.php?success=' . urlencode($msg));
         exit;
     } catch (Exception $e) {
         if ($isAjax) {

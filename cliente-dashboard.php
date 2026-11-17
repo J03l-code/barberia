@@ -29,6 +29,7 @@ $proxima_cita = null;
 $codigo_referido = '';
 $puntos_por_referido_cfg = 200;
 $descuento_referido_amigo_cfg = '2.00';
+$sistemaReferidosActivo = isSistemaReferidosActivo();
 
 if ($cliente_id) {
     try {
@@ -234,6 +235,7 @@ if ($cliente_id) {
             </div>
         </div>
 
+        <?php if ($sistemaReferidosActivo): ?>
         <!-- Banner Card Código de Referido -->
         <?php
         $wa_share_dash = urlencode("¡Hola! Te regalo $" . $descuento_referido_amigo_cfg . " de descuento en tu corte de pelo en KORTZEN Barbería. Usa mi código " . $codigo_referido . " al reservar aquí: https://kortzen.com/reservar.php");
@@ -252,6 +254,7 @@ if ($cliente_id) {
                 <span>Compartir</span>
             </a>
         </div>
+        <?php endif; ?>
 
         <!-- Banner Card Nuestros Barberos -->
         <div class="pwa-banner-card">

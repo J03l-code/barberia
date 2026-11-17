@@ -516,7 +516,8 @@ function getSystemConfigs($pdo = null)
         'smtp_host' => 'smtp.hostinger.com',
         'smtp_port' => '465',
         'smtp_user' => 'info@kortzen.com',
-        'smtp_pass' => 'Kortzen2026!'
+        'smtp_pass' => 'Kortzen2026!',
+        'sistema_referidos_activo' => '0' // 1 = Activo, 0 = Inactivo / Desactivado
     ];
 
     try {
@@ -530,6 +531,17 @@ function getSystemConfigs($pdo = null)
     } catch (Throwable $e) {}
 
     return $configs;
+}
+
+/**
+ * Verificar si el sistema de referidos y códigos promocionales está activo
+ * @param PDO|null $pdo
+ * @return bool
+ */
+function isSistemaReferidosActivo($pdo = null)
+{
+    $cfgs = getSystemConfigs($pdo);
+    return ($cfgs['sistema_referidos_activo'] ?? '0') === '1';
 }
 
 /**

@@ -2787,6 +2787,27 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
             <input type="hidden" name="action" value="save_configs">
             <input type="hidden" name="ajax" value="1">
 
+            <!-- Card 0: Estado Maestro del Programa de Referidos e Invita y Gana -->
+            <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px; border: 1.5px solid <?php echo ($configsMap['sistema_referidos_activo'] ?? '0') === '1' ? '#10B981' : 'var(--border-pwa)'; ?>; background: <?php echo ($configsMap['sistema_referidos_activo'] ?? '0') === '1' ? '#F0FDF4' : '#FFFFFF'; ?>;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark);">
+                        🎟️ Referidos & "Invita y Gana"
+                    </div>
+                    <span style="font-size: 0.68rem; font-weight: 800; padding: 2px 7px; border-radius: 6px; <?php echo ($configsMap['sistema_referidos_activo'] ?? '0') === '1' ? 'background: #10B981; color: #FFFFFF;' : 'background: #6B7280; color: #FFFFFF;'; ?>">
+                        <?php echo ($configsMap['sistema_referidos_activo'] ?? '0') === '1' ? 'ACTIVO' : 'PAUSADO'; ?>
+                    </span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px; line-height: 1.4;">
+                    Activa o desactiva la casilla de código en reservas y la sección "Invita y Gana" en el perfil de clientes.
+                </div>
+
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 800; cursor: pointer; background: #FAFAFA; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-pwa);">
+                    <input type="hidden" name="sistema_referidos_activo" value="0">
+                    <input type="checkbox" name="sistema_referidos_activo" value="1" <?php echo ($configsMap['sistema_referidos_activo'] ?? '0') === '1' ? 'checked' : ''; ?> style="width: 18px; height: 18px; accent-color: #111111;">
+                    <span>Habilitar Programa de Referidos</span>
+                </label>
+            </div>
+
             <!-- Card 1: Puntos KORTZEN -->
             <div class="pwa-item-card" style="padding: 16px; border-radius: 14px; margin-bottom: 16px;">
                 <div style="display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 4px;">
@@ -3806,6 +3827,14 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
         <form id="formPwaConfig" onsubmit="guardarConfiguracionPwa(event)" style="display: flex; flex-direction: column; gap: 12px;">
             <input type="hidden" name="action" value="save_configs">
             <input type="hidden" name="ajax" value="1">
+
+            <div>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 800; cursor: pointer; background: #FAFAFA; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-pwa);">
+                    <input type="hidden" name="sistema_referidos_activo" value="0">
+                    <input type="checkbox" name="sistema_referidos_activo" value="1" <?php echo ($configsMap['sistema_referidos_activo'] ?? '0') === '1' ? 'checked' : ''; ?> style="width: 18px; height: 18px; accent-color: #111111;">
+                    <span>Habilitar Referidos & Códigos</span>
+                </label>
+            </div>
 
             <div>
                 <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Puntos por Corte</label>

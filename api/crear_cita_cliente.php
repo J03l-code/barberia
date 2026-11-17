@@ -219,7 +219,7 @@ try {
     // 4. Procesar Código de Descuento si aplica
     $codigoReferido = strtoupper(trim($_POST['codigo_referido'] ?? ''));
     $montoDescuento = 0.00;
-    if (!empty($codigoReferido)) {
+    if (!empty($codigoReferido) && isSistemaReferidosActivo($pdo)) {
         $stmtPromo = $pdo->prepare("SELECT * FROM codigos_promocionales WHERE UPPER(codigo) = ? AND activo = 1");
         $stmtPromo->execute([$codigoReferido]);
         $promoRow = $stmtPromo->fetch(PDO::FETCH_ASSOC);

@@ -64,6 +64,12 @@ try {
 
     // 1. Validar Código de Referido
     if ($action === 'validar') {
+        // Verificar si el módulo de referidos y cupones está activo globalmente
+        if (!isSistemaReferidosActivo($pdo)) {
+            echo json_encode(['success' => false, 'message' => 'El sistema de códigos promocionales y referidos se encuentra temporalmente inactivo.']);
+            exit;
+        }
+
         $codigo = strtoupper(trim($_POST['codigo'] ?? ''));
         $codigoLimpio = str_replace('KORTZEN-', '', $codigo);
 

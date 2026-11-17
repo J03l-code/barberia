@@ -32,7 +32,8 @@ try {
         ['politica_reserva_titulo', 'POLÍTICA DE RESERVAS', 'Título del cuadro de política en el proceso de reserva'],
         ['politica_reserva_texto', "• Si no puede llegar a su cita, informar con al menos 1 hora de anticipación.\n• Si llega 10 minutos tarde, pierde el servicio de toalla caliente y limpieza facial.\n• Pasados los 15 minutos de retraso, la cita podrá ser reprogramada para no afectar los turnos siguientes.\n• Cuidamos tu tiempo y el de los demás caballeros.", 'Cláusulas y términos de la política de reserva'],
         ['politica_reserva_check_texto', 'He leído y acepto la política de reserva y condiciones de puntualidad.', 'Texto de aceptación que el cliente debe marcar'],
-        ['politica_reserva_requiere_check', '1', 'Si es obligatorio aceptar el checkbox (1 = Sí, 0 = No)']
+        ['politica_reserva_requiere_check', '1', 'Si es obligatorio aceptar el checkbox (1 = Sí, 0 = No)'],
+        ['sistema_referidos_activo', '0', 'Habilitar sistema de códigos promocionales, referidos en reservas e Invita y Gana (1 = Activo, 0 = Desactivado)']
     ];
 
     $stmtCfg = $pdo->prepare("INSERT INTO configuracion (clave, valor, descripcion) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion)");
@@ -191,6 +192,41 @@ include 'includes/header.php';
 
 <form method="POST" action="api/configuracion_action.php">
     <input type="hidden" name="action" value="save_configs">
+
+    <!-- Interruptor Maestro: Estado del Sistema de Referidos & Códigos Promocionales -->
+    <div class="config-card" style="border: 2px solid <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? '#10B981' : '#E5E7EB'; ?>; background: <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? '#F0FDF4' : '#FAFAFA'; ?>; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? '#DCFCE7' : '#F3F4F6'; ?>; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg class="config-icon" style="stroke: <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? '#16A34A' : '#6B7280'; ?>; width: 24px; height: 24px;" viewBox="0 0 24 24">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #111111;">
+                            Sistema de Códigos de Referido, Cupones e "Invita y Gana"
+                        </h3>
+                        <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 6px; <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? 'background: #10B981; color: #FFFFFF;' : 'background: #6B7280; color: #FFFFFF;'; ?>">
+                            <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? 'ACTIVO' : 'DESACTIVADO (EN PAUSA)'; ?>
+                        </span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.88rem; color: #555555; line-height: 1.45;">
+                        Controla globalmente la visibilidad del código promocional en el paso 4 de reserva y la sección "Invita y Gana" en el panel del cliente.
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <label style="display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; background: #FFFFFF; border: 1.5px solid #111111; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size: 0.92rem; color: #111111; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <input type="hidden" name="sistema_referidos_activo" value="0">
+                    <input type="checkbox" name="sistema_referidos_activo" value="1" <?php echo ($configs['sistema_referidos_activo'] ?? '0') === '1' ? 'checked' : ''; ?> style="width: 20px; height: 20px; accent-color: #111111; cursor: pointer;">
+                    <span>Habilitar Programa de Referidos y Cupones</span>
+                </label>
+            </div>
+        </div>
+    </div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
         
