@@ -214,6 +214,14 @@ function getConnection()
                 } catch (Throwable $e_asist) {}
 
                 try {
+                    $pdo->exec("ALTER TABLE citas MODIFY COLUMN estado ENUM('pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio') NOT NULL DEFAULT 'pendiente'");
+                } catch (Throwable $e_enum) {
+                    try {
+                        $pdo->exec("ALTER TABLE citas MODIFY COLUMN estado VARCHAR(50) NOT NULL DEFAULT 'pendiente'");
+                    } catch (Throwable $e_var) {}
+                }
+
+                try {
                     $pdo->exec("ALTER TABLE servicios ADD COLUMN barbero_id INT UNSIGNED NULL DEFAULT NULL");
                 } catch (Throwable $e_sbarb) {}
 

@@ -183,6 +183,7 @@ include 'includes/header.php';
                 <option value="">Todos los estados</option>
                 <option value="confirmada" <?php echo $estado == 'confirmada' ? 'selected' : ''; ?>>Confirmada</option>
                 <option value="completada" <?php echo $estado == 'completada' ? 'selected' : ''; ?>>Completada</option>
+                <option value="no_asistio" <?php echo $estado == 'no_asistio' ? 'selected' : ''; ?>>No Asistió (Inasistencia)</option>
                 <option value="cancelada" <?php echo $estado == 'cancelada' ? 'selected' : ''; ?>>Cancelada</option>
             </select>
 
@@ -407,6 +408,12 @@ function toggleFiltroHoy() {
         border: 1px solid rgba(231, 76, 60, 0.3);
     }
 
+    .status-no_asistio {
+        background: rgba(239, 68, 68, 0.15);
+        color: #DC2626;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+
     .btn-action {
         padding: 8px 18px;
         background: transparent;
@@ -613,9 +620,10 @@ function toggleFiltroHoy() {
                         <td>
                             <?php if ($currentUser['rol'] === 'admin' || $currentUser['rol'] === 'admin_local'): ?>
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <select id="select_estado_citas_<?php echo $cita['id']; ?>" onchange="prepararGuardarEstadoCitas(<?php echo $cita['id']; ?>)" style="padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; border: 1px solid currentColor; outline: none; background: <?php echo ($cita['estado'] === 'completada' ? 'rgba(46, 204, 113, 0.15)' : ($cita['estado'] === 'confirmada' ? 'rgba(241, 196, 15, 0.15)' : ($cita['estado'] === 'cancelada' ? 'rgba(231, 76, 60, 0.15)' : 'rgba(149, 165, 166, 0.15)'))); ?>; color: <?php echo ($cita['estado'] === 'completada' ? '#27ae60' : ($cita['estado'] === 'confirmada' ? '#d35400' : ($cita['estado'] === 'cancelada' ? '#c0392b' : '#7f8c8d'))); ?>;">
+                                    <select id="select_estado_citas_<?php echo $cita['id']; ?>" onchange="prepararGuardarEstadoCitas(<?php echo $cita['id']; ?>)" style="padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; border: 1px solid currentColor; outline: none; background: <?php echo ($cita['estado'] === 'completada' ? 'rgba(46, 204, 113, 0.15)' : ($cita['estado'] === 'confirmada' ? 'rgba(241, 196, 15, 0.15)' : ($cita['estado'] === 'no_asistio' ? 'rgba(239, 68, 68, 0.15)' : ($cita['estado'] === 'cancelada' ? 'rgba(231, 76, 60, 0.15)' : 'rgba(149, 165, 166, 0.15)')))); ?>; color: <?php echo ($cita['estado'] === 'completada' ? '#27ae60' : ($cita['estado'] === 'confirmada' ? '#d35400' : ($cita['estado'] === 'no_asistio' ? '#dc2626' : ($cita['estado'] === 'cancelada' ? '#c0392b' : '#7f8c8d')))); ?>;">
                                         <option value="confirmada" <?php echo $cita['estado'] === 'confirmada' ? 'selected' : ''; ?>>Confirmada</option>
                                         <option value="completada" <?php echo $cita['estado'] === 'completada' ? 'selected' : ''; ?>>Completada</option>
+                                        <option value="no_asistio" <?php echo $cita['estado'] === 'no_asistio' ? 'selected' : ''; ?>>No Asistió</option>
                                         <option value="cancelada" <?php echo $cita['estado'] === 'cancelada' ? 'selected' : ''; ?>>Cancelada</option>
                                     </select>
                                     <button type="button" id="btn_guardar_citas_<?php echo $cita['id']; ?>" onclick="guardarEstadoDirectoCitas(<?php echo $cita['id']; ?>, '<?php echo htmlspecialchars(addslashes($cita['cliente_nombre'])); ?>')" style="padding: 6px 14px; border-radius: 6px; background: #111111; color: #FFFFFF; border: 1px solid rgba(255,255,255,0.15); font-weight: 800; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: all 0.2s;" title="Guardar cambio de estado en toda la plataforma">
@@ -624,7 +632,7 @@ function toggleFiltroHoy() {
                                 </div>
                             <?php else: ?>
                                 <span class="status-badge status-<?php echo $cita['estado']; ?>">
-                                    <?php echo strtoupper($cita['estado']); ?>
+                                    <?php echo ($cita['estado'] === 'no_asistio') ? 'NO ASISTIÓ' : strtoupper($cita['estado']); ?>
                                 </span>
                             <?php endif; ?>
                         </td>

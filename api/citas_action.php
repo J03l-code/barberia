@@ -425,13 +425,99 @@ try {
             }
             responderAccionCita($isAjax, $redirect_url, $msgOk, ['cita_id' => $id, 'propina' => $propina]);
 
+        case 'marcar_no_asistio':
+            $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
+            if ($id <= 0) {
+                throw new Exception('ID de cita inválido.');
+            }
+
+            // Obtener cita
+            $stmtC = $pdo->prepare("
+                SELECT c.*, cli.nombre as cliente_nombre, u.nombre as barbero_nombre, s.nombre as servicio_nombre
+                FROM citas c
+                LEFT JOIN clientes cli ON c.cliente_id = cli.id
+                LEFT JOIN usuarios u ON c.barbero_id = u.id
+                LEFT JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.id = ?
+            ");
+            $stmtC->execute([$id]);
+            $citaRow = $stmtC->fetch(PDO::FETCH_ASSOC);
+            if (!$citaRow) {
+                throw new Exception('La cita no existe.');
+            }
+
+            // Validar RBAC: el barbero asignado o cualquier administrador
+            $userRol = $_SESSION['user_rol'] ?? '';
+            $userId = intval($_SESSION['user_id'] ?? 0);
+            $userSucursal = intval($_SESSION['user_sucursal_id'] ?? 0);
+
+            if ($userRol === 'barbero' && intval($citaRow['barbero_id']) !== $userId) {
+                throw new Exception('Acceso denegado: Solo puedes reportar inasistencia en tus propias citas.');
+            }
+            if ($userRol === 'admin_local' && $userSucursal > 0 && intval($citaRow['sucursal_id']) !== $userSucursal) {
+                throw new Exception('Acceso denegado: Esta cita pertenece a otra sucursal.');
+            }
+
+            // Auto-migración segura
+            try {
+                $pdo->exec("ALTER TABLE citas MODIFY COLUMN estado ENUM('pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio') NOT NULL DEFAULT 'pendiente'");
+            } catch (Throwable $eEnum) {
+                try {
+                    $pdo->exec("ALTER TABLE citas MODIFY COLUMN estado VARCHAR(50) NOT NULL DEFAULT 'pendiente'");
+                } catch (Throwable $eVar) {}
+            }
+
+            // Actualizar estado a no_asistio y asistencia_confirmada a 0
+            $stmtUpd = $pdo->prepare("UPDATE citas SET estado = 'no_asistio', asistencia_confirmada = 0 WHERE id = ?");
+            $stmtUpd->execute([$id]);
+
+            $cliNombre = $citaRow['cliente_nombre'] ?? 'Cliente';
+            $horaLegible = date('d/m/Y H:i', strtotime($citaRow['fecha_hora']));
+            registrarLog('NO_ASISTIO', 'citas', $id, "Cita #$id ($horaLegible) marcada como 'NO ASISTIÓ' para el cliente '$cliNombre'");
+
+            responderAccionCita($isAjax, $redirect_url, 'Cita registrada como No Asistió correctamente.', [
+                'cita_id' => $id,
+                'estado' => 'no_asistio',
+                'estado_label' => 'NO ASISTIÓ'
+            ]);
+            break;
+
+        case 'revertir_no_asistio':
+            $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
+            if ($id <= 0) {
+                throw new Exception('ID de cita inválido.');
+            }
+
+            $stmtC = $pdo->prepare("SELECT * FROM citas WHERE id = ?");
+            $stmtC->execute([$id]);
+            $citaRow = $stmtC->fetch(PDO::FETCH_ASSOC);
+            if (!$citaRow) throw new Exception('La cita no existe.');
+
+            $userRol = $_SESSION['user_rol'] ?? '';
+            $userId = intval($_SESSION['user_id'] ?? 0);
+            if ($userRol === 'barbero' && intval($citaRow['barbero_id']) !== $userId) {
+                throw new Exception('Acceso denegado.');
+            }
+
+            $stmtUpd = $pdo->prepare("UPDATE citas SET estado = 'confirmada', asistencia_confirmada = 1 WHERE id = ?");
+            $stmtUpd->execute([$id]);
+
+            registrarLog('REVERTIR_NO_ASISTIO', 'citas', $id, "Inasistencia de cita #$id revertida a 'confirmada'");
+
+            responderAccionCita($isAjax, $redirect_url, 'Inasistencia revertida a confirmada.', [
+                'cita_id' => $id,
+                'estado' => 'confirmada',
+                'estado_label' => 'ASISTENCIA CONFIRMADA'
+            ]);
+            break;
+
         case 'cambiar_estado':
             $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
             $nuevoEstado = trim($_POST['estado'] ?? $_GET['estado'] ?? '');
             $propina = floatval($_POST['propina'] ?? 0.00);
             if ($propina < 0) $propina = 0.00;
 
-            $validEstados = ['pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada'];
+            $validEstados = ['pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio'];
 
             if ($id <= 0 || !in_array($nuevoEstado, $validEstados)) {
                 throw new Exception('Parámetros de cita o estado inválidos.');
@@ -483,6 +569,10 @@ try {
             } elseif ($nuevoEstado === 'confirmada') {
                 // Si el admin marca como Confirmada, marcar asistencia_confirmada = 1
                 $stmtUpdate = $pdo->prepare("UPDATE citas SET estado = 'confirmada', asistencia_confirmada = 1 WHERE id = ?");
+                $stmtUpdate->execute([$id]);
+            } elseif ($nuevoEstado === 'no_asistio') {
+                // Inasistencia: asistencia_confirmada = 0
+                $stmtUpdate = $pdo->prepare("UPDATE citas SET estado = 'no_asistio', asistencia_confirmada = 0 WHERE id = ?");
                 $stmtUpdate->execute([$id]);
             } else {
                 $stmtUpdate = $pdo->prepare("UPDATE citas SET estado = ? WHERE id = ?");

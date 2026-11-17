@@ -219,9 +219,11 @@ $gananciaHistoricaTotal = $gananciaHistServicios + $gananciaHistVentas + $propin
 $totalCitas = count($historialCitas);
 $citasCompletadas = 0;
 $citasCanceladas = 0;
+$citasNoAsistio = 0;
 foreach ($historialCitas as $c) {
     if (($c['estado'] ?? '') === 'completada') $citasCompletadas++;
     if (($c['estado'] ?? '') === 'cancelada') $citasCanceladas++;
+    if (($c['estado'] ?? '') === 'no_asistio') $citasNoAsistio++;
 }
 
 // 4. Horarios Semanales del Barbero
@@ -295,6 +297,16 @@ $totalACobrarHoy = $totalComisionServiciosHoy + $totalPropinasHoy + $comisionPro
 $pageTitle = 'Perfil del Barbero: ' . htmlspecialchars($barbero['nombre']);
 include 'includes/header.php';
 ?>
+
+<style>
+.status-badge.status-no_asistio,
+.status-no_asistio {
+    background: #FEE2E2 !important;
+    color: #DC2626 !important;
+    border: 1px solid #FCA5A5 !important;
+    font-weight: 800;
+}
+</style>
 
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
     <div>
@@ -381,6 +393,19 @@ include 'includes/header.php';
         </div>
         <div style="font-size: 0.78rem; color: #777777; margin-top: 4px;">
             De <?php echo $totalCitas; ?> citas agendadas
+        </div>
+    </div>
+
+    <div style="background: #FFF5F5; border: 1px solid #FED7D7; border-radius: 12px; padding: 18px;">
+        <div style="font-size: 0.75rem; font-weight: 800; color: #DC2626; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span>Inasistencias (No Asistió)</span>
+            <span style="background: rgba(220, 38, 38, 0.1); color: #DC2626; padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 900;">FISCALIZACIÓN</span>
+        </div>
+        <div style="font-size: 1.6rem; font-weight: 900; color: #DC2626;">
+            <?php echo $citasNoAsistio; ?>
+        </div>
+        <div style="font-size: 0.78rem; color: #7F1D1D; margin-top: 4px;">
+            Turnos no asistidos por clientes
         </div>
     </div>
 
@@ -560,9 +585,10 @@ include 'includes/header.php';
                                 <td>
                                     <?php 
                                     $stClass = 'status-' . htmlspecialchars($c['estado']);
+                                    $stLabel = ($c['estado'] === 'no_asistio') ? 'NO ASISTIÓ' : strtoupper(htmlspecialchars($c['estado']));
                                     ?>
                                     <span class="status-badge <?php echo $stClass; ?>">
-                                        <?php echo htmlspecialchars($c['estado']); ?>
+                                        <?php echo $stLabel; ?>
                                     </span>
                                 </td>
                                 <td>
@@ -923,8 +949,11 @@ function copiarHorariosWhatsApp() {
                                 <?php endif; ?>
                             </td>
                             <td>
+                                <?php 
+                                $hLabel = ($c['estado'] === 'no_asistio') ? 'NO ASISTIÓ' : strtoupper($c['estado']);
+                                ?>
                                 <span class="status-badge status-<?php echo $c['estado']; ?>">
-                                    <?php echo strtoupper($c['estado']); ?>
+                                    <?php echo $hLabel; ?>
                                 </span>
                             </td>
                             <td>

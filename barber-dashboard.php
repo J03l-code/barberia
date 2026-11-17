@@ -63,6 +63,13 @@ try {
         if (!in_array('asistencia_confirmada', $colsCitas)) {
             $pdo->exec("ALTER TABLE citas ADD COLUMN asistencia_confirmada TINYINT(1) DEFAULT 0");
         }
+        try {
+            $pdo->exec("ALTER TABLE citas MODIFY COLUMN estado ENUM('pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio') NOT NULL DEFAULT 'pendiente'");
+        } catch (Throwable $eEnum) {
+            try {
+                $pdo->exec("ALTER TABLE citas MODIFY COLUMN estado VARCHAR(50) NOT NULL DEFAULT 'pendiente'");
+            } catch (Throwable $eVar) {}
+        }
     } catch (Throwable $eCitas) {}
 
     // Columnas en clientes
@@ -926,7 +933,8 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                     $horaRango = $horaInicio . ' - ' . $horaFin;
                                     $fechaLegibleCita = formatearFechaEspanolAgenda($fechaYMD);
                                     $isCompletada = (($c['estado'] ?? '') === 'completada');
-                                    $cardClass = $isCompletada ? 'barber-appointment-card is-completed' : 'barber-appointment-card';
+                                    $isNoAsistio = (($c['estado'] ?? '') === 'no_asistio');
+                                    $cardClass = $isCompletada ? 'barber-appointment-card is-completed' : ($isNoAsistio ? 'barber-appointment-card is-no-asistio' : 'barber-appointment-card');
                                 ?>
                                 <div class="<?php echo $cardClass; ?>"
                                      onclick="abrirPerfilClienteModal(this)"
@@ -961,6 +969,8 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                                         <span class="bac-time-range"><?php echo $horaRango; ?></span>
                                         <?php if ($isCompletada): ?>
                                             <span class="bac-badge-completed" style="background: #10B981; color: #FFFFFF; font-weight: 800; padding: 2px 8px; border-radius: 6px;">✓ Corte Finalizado</span>
+                                        <?php elseif ($isNoAsistio): ?>
+                                            <span class="bac-badge-no-asistio" style="background: #FEE2E2; color: #991B1B; font-weight: 800; padding: 2px 8px; border-radius: 6px; border: 1px solid #FECACA; font-size: 0.72rem;">✕ No Asistió</span>
                                         <?php elseif (!empty($c['asistencia_confirmada'])): ?>
                                             <span class="bac-badge-confirmed">✓ Confirmado</span>
                                         <?php endif; ?>
@@ -1154,6 +1164,16 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
                             <div id="modalCitaEstadoBadge" style="margin-top: 2px;"></div>
                         </div>
                     </div>
+
+                    <!-- Acción Fiscalización: Marcar No Asistió -->
+                    <div id="modalNoAsistioContainer" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #CBD5E1; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.04em;">
+                            Control de Asistencia:
+                        </span>
+                        <div id="modalBtnNoAsistioSlot">
+                            <!-- Inyectado vía JS dinámicamente -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Preferencias de Estilo & Experiencia -->
@@ -1196,6 +1216,11 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             const modal = document.getElementById('modalPerfilCliente');
             if (!modal) return;
 
+            window.currentActiveCitaId = d.citaId || '';
+            window.currentActiveCardEl = cardEl;
+            window.currentActiveClienteNombre = d.clienteNombre || 'Cliente';
+            window.currentActiveEstado = d.estado || 'pendiente';
+
             // Nombre
             document.getElementById('modalClientName').textContent = d.clienteNombre || 'Cliente';
 
@@ -1217,12 +1242,17 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             // Badge estado
             const badgeDiv = document.getElementById('modalCitaEstadoBadge');
             if (d.estado === 'completada') {
-                badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px;">✓ CITA COMPLETADA</span>';
+                badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #A7F3D0;">✓ CITA COMPLETADA</span>';
+            } else if (d.estado === 'no_asistio') {
+                badgeDiv.innerHTML = '<span style="background:#FEE2E2; color:#991B1B; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #FECACA;">✕ NO ASISTIÓ</span>';
             } else if (d.confirmado === '1') {
-                badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px;">✓ ASISTENCIA CONFIRMADA</span>';
+                badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #A7F3D0;">✓ ASISTENCIA CONFIRMADA</span>';
             } else {
-                badgeDiv.innerHTML = '<span style="background:#FFFBEB; color:#B45309; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:6px;">PENDIENTE DE ASISTENCIA</span>';
+                badgeDiv.innerHTML = '<span style="background:#FFFBEB; color:#B45309; font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid #FDE68A;">PENDIENTE DE ASISTENCIA</span>';
             }
+
+            // Actualizar botón de inasistencia para fiscalización
+            actualizarBotonNoAsistioModal(d.estado);
 
             // Preferencias del cliente
             const prefContainer = document.getElementById('modalPreferenciasContainer');
@@ -1257,6 +1287,143 @@ $inicial_barbero = strtoupper(substr($nombreBarbero, 0, 1));
             // Mostrar modal
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
+        }
+
+        function actualizarBotonNoAsistioModal(estado) {
+            const slot = document.getElementById('modalBtnNoAsistioSlot');
+            if (!slot) return;
+
+            if (estado === 'completada') {
+                slot.innerHTML = '<span style="font-size:0.75rem; color:#047857; font-weight:800; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-check-circle"></i> Turno Atendido</span>';
+            } else if (estado === 'no_asistio') {
+                slot.innerHTML = `
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                        <span style="background:#FEE2E2; color:#991B1B; font-size:0.72rem; font-weight:800; padding:3px 8px; border-radius:6px; border:1px solid #FECACA;">✕ Marcado No Asistió</span>
+                        <button type="button" onclick="revertirNoAsistioModal()" style="background:#F1F5F9; color:#475569; border:1px solid #CBD5E1; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;" title="Revertir a cita normal">
+                            Revertir
+                        </button>
+                    </div>
+                `;
+            } else {
+                slot.innerHTML = `
+                    <button type="button" onclick="marcarNoAsistioModal()" style="background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;" title="Registrar que el cliente no se presentó a su turno">
+                        <i class="fas fa-user-times"></i> Cliente No Asistió
+                    </button>
+                `;
+            }
+        }
+
+        async function marcarNoAsistioModal() {
+            if (!window.currentActiveCitaId) return;
+            const confirmMsg = `¿Confirmas que el cliente ${window.currentActiveClienteNombre} NO ASISTIÓ a su cita?\n\nEsta inasistencia quedará registrada formalmente en el sistema para que los administradores de los locales la tomen en cuenta en la fiscalización de citas y horas trabajadas.`;
+            if (!confirm(confirmMsg)) return;
+
+            const slot = document.getElementById('modalBtnNoAsistioSlot');
+            if (slot) slot.innerHTML = '<span style="font-size:0.75rem; color:#64748B;">Registrando...</span>';
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'marcar_no_asistio');
+                formData.append('id', window.currentActiveCitaId);
+                formData.append('ajax', '1');
+
+                const resp = await fetch('api/citas_action.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const res = await resp.json();
+
+                if (res.success) {
+                    window.currentActiveEstado = 'no_asistio';
+                    
+                    const badgeDiv = document.getElementById('modalCitaEstadoBadge');
+                    if (badgeDiv) {
+                        badgeDiv.innerHTML = '<span style="background:#FEE2E2; color:#991B1B; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #FECACA;">✕ NO ASISTIÓ</span>';
+                    }
+
+                    actualizarBotonNoAsistioModal('no_asistio');
+
+                    if (window.currentActiveCardEl) {
+                        window.currentActiveCardEl.dataset.estado = 'no_asistio';
+                        window.currentActiveCardEl.classList.add('is-no-asistio');
+                        const bottomEl = window.currentActiveCardEl.querySelector('.bac-row-bottom');
+                        if (bottomEl) {
+                            let badgeEl = bottomEl.querySelector('.bac-badge-no-asistio, .bac-badge-confirmed, .bac-badge-completed');
+                            if (!badgeEl) {
+                                badgeEl = document.createElement('span');
+                                bottomEl.appendChild(badgeEl);
+                            }
+                            badgeEl.className = 'bac-badge-no-asistio';
+                            badgeEl.style.cssText = 'background: #FEE2E2; color: #991B1B; font-weight: 800; padding: 2px 8px; border-radius: 6px; border: 1px solid #FECACA; font-size: 0.72rem;';
+                            badgeEl.textContent = '✕ No Asistió';
+                        }
+                    }
+                } else {
+                    alert(res.message || 'Error al registrar inasistencia.');
+                    actualizarBotonNoAsistioModal(window.currentActiveEstado);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error de conexión al marcar inasistencia.');
+                actualizarBotonNoAsistioModal(window.currentActiveEstado);
+            }
+        }
+
+        async function revertirNoAsistioModal() {
+            if (!window.currentActiveCitaId) return;
+            if (!confirm(`¿Deseas revertir la inasistencia de ${window.currentActiveClienteNombre} a cita confirmada?`)) return;
+
+            const slot = document.getElementById('modalBtnNoAsistioSlot');
+            if (slot) slot.innerHTML = '<span style="font-size:0.75rem; color:#64748B;">Revirtiendo...</span>';
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'revertir_no_asistio');
+                formData.append('id', window.currentActiveCitaId);
+                formData.append('ajax', '1');
+
+                const resp = await fetch('api/citas_action.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const res = await resp.json();
+
+                if (res.success) {
+                    window.currentActiveEstado = 'confirmada';
+                    
+                    const badgeDiv = document.getElementById('modalCitaEstadoBadge');
+                    if (badgeDiv) {
+                        badgeDiv.innerHTML = '<span style="background:#ECFDF5; color:#047857; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #A7F3D0;">✓ ASISTENCIA CONFIRMADA</span>';
+                    }
+
+                    actualizarBotonNoAsistioModal('confirmada');
+
+                    if (window.currentActiveCardEl) {
+                        window.currentActiveCardEl.dataset.estado = 'confirmada';
+                        window.currentActiveCardEl.classList.remove('is-no-asistio');
+                        const bottomEl = window.currentActiveCardEl.querySelector('.bac-row-bottom');
+                        if (bottomEl) {
+                            let badgeEl = bottomEl.querySelector('.bac-badge-no-asistio, .bac-badge-confirmed, .bac-badge-completed');
+                            if (!badgeEl) {
+                                badgeEl = document.createElement('span');
+                                bottomEl.appendChild(badgeEl);
+                            }
+                            badgeEl.className = 'bac-badge-confirmed';
+                            badgeEl.style.cssText = '';
+                            badgeEl.textContent = '✓ Confirmado';
+                        }
+                    }
+                } else {
+                    alert(res.message || 'Error al revertir.');
+                    actualizarBotonNoAsistioModal(window.currentActiveEstado);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error de conexión.');
+                actualizarBotonNoAsistioModal(window.currentActiveEstado);
+            }
         }
 
         function cerrarPerfilClienteModal(e) {
