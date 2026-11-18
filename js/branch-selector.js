@@ -18,7 +18,17 @@ async function fetchBranches() {
         clearTimeout(timeoutId);
         const json = await response.json();
         if (json.success && json.data && json.data.length > 0) {
-            cachedBranches = json.data;
+            cachedBranches = json.data.map(b => {
+                let open = (b.openTime || '').toString().trim();
+                let close = (b.closeTime || '').toString().trim();
+                if (!open || open === '00:00' || open === '00:00:00') open = '10:00';
+                if (!close || close === '00:00' || close === '00:00:00') close = '20:00';
+                return {
+                    ...b,
+                    openTime: open,
+                    closeTime: close
+                };
+            });
             // Actualizar la referencia de sucursal seleccionada con los datos más recientes del servidor
             const savedId = localStorage.getItem(BRANCH_STORAGE_KEY);
             if (savedId) {
@@ -137,6 +147,10 @@ function createBranchSelectorModal() {
                     <!-- SUCURSALES ACTIVAS -->
                     ${activeBranches.map(branch => {
                         const isSelected = currentSelectedBranch && currentSelectedBranch.id == branch.id;
+                        let bOpen = (branch.openTime || '').toString().trim();
+                        let bClose = (branch.closeTime || '').toString().trim();
+                        if (!bOpen || bOpen === '00:00' || bOpen === '00:00:00') bOpen = '10:00';
+                        if (!bClose || bClose === '00:00' || bClose === '00:00:00') bClose = '20:00';
                         return `
                         <div class="branch-card ${isSelected ? 'is-selected' : ''}" 
                              onclick="selectBranchFromModal(${branch.id})"
@@ -160,7 +174,7 @@ function createBranchSelectorModal() {
                                     <div style="display: flex; align-items: center; gap: 10px; font-size: 0.75rem; color: #888888; flex-wrap: wrap;">
                                         <span style="display: inline-flex; align-items: center; gap: 4px;">
                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                            ${branch.openTime} - ${branch.closeTime}
+                                            ${bOpen} - ${bClose}
                                         </span>
                                         <span>|</span>
                                         <span style="display: inline-flex; align-items: center; gap: 4px;">
@@ -263,6 +277,11 @@ function updateBranchInfoBar() {
 
     const isMobile = window.innerWidth <= 768;
 
+    let bOpen = (branch.openTime || '').toString().trim();
+    let bClose = (branch.closeTime || '').toString().trim();
+    if (!bOpen || bOpen === '00:00' || bOpen === '00:00:00') bOpen = '10:00';
+    if (!bClose || bClose === '00:00' || bClose === '00:00:00') bClose = '20:00';
+
     const barHTML = `
         <div class="branch-info-bar" style="position: fixed; top: 0; left: 0; right: 0; z-index: 10001; background: #FFFFFF; color: #111111; border-bottom: 1px solid rgba(0, 0, 0, 0.08); height: 42px; min-height: 42px; max-height: 42px; display: flex; align-items: center; backdrop-filter: blur(10px); font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden;">
             <div class="branch-info-bar__content" style="max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 ${isMobile ? '0.6rem' : '1rem'}; display: flex; align-items: center; justify-content: space-between; font-size: ${isMobile ? '0.72rem' : '0.82rem'}; white-space: nowrap; height: 100%;">
@@ -291,7 +310,7 @@ function updateBranchInfoBar() {
                             <circle cx="12" cy="12" r="10"></circle>
                             <polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
-                        ${branch.openTime} - ${branch.closeTime}
+                        ${bOpen} - ${bClose}
                     </span>
                     <span class="branch-info-bar__item branch-info-bar__item--phone" style="display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -411,8 +430,10 @@ function updateGlobalFooter(branch) {
     const branchName = branch.name || branch.nombre || 'KORTZEN';
     const branchAddress = branch.address || branch.direccion || 'Llano Chico, Quito, Ecuador';
     const branchPhone = branch.phone || branch.telefono || '+593 98 842 2770';
-    const open = branch.openTime || '10:00';
-    const close = branch.closeTime || '20:00';
+    let open = (branch.openTime || '').toString().trim();
+    let close = (branch.closeTime || '').toString().trim();
+    if (!open || open === '00:00' || open === '00:00:00') open = '10:00';
+    if (!close || close === '00:00' || close === '00:00:00') close = '20:00';
     const scheduleText = `Lunes a Domingo: ${open} - ${close}`;
     const scheduleShort = `Lun - Dom: ${open} - ${close}`;
 

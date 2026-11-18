@@ -353,6 +353,12 @@ function getConnection()
                 try {
                     asegurarIntegridadServiciosSucursalesBarberos($pdo);
                 } catch (Throwable $e_int) {}
+
+                // Integridad de Horarios de Sucursales: Corregir registros que tengan 00:00:00 o NULL
+                try {
+                    $pdo->exec("UPDATE sucursales SET horario_apertura = '10:00:00' WHERE horario_apertura IS NULL OR horario_apertura = '00:00:00' OR horario_apertura = '00:00'");
+                    $pdo->exec("UPDATE sucursales SET horario_cierre = '20:00:00' WHERE horario_cierre IS NULL OR horario_cierre = '00:00:00' OR horario_cierre = '00:00'");
+                } catch (Throwable $e_suc) {}
             }
 
 

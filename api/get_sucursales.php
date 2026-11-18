@@ -28,8 +28,8 @@ try {
     $hasMapa = in_array('mapa_url', $existingCols);
 
     $sql = "SELECT id, nombre, direccion, telefono";
-    if ($hasApertura) $sql .= ", DATE_FORMAT(COALESCE(horario_apertura, '10:00:00'), '%H:%i') as horario_apertura";
-    if ($hasCierre) $sql .= ", DATE_FORMAT(COALESCE(horario_cierre, '20:00:00'), '%H:%i') as horario_cierre";
+    if ($hasApertura) $sql .= ", horario_apertura";
+    if ($hasCierre) $sql .= ", horario_cierre";
     if ($hasEstado) $sql .= ", COALESCE(estado, 'activo') as estado";
     if ($hasMapa) $sql .= ", mapa_url";
     $sql .= " FROM sucursales";
@@ -50,8 +50,24 @@ try {
         $estado = $s['estado'] ?? 'activo';
         if ($estado === 'inactivo') continue;
 
-        $openTime = !empty($s['horario_apertura']) ? date('H:i', strtotime($s['horario_apertura'])) : '10:00';
-        $closeTime = !empty($s['horario_cierre']) ? date('H:i', strtotime($s['horario_cierre'])) : '20:00';
+        $rawOpen = trim((string)($s['horario_apertura'] ?? ''));
+        $rawClose = trim((string)($s['horario_cierre'] ?? ''));
+
+        $openTime = '10:00';
+        if (!empty($rawOpen) && $rawOpen !== '00:00:00' && $rawOpen !== '00:00') {
+            $parsed = date('H:i', strtotime($rawOpen));
+            if ($parsed && $parsed !== '00:00') {
+                $openTime = $parsed;
+            }
+        }
+
+        $closeTime = '20:00';
+        if (!empty($rawClose) && $rawClose !== '00:00:00' && $rawClose !== '00:00') {
+            $parsed = date('H:i', strtotime($rawClose));
+            if ($parsed && $parsed !== '00:00') {
+                $closeTime = $parsed;
+            }
+        }
 
         $formatted[] = [
             'id' => intval($s['id']),

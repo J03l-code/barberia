@@ -65,14 +65,14 @@ try {
             $estado = in_array($_POST['estado'] ?? '', ['activo', 'proximamente', 'inactivo']) ? $_POST['estado'] : 'activo';
             
             $horario_apertura = trim($_POST['horario_apertura'] ?? '');
-            if (!empty($horario_apertura)) {
+            if (!empty($horario_apertura) && $horario_apertura !== '00:00' && $horario_apertura !== '00:00:00') {
                 if (strlen($horario_apertura) === 5) $horario_apertura .= ':00';
             } else {
                 $horario_apertura = '10:00:00';
             }
 
             $horario_cierre = trim($_POST['horario_cierre'] ?? '');
-            if (!empty($horario_cierre)) {
+            if (!empty($horario_cierre) && $horario_cierre !== '00:00' && $horario_cierre !== '00:00:00') {
                 if (strlen($horario_cierre) === 5) $horario_cierre .= ':00';
             } else {
                 $horario_cierre = '20:00:00';
@@ -162,14 +162,14 @@ try {
             $estado = in_array($_POST['estado'] ?? '', ['activo', 'proximamente', 'inactivo']) ? $_POST['estado'] : 'activo';
             
             $horario_apertura = trim($_POST['horario_apertura'] ?? '');
-            if (!empty($horario_apertura)) {
+            if (!empty($horario_apertura) && $horario_apertura !== '00:00' && $horario_apertura !== '00:00:00') {
                 if (strlen($horario_apertura) === 5) $horario_apertura .= ':00';
             } else {
                 $horario_apertura = '10:00:00';
             }
 
             $horario_cierre = trim($_POST['horario_cierre'] ?? '');
-            if (!empty($horario_cierre)) {
+            if (!empty($horario_cierre) && $horario_cierre !== '00:00' && $horario_cierre !== '00:00:00') {
                 if (strlen($horario_cierre) === 5) $horario_cierre .= ':00';
             } else {
                 $horario_cierre = '20:00:00';
