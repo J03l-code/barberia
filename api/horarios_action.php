@@ -145,16 +145,17 @@ try {
             $horaFin = $_POST['hora_fin'] ?? '';
             $motivo = trim($_POST['motivo'] ?? 'Bloqueo parcial');
 
-            if (empty($fecha) || empty($horaInicio) || empty($horaFin)) {
-                throw new Exception('Fecha y horas son obligatorias.');
+            if (empty($fecha) || empty($horaInicio)) {
+                throw new Exception('Fecha y hora de inicio son obligatorias.');
             }
 
             if (strtotime($fecha) < strtotime(date('Y-m-d'))) {
                 throw new Exception('No se pueden bloquear fechas pasadas.');
             }
 
-            if (strtotime($horaFin) <= strtotime($horaInicio)) {
-                throw new Exception('La hora de fin debe ser posterior a la de inicio.');
+            if (empty($horaFin) || strtotime($horaFin) <= strtotime($horaInicio)) {
+                // Si la hora de fin no se especificó o es igual/menor a la de inicio, bloquear hasta el final de la jornada
+                $horaFin = '23:59:00';
             }
 
             $sql = "INSERT INTO bloqueos_horas (barbero_id, fecha, hora_inicio, hora_fin, motivo, creado_por) VALUES (?, ?, ?, ?, ?, ?)";

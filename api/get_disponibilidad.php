@@ -97,21 +97,23 @@ try {
             return [];
         }
 
-        // 4. Definir horario base (asegurando cobertura completa de la jornada)
+        // 4. Definir horario base (respetando la jornada configurada por el administrador)
         if ($hCheck && intval($hCheck['activo']) === 1) {
             $hBase = $hCheck;
-            // Asegurar que la jornada cubra hasta las 20:00 de Lunes a Sábado
-            if ($diaSem != 0 && strtotime("$fDate " . $hBase['hora_fin']) < strtotime("$fDate 20:00:00")) {
-                $hBase['hora_fin'] = '20:00:00';
+            if (empty($hBase['hora_inicio']) || $hBase['hora_inicio'] === '00:00:00') {
+                $hBase['hora_inicio'] = '10:00:00';
+            }
+            if (empty($hBase['hora_fin']) || $hBase['hora_fin'] === '00:00:00') {
+                $hBase['hora_fin'] = ($diaSem == 0) ? '17:00:00' : '20:00:00';
             }
             // Asegurar que comience a las 11:00 o antes si hay citas
             if ($hasCitasOnDate && strtotime("$fDate " . $hBase['hora_inicio']) > strtotime("$fDate 11:00:00")) {
                 $hBase['hora_inicio'] = '11:00:00';
             }
         } else {
-            // Horario predeterminado KORTZEN (11:00 a 20:00 Lun-Sáb, 10:00 a 17:00 Dom)
+            // Horario predeterminado KORTZEN (10:00 a 20:00 Lun-Sáb, 10:00 a 17:00 Dom)
             $hBase = [
-                'hora_inicio' => ($diaSem == 0) ? '10:00:00' : '11:00:00',
+                'hora_inicio' => '10:00:00',
                 'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
                 'activo' => 1
             ];
@@ -172,11 +174,20 @@ try {
         }
 
         foreach ($bParciales as $bp) {
-            $iniB = strtotime("$fDate " . $bp['hora_inicio']);
-            $finB = strtotime("$fDate " . $bp['hora_fin']);
+            $hIniStr = $bp['hora_inicio'] ?? '';
+            $hFinStr = $bp['hora_fin'] ?? '';
+            if (empty($hIniStr)) continue;
+            
+            $iniB = strtotime("$fDate $hIniStr");
+            $finB = !empty($hFinStr) ? strtotime("$fDate $hFinStr") : 0;
+            if ($finB <= $iniB) {
+                // Si la hora de fin no es mayor a la de inicio, bloquear hasta el final de la jornada
+                $finB = max($endOfDay, strtotime("$fDate 23:59:00"));
+            }
+
             $ocupados[] = ['inicio' => $iniB, 'fin' => $finB];
 
-            if (date('i', $finB) === '30') {
+            if (date('i', $finB) === '30' && $finB < $endOfDay) {
                 $puntosContinuidad[] = $finB;
             }
         }

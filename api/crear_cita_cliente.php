@@ -160,7 +160,10 @@ try {
             $hasBlock = false;
             foreach ($bhs as $bh) {
                 $bIni = strtotime("$fecha " . $bh['hora_inicio']);
-                $bFin = strtotime("$fecha " . $bh['hora_fin']);
+                $bFin = !empty($bh['hora_fin']) ? strtotime("$fecha " . $bh['hora_fin']) : 0;
+                if ($bFin <= $bIni) {
+                    $bFin = strtotime("$fecha 23:59:00");
+                }
                 if ($slotStartTs < $bFin && $slotEndTs > $bIni) { $hasBlock = true; break; }
             }
             if ($hasBlock) continue;
@@ -219,15 +222,18 @@ try {
         }
 
         if ($hBase && intval($hBase['activo']) === 1) {
-            if ($diaSem != 0 && strtotime("$fecha " . $hBase['hora_fin']) < strtotime("$fecha 20:00:00")) {
-                $hBase['hora_fin'] = '20:00:00';
+            if (empty($hBase['hora_inicio']) || $hBase['hora_inicio'] === '00:00:00') {
+                $hBase['hora_inicio'] = '10:00:00';
+            }
+            if (empty($hBase['hora_fin']) || $hBase['hora_fin'] === '00:00:00') {
+                $hBase['hora_fin'] = ($diaSem == 0) ? '17:00:00' : '20:00:00';
             }
             if ($hasCitasOnDate && strtotime("$fecha " . $hBase['hora_inicio']) > strtotime("$fecha 11:00:00")) {
                 $hBase['hora_inicio'] = '11:00:00';
             }
         } else {
             $hBase = [
-                'hora_inicio' => ($diaSem == 0) ? '10:00:00' : '11:00:00',
+                'hora_inicio' => '10:00:00',
                 'hora_fin' => ($diaSem == 0) ? '17:00:00' : '20:00:00',
                 'activo' => 1
             ];
@@ -271,7 +277,10 @@ try {
         $bhs = $stmtBH->fetchAll(PDO::FETCH_ASSOC);
         foreach ($bhs as $bh) {
             $bIni = strtotime("$fecha " . $bh['hora_inicio']);
-            $bFin = strtotime("$fecha " . $bh['hora_fin']);
+            $bFin = !empty($bh['hora_fin']) ? strtotime("$fecha " . $bh['hora_fin']) : 0;
+            if ($bFin <= $bIni) {
+                $bFin = strtotime("$fecha 23:59:00");
+            }
             if ($slotStartTs < $bFin && $slotEndTs > $bIni) {
                 throw new Exception('El barbero no se encuentra disponible en este horario (bloqueo programado).');
             }

@@ -268,25 +268,8 @@ function getConnection()
 
                 // Sincronización de horarios y almuerzos por defecto:
                 try {
-                    // 1. Todos los barberos tienen almuerzo de 13:00 a 14:00 por defecto (bloqueado)
-                    $pdo->exec("UPDATE usuarios SET almuerzo_activo = 1, almuerzo_inicio = '13:00:00', almuerzo_fin = '14:00:00' WHERE almuerzo_inicio IS NULL OR almuerzo_fin IS NULL OR almuerzo_activo IS NULL OR almuerzo_activo = 1");
-                    
-                    // 2. Asegurar que las jornadas activas de los barberos cubran hasta las 20:00 (Lun - Sáb)
-                    $pdo->exec("UPDATE horarios_barberos SET hora_fin = '20:00:00' WHERE activo = 1 AND dia_semana != 0 AND hora_fin < '20:00:00'");
-                    
-                    // 3. Configurar y asegurar jornada completa de Jeffrey Herrera (Lun-Sáb 11:00 a 20:00)
-                    $stmtJId = $pdo->query("SELECT id FROM usuarios WHERE nombre LIKE '%Jeffrey%' LIMIT 1");
-                    $jId = $stmtJId ? intval($stmtJId->fetchColumn()) : 0;
-                    if ($jId > 0) {
-                        for ($d = 1; $d <= 6; $d++) {
-                            $pdo->exec("INSERT INTO horarios_barberos (barbero_id, dia_semana, hora_inicio, hora_fin, activo) 
-                                        VALUES ($jId, $d, '11:00:00', '20:00:00', 1) 
-                                        ON DUPLICATE KEY UPDATE activo = 1, hora_inicio = '11:00:00', hora_fin = '20:00:00'");
-                        }
-                        $pdo->exec("DELETE FROM dias_bloqueados WHERE barbero_id = $jId AND fecha = '2026-11-18'");
-                        $pdo->exec("DELETE FROM bloqueos_horas WHERE barbero_id = $jId AND fecha = '2026-11-18'");
-                        $pdo->exec("UPDATE usuarios SET almuerzo_activo = 1, almuerzo_inicio = '13:00:00', almuerzo_fin = '14:00:00' WHERE id = $jId");
-                    }
+                    // Solo asignar almuerzo por defecto si el usuario no tiene ninguno configurado
+                    $pdo->exec("UPDATE usuarios SET almuerzo_activo = 1, almuerzo_inicio = '13:00:00', almuerzo_fin = '14:00:00' WHERE almuerzo_inicio IS NULL OR almuerzo_fin IS NULL OR almuerzo_activo IS NULL");
                 } catch (Throwable $e_sync_all) {}
 
                 try {
