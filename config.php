@@ -348,6 +348,11 @@ function getConnection()
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                     ");
                 } catch (Throwable $e_ref) {}
+
+                // Integridad de Servicios: Asegurar que todo servicio tenga sucursal y barberos asignados
+                try {
+                    asegurarIntegridadServiciosSucursalesBarberos($pdo);
+                } catch (Throwable $e_int) {}
             }
 
 
@@ -1365,6 +1370,75 @@ function checkCronRecordatorios2hAuto() {
             @fclose($fp);
         }
     } catch (Exception $e) {}
+}
+
+/**
+ * Garantiza que ningún servicio quede invisible o huérfano (sin sucursales o sin barberos).
+ * Si un servicio no tiene sucursales asignadas en servicios_sucursales, se asigna a todas las sucursales activas.
+ * Si no tiene barberos asignados en servicios_barberos, se asigna a todos los barberos activos.
+ */
+function asegurarIntegridadServiciosSucursalesBarberos($pdo) {
+    if (!$pdo) return;
+    try {
+        // Asegurar existencia de tablas relacionales
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `servicios_sucursales` (
+                `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `servicio_id` INT UNSIGNED NOT NULL,
+                `sucursal_id` INT UNSIGNED NOT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_servicio_sucursal` (`servicio_id`, `sucursal_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `servicios_barberos` (
+                `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `servicio_id` INT UNSIGNED NOT NULL,
+                `barbero_id` INT UNSIGNED NOT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_servicio_barbero` (`servicio_id`, `barbero_id`),
+                INDEX `idx_servicio` (`servicio_id`),
+                INDEX `idx_barbero` (`barbero_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // 1. Vincular a todas las sucursales activas cualquier servicio que no tenga asignación en servicios_sucursales
+        $pdo->exec("
+            INSERT IGNORE INTO servicios_sucursales (servicio_id, sucursal_id)
+            SELECT s.id, suc.id 
+            FROM servicios s 
+            CROSS JOIN sucursales suc 
+            WHERE suc.activo = 1 
+            AND NOT EXISTS (SELECT 1 FROM servicios_sucursales ss WHERE ss.servicio_id = s.id)
+        ");
+
+        // 2. Vincular a todos los barberos activos cualquier servicio que no tenga ningún barbero en servicios_barberos
+        $pdo->exec("
+            INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id)
+            SELECT s.id, u.id 
+            FROM servicios s 
+            CROSS JOIN usuarios u 
+            WHERE u.activo = 1 AND (u.rol = 'barbero' OR u.rol = 'admin_local' OR u.rol = 'admin')
+            AND LOWER(s.nombre) NOT LIKE '%mateo%'
+            AND NOT EXISTS (SELECT 1 FROM servicios_barberos sb WHERE sb.servicio_id = s.id)
+        ");
+
+        // Si el corte especifica 'Mateo', vincularlo con Mateo
+        $pdo->exec("
+            INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id)
+            SELECT s.id, u.id 
+            FROM servicios s 
+            CROSS JOIN usuarios u 
+            WHERE u.activo = 1 AND (LOWER(u.nombre) LIKE '%mateo%' OR LOWER(u.email) LIKE '%mateo%')
+            AND LOWER(s.nombre) LIKE '%mateo%'
+            AND NOT EXISTS (SELECT 1 FROM servicios_barberos sb WHERE sb.servicio_id = s.id)
+        ");
+
+        // 3. Asegurar que los servicios tengan activo = 1 por defecto si estuvieran en null
+        $pdo->exec("UPDATE servicios SET activo = 1 WHERE activo IS NULL");
+    } catch (Throwable $e) {
+        error_log("Error asegurando integridad de servicios: " . $e->getMessage());
+    }
 }
 
 // Auto-ejecución pasiva de fondo al cargar cualquier página

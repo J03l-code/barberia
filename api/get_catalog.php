@@ -43,18 +43,12 @@ try {
         $sql = "SELECT s.*, cs.orden as cat_orden FROM servicios s LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre";
 
         if ($sucursalId > 0) {
-            try {
-                $checkSS = $pdo->query("SELECT COUNT(*) FROM servicios_sucursales WHERE sucursal_id = $sucursalId")->fetchColumn();
-                if ($checkSS > 0) {
-                    $sql .= " INNER JOIN servicios_sucursales ss ON s.id = ss.servicio_id WHERE s.activo = 1 AND ss.sucursal_id = $sucursalId";
-                } else {
-                    $sql .= " WHERE s.activo = 1 AND (s.sucursal_id = $sucursalId OR s.sucursal_id IS NULL OR s.sucursal_id = 0)";
-                }
-            } catch (Throwable $e) {
-                $sql .= " WHERE s.activo = 1 AND (s.sucursal_id = $sucursalId OR s.sucursal_id IS NULL OR s.sucursal_id = 0)";
-            }
+            $sql .= " LEFT JOIN servicios_sucursales ss ON s.id = ss.servicio_id 
+                      WHERE s.activo = 1 
+                      AND (ss.sucursal_id = $sucursalId OR ss.sucursal_id IS NULL OR s.sucursal_id = $sucursalId OR s.sucursal_id IS NULL OR s.sucursal_id = 0)
+                      GROUP BY s.id";
         } else {
-            $sql .= " WHERE s.activo = 1";
+            $sql .= " WHERE s.activo = 1 GROUP BY s.id";
         }
 
         $sql .= " ORDER BY COALESCE(cs.orden, 999) ASC, s.categoria ASC, COALESCE(s.orden, 999) ASC, s.id ASC";

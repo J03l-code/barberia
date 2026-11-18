@@ -484,6 +484,30 @@ try {
 }
 try {
     $serviciosList = query("SELECT s.*, cs.nombre as categoria_nombre FROM servicios s LEFT JOIN categorias_servicios cs ON s.categoria = cs.nombre ORDER BY COALESCE(s.orden, 999) ASC, s.categoria ASC, s.nombre ASC");
+
+    // Mapear relaciones de sucursales y barberos para edición completa
+    $srvSucursalMap = [];
+    try {
+        $ssRows = query("SELECT servicio_id, sucursal_id FROM servicios_sucursales");
+        foreach ($ssRows as $r) {
+            $srvSucursalMap[$r['servicio_id']][] = intval($r['sucursal_id']);
+        }
+    } catch (Exception $eSS) {}
+
+    $srvBarberoMap = [];
+    try {
+        $sbRows = query("SELECT servicio_id, barbero_id FROM servicios_barberos");
+        foreach ($sbRows as $r) {
+            $srvBarberoMap[$r['servicio_id']][] = intval($r['barbero_id']);
+        }
+    } catch (Exception $eSB) {}
+
+    foreach ($serviciosList as &$srv) {
+        $sId = $srv['id'];
+        $srv['sucursales_ids'] = $srvSucursalMap[$sId] ?? (!empty($srv['sucursal_id']) ? [intval($srv['sucursal_id'])] : []);
+        $srv['barberos_ids'] = $srvBarberoMap[$sId] ?? (!empty($srv['barbero_id']) ? [intval($srv['barbero_id'])] : []);
+    }
+    unset($srv);
 } catch (Exception $e) {
     $serviciosList = [];
 }
@@ -3760,6 +3784,40 @@ $nombreAdmin = $currentUser['nombre'] ?? 'Admin';
                 <textarea name="que_incluye" id="pwaServQueIncluye" rows="3" placeholder="• Lavado capilar premium&#10;• Perfilado con navaja&#10;• Toalla caliente relajante" style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border-pwa); font-weight: 600; font-size: 0.82rem; margin-top: 4px; font-family: inherit;"></textarea>
             </div>
 
+            <!-- Sucursales Disponibles -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Sucursales Disponibles *</label>
+                    <button type="button" onclick="toggleAllServSucursalesPwa()" style="background: none; border: none; font-size: 0.72rem; color: #111; font-weight: 800; cursor: pointer; text-decoration: underline;">Alternar Todas</button>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
+                    <?php foreach ($sucursalesList as $s): ?>
+                        <label style="display: flex; align-items: center; gap: 6px; background: #F8FAFC; border: 1.5px solid var(--border-pwa); padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
+                            <input type="checkbox" name="sucursales[]" value="<?php echo $s['id']; ?>" class="pwa-serv-suc-cb" checked style="width: 16px; height: 16px; accent-color: #111;">
+                            <span><?php echo htmlspecialchars($s['nombre']); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <small style="color: var(--text-gray); font-size: 0.7rem; margin-top: 4px; display: block;">* El servicio estará activo en las sucursales marcadas.</small>
+            </div>
+
+            <!-- Barberos que realizan el servicio -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Barberos Asignados *</label>
+                    <button type="button" onclick="toggleAllServBarberosPwa()" style="background: none; border: none; font-size: 0.72rem; color: #111; font-weight: 800; cursor: pointer; text-decoration: underline;">Alternar Todos</button>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; max-height: 150px; overflow-y: auto; padding-right: 2px;">
+                    <?php foreach ($barberosList as $b): ?>
+                        <label style="display: flex; align-items: center; gap: 6px; background: #F8FAFC; border: 1.5px solid var(--border-pwa); padding: 7px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer;">
+                            <input type="checkbox" name="barberos[]" value="<?php echo $b['id']; ?>" class="pwa-serv-barb-cb" checked style="width: 16px; height: 16px; accent-color: #111;">
+                            <span><?php echo htmlspecialchars($b['nombre']); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <small style="color: var(--text-gray); font-size: 0.7rem; margin-top: 4px; display: block;">* Los clientes podrán agendar con los barberos seleccionados.</small>
+            </div>
+
             <div>
                 <label style="font-size: 0.72rem; font-weight: 800; color: var(--text-gray); text-transform: uppercase;">Imagen / Fotografía (Opcional)</label>
                 <input type="file" name="foto_file" id="pwaServFotoFile" accept="image/*" style="width: 100%; padding: 8px; border-radius: 8px; border: 1.5px dashed var(--border-pwa); font-size: 0.8rem; margin-top: 4px;">
@@ -6133,6 +6191,18 @@ function aplicarFiltrosServiciosPwa() {
     });
 }
 
+function toggleAllServSucursalesPwa() {
+    const cbs = document.querySelectorAll('.pwa-serv-suc-cb');
+    const allChecked = Array.from(cbs).every(cb => cb.checked);
+    cbs.forEach(cb => cb.checked = !allChecked);
+}
+
+function toggleAllServBarberosPwa() {
+    const cbs = document.querySelectorAll('.pwa-serv-barb-cb');
+    const allChecked = Array.from(cbs).every(cb => cb.checked);
+    cbs.forEach(cb => cb.checked = !allChecked);
+}
+
 function abrirModalServicioPwa(srv) {
     const form = document.getElementById('formPwaServicio');
     form.reset();
@@ -6153,6 +6223,29 @@ function abrirModalServicioPwa(srv) {
         document.getElementById('pwaServQueIncluye').value = srv.que_incluye || '';
         document.getElementById('pwaServFotoUrl').value = srv.foto_url || srv.imagen_url || '';
         btnDel.style.display = 'block';
+
+        // Pre-seleccionar sucursales asignadas
+        const assignedSucs = Array.isArray(srv.sucursales_ids) ? srv.sucursales_ids.map(Number) : [];
+        document.querySelectorAll('.pwa-serv-suc-cb').forEach(cb => {
+            if (assignedSucs.length === 0) {
+                // Si no tenía sucursal explícita, marcar todas para asegurar visibilidad
+                cb.checked = true;
+            } else {
+                cb.checked = assignedSucs.includes(Number(cb.value));
+            }
+        });
+
+        // Pre-seleccionar barberos asignados
+        const assignedBarbs = Array.isArray(srv.barberos_ids) ? srv.barberos_ids.map(Number) : [];
+        document.querySelectorAll('.pwa-serv-barb-cb').forEach(cb => {
+            if (assignedBarbs.length === 0) {
+                // Si no tenía barbero explícito, marcar todos por defecto
+                cb.checked = true;
+            } else {
+                cb.checked = assignedBarbs.includes(Number(cb.value));
+            }
+        });
+
     } else {
         title.innerText = 'Nuevo Servicio';
         document.getElementById('pwaServAction').value = 'create';
@@ -6162,6 +6255,10 @@ function abrirModalServicioPwa(srv) {
         document.getElementById('pwaServOrden').value = '0';
         document.getElementById('pwaServActivo').value = '1';
         btnDel.style.display = 'none';
+
+        // Para nuevo servicio, todas las sucursales y barberos marcados por defecto
+        document.querySelectorAll('.pwa-serv-suc-cb').forEach(cb => cb.checked = true);
+        document.querySelectorAll('.pwa-serv-barb-cb').forEach(cb => cb.checked = true);
     }
     document.getElementById('pwaServicioSheet').style.display = 'flex';
 }

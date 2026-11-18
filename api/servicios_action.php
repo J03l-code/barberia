@@ -251,6 +251,9 @@ try {
                 }
             }
 
+            // Garantizar integridad general
+            asegurarIntegridadServiciosSucursalesBarberos($pdo);
+
             registrarLog('CREAR', 'servicios', $servicioId, "Servicio '$nombre' creado exitosamente (Orden: #$orden, Precio: $$precio, $duracion_minutos min)");
             if ($isJson) {
                 header('Content-Type: application/json');
@@ -262,28 +265,27 @@ try {
 
         case 'update':
             $id = intval($_POST['id'] ?? 0);
-            $nombre = trim($_POST['nombre'] ?? '');
-            $descripcion = trim($_POST['descripcion'] ?? '');
-            $que_incluye = trim($_POST['que_incluye'] ?? '');
-            $precio = floatval($_POST['precio'] ?? 0);
-            $duracion_minutos = intval($_POST['duracion_minutos'] ?? 30);
-            $categoria = trim($_POST['categoria'] ?? 'General');
-            $orden = isset($_POST['orden']) ? intval($_POST['orden']) : 0;
-            $activo = intval($_POST['activo'] ?? 1);
-            $destacado = isset($_POST['destacado']) ? 1 : 0;
-            $sucursales = $_POST['sucursales'] ?? [];
-            $barberos = isset($_POST['barberos']) && is_array($_POST['barberos']) ? array_map('intval', $_POST['barberos']) : [];
-            
-            // Si solo vino un barbero_id tradicional en POST y no vino el array
-            if (empty($barberos) && isset($_POST['barbero_id']) && $_POST['barbero_id'] !== '') {
-                $barberos = [intval($_POST['barbero_id'])];
-            }
-
-            $barbero_id = (count($barberos) === 1) ? $barberos[0] : null;
-
             if ($id <= 0) {
                 throw new Exception('ID de servicio no válido.');
             }
+
+            // Obtener datos actuales del servicio en BD para preservar campos no modificados
+            $stmtCur = $pdo->prepare("SELECT * FROM servicios WHERE id = ?");
+            $stmtCur->execute([$id]);
+            $currentService = $stmtCur->fetch(PDO::FETCH_ASSOC);
+            if (!$currentService) {
+                throw new Exception('El servicio solicitado no existe.');
+            }
+
+            $nombre = trim($_POST['nombre'] ?? ($currentService['nombre'] ?? ''));
+            $descripcion = isset($_POST['descripcion']) ? trim($_POST['descripcion']) : ($currentService['descripcion'] ?? '');
+            $que_incluye = isset($_POST['que_incluye']) ? trim($_POST['que_incluye']) : ($currentService['que_incluye'] ?? '');
+            $precio = isset($_POST['precio']) ? floatval($_POST['precio']) : floatval($currentService['precio'] ?? 0);
+            $duracion_minutos = !empty($_POST['duracion_minutos']) ? intval($_POST['duracion_minutos']) : intval($currentService['duracion_minutos'] ?? 30);
+            $categoria = trim($_POST['categoria'] ?? ($currentService['categoria'] ?? 'General'));
+            $orden = isset($_POST['orden']) ? intval($_POST['orden']) : intval($currentService['orden'] ?? 0);
+            $activo = isset($_POST['activo']) ? intval($_POST['activo']) : intval($currentService['activo'] ?? 1);
+            $destacado = isset($_POST['destacado']) ? 1 : intval($currentService['destacado'] ?? 0);
 
             if (empty($nombre)) {
                 throw new Exception('El nombre del servicio es obligatorio.');
@@ -297,7 +299,16 @@ try {
                 $duracion_minutos = 30;
             }
 
-            $sucursal_id_default = !empty($sucursales) ? intval($sucursales[0]) : 1;
+            // Manejo seguro de Sucursales:
+            $hasSucursalesPost = isset($_POST['sucursales']);
+            $sucursales = $hasSucursalesPost && is_array($_POST['sucursales']) ? array_map('intval', $_POST['sucursales']) : [];
+
+            // Manejo seguro de Barberos:
+            $hasBarberosPost = isset($_POST['barberos']) || isset($_POST['barbero_id']);
+            $barberos = (isset($_POST['barberos']) && is_array($_POST['barberos'])) ? array_map('intval', $_POST['barberos']) : [];
+            if (empty($barberos) && isset($_POST['barbero_id']) && $_POST['barbero_id'] !== '') {
+                $barberos = [intval($_POST['barbero_id'])];
+            }
 
             // Datos para actualizar
             $dataToUpdate = [
@@ -312,12 +323,24 @@ try {
             if (in_array('categoria', $columns)) $dataToUpdate['categoria'] = $categoria;
             if (in_array('orden', $columns)) $dataToUpdate['orden'] = $orden;
             if (in_array('destacado', $columns)) $dataToUpdate['destacado'] = $destacado;
-            if (in_array('barbero_id', $columns)) $dataToUpdate['barbero_id'] = $barbero_id;
-            if (in_array('sucursal_id', $columns)) $dataToUpdate['sucursal_id'] = $sucursal_id_default;
+
+            if ($hasBarberosPost) {
+                $barbero_id = (count($barberos) === 1) ? $barberos[0] : null;
+                if (in_array('barbero_id', $columns)) $dataToUpdate['barbero_id'] = $barbero_id;
+            }
+
+            if (!empty($sucursales)) {
+                $sucursal_id_default = intval($sucursales[0]);
+                if (in_array('sucursal_id', $columns)) $dataToUpdate['sucursal_id'] = $sucursal_id_default;
+            }
 
             if (!empty($uploaded_foto_url)) {
                 if (in_array('foto_url', $columns)) $dataToUpdate['foto_url'] = $uploaded_foto_url;
                 if (in_array('imagen_url', $columns)) $dataToUpdate['imagen_url'] = $uploaded_foto_url;
+            } elseif (isset($_POST['foto_url']) && trim($_POST['foto_url']) !== '') {
+                $customFoto = trim($_POST['foto_url']);
+                if (in_array('foto_url', $columns)) $dataToUpdate['foto_url'] = $customFoto;
+                if (in_array('imagen_url', $columns)) $dataToUpdate['imagen_url'] = $customFoto;
             }
 
             $updateSets = [];
@@ -332,31 +355,58 @@ try {
             $stmt = $pdo->prepare($updateSql);
             $stmt->execute($updateValues);
 
-            // Actualizar asignaciones de sucursales
-            try {
-                $pdo->prepare("DELETE FROM servicios_sucursales WHERE servicio_id = ?")->execute([$id]);
-                if (!empty($sucursales)) {
-                    $insertStmt = $pdo->prepare("INSERT IGNORE INTO servicios_sucursales (servicio_id, sucursal_id) VALUES (?, ?)");
-                    foreach ($sucursales as $sucursalId) {
-                        $insertStmt->execute([$id, intval($sucursalId)]);
+            // ACTUALIZACIÓN DE SUCURSALES (Solo si el formulario las incluyó explícitamente)
+            if ($hasSucursalesPost) {
+                try {
+                    $pdo->prepare("DELETE FROM servicios_sucursales WHERE servicio_id = ?")->execute([$id]);
+                    if (!empty($sucursales)) {
+                        $insertStmt = $pdo->prepare("INSERT IGNORE INTO servicios_sucursales (servicio_id, sucursal_id) VALUES (?, ?)");
+                        foreach ($sucursales as $sucursalId) {
+                            $insertStmt->execute([$id, intval($sucursalId)]);
+                        }
+                    } else {
+                        // Si desmarcó todo, asignar a todas las sucursales para que no quede huérfano
+                        $pdo->exec("INSERT IGNORE INTO servicios_sucursales (servicio_id, sucursal_id) SELECT $id, id FROM sucursales WHERE activo = 1");
                     }
+                } catch (Exception $e_rel) {
+                    error_log("Error actualizando sucursales de servicio: " . $e_rel->getMessage());
                 }
-            } catch (Exception $e_rel) {
-                error_log("Error actualizando sucursales de servicio: " . $e_rel->getMessage());
+            } else {
+                // Si el formulario no envió sucursales (ej: PWA móvil), garantizar que tenga al menos una
+                $checkExistSuc = $pdo->prepare("SELECT COUNT(*) FROM servicios_sucursales WHERE servicio_id = ?");
+                $checkExistSuc->execute([$id]);
+                if (intval($checkExistSuc->fetchColumn()) === 0) {
+                    $pdo->exec("INSERT IGNORE INTO servicios_sucursales (servicio_id, sucursal_id) SELECT $id, id FROM sucursales WHERE activo = 1");
+                }
             }
 
-            // Actualizar asignaciones de barberos
-            try {
-                $pdo->prepare("DELETE FROM servicios_barberos WHERE servicio_id = ?")->execute([$id]);
-                if (!empty($barberos)) {
-                    $insertStmt = $pdo->prepare("INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id) VALUES (?, ?)");
-                    foreach ($barberos as $bId) {
-                        $insertStmt->execute([$id, intval($bId)]);
+            // ACTUALIZACIÓN DE BARBEROS (Solo si el formulario los incluyó explícitamente)
+            if ($hasBarberosPost) {
+                try {
+                    $pdo->prepare("DELETE FROM servicios_barberos WHERE servicio_id = ?")->execute([$id]);
+                    if (!empty($barberos)) {
+                        $insertStmt = $pdo->prepare("INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id) VALUES (?, ?)");
+                        foreach ($barberos as $bId) {
+                            $insertStmt->execute([$id, intval($bId)]);
+                        }
+                    } else {
+                        // Si desmarcó todo, asignar a todos los barberos
+                        $pdo->exec("INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id) SELECT $id, id FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local' OR rol = 'admin')");
                     }
+                } catch (Exception $e_relb) {
+                    error_log("Error actualizando barberos de servicio: " . $e_relb->getMessage());
                 }
-            } catch (Exception $e_relb) {
-                error_log("Error actualizando barberos de servicio: " . $e_relb->getMessage());
+            } else {
+                // Si el formulario no envió barberos, garantizar que no quede huérfano
+                $checkExistBarb = $pdo->prepare("SELECT COUNT(*) FROM servicios_barberos WHERE servicio_id = ?");
+                $checkExistBarb->execute([$id]);
+                if (intval($checkExistBarb->fetchColumn()) === 0) {
+                    $pdo->exec("INSERT IGNORE INTO servicios_barberos (servicio_id, barbero_id) SELECT $id, id FROM usuarios WHERE activo = 1 AND (rol = 'barbero' OR rol = 'admin_local' OR rol = 'admin')");
+                }
             }
+
+            // Garantizar integridad general
+            asegurarIntegridadServiciosSucursalesBarberos($pdo);
 
             registrarLog('EDITAR', 'servicios', $id, "Servicio '$nombre' (#$id) actualizado exitosamente");
             if ($isJson) {
